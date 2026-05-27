@@ -177,6 +177,7 @@ class TestRemoveExercise:
         assert isinstance(evt, ExerciseRemovedFromDayEvent)
         assert evt.training_day_id == str(td.id.value)
         assert evt.workout_exercise_id == str(ex.id.value)
+        assert evt.exercise_id == "ex-A"
 
     def test_remove_exercise_raises_not_found(self) -> None:
         td = _make_day()

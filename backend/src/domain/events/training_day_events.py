@@ -30,3 +30,4 @@ class ExerciseAddedToDayEvent(DomainEvent):
 class ExerciseRemovedFromDayEvent(DomainEvent):
     training_day_id: str
     workout_exercise_id: str
+    exercise_id: str
