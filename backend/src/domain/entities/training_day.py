@@ -78,11 +78,13 @@ class TrainingDay:
     def remove_exercise(self, workout_exercise_id: WorkoutExerciseId) -> None:
         for i, ex in enumerate(self._exercises):
             if ex.id == workout_exercise_id:
+                exercise_id = ex.exercise_id
                 self._exercises.pop(i)
                 self._events.append(
                     ExerciseRemovedFromDayEvent(
                         training_day_id=str(self.id.value),
                         workout_exercise_id=str(workout_exercise_id.value),
+                        exercise_id=exercise_id,
                     )
                 )
                 return

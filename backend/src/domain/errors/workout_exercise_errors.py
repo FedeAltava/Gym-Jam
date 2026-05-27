@@ -16,7 +16,7 @@ class DuplicateExerciseInDayError(WorkoutExerciseError):
 
 
 class ReorderMismatchError(WorkoutExerciseError):
-    def __init__(self, missing: set, extra: set) -> None:
+    def __init__(self, missing: set[object], extra: set[object]) -> None:
         super().__init__(
             f"Reorder mismatch — missing: {missing}, extra: {extra}."
         )

@@ -109,6 +109,8 @@ def test_exercise_removed_from_day_event_fields() -> None:
     event = ExerciseRemovedFromDayEvent(
         training_day_id="td-001",
         workout_exercise_id="we-001",
+        exercise_id="ex-001",
     )
     assert event.training_day_id == "td-001"
     assert event.workout_exercise_id == "we-001"
+    assert event.exercise_id == "ex-001"
