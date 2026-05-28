@@ -19,7 +19,7 @@ class RemoveExerciseFromWorkoutUseCase:
     def __init__(self, repo: WorkoutRepository) -> None:
         self._repo = repo
 
-    def execute(self, cmd: RemoveExerciseFromWorkoutCommand) -> Result[None, ApplicationError]:
+    async def execute(self, cmd: RemoveExerciseFromWorkoutCommand) -> Result[None, ApplicationError]:
         # 1. Validate day
         day_result = DayOfWeekValidator.validate(cmd.day_of_week)
         if isinstance(day_result, Failure):
@@ -42,7 +42,7 @@ class RemoveExerciseFromWorkoutUseCase:
         if isinstance(id_result, Failure):
             return Failure(WorkoutNotFoundError(workout_id=cmd.workout_id))
         workout_id = id_result.unwrap()
-        workout = self._repo.get_by_id(workout_id)
+        workout = await self._repo.get_by_id(workout_id)
         if workout is None:
             return Failure(WorkoutNotFoundError(workout_id=cmd.workout_id))
 
@@ -57,6 +57,6 @@ class RemoveExerciseFromWorkoutUseCase:
             return Failure(DomainViolationError(domain_error=e, message=str(e)))
 
         # 6. Save
-        self._repo.save(workout)
+        await self._repo.save(workout)
 
         return Success(None)
