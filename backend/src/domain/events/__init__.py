@@ -6,6 +6,7 @@ from backend.src.domain.events.training_day_events import (
     TrainingDayAddedEvent,
     TrainingDayRemovedEvent,
 )
+from backend.src.domain.events.workout_events import WorkoutCreatedEvent
 
 __all__ = [
     "DomainEvent",
@@ -13,4 +14,5 @@ __all__ = [
     "ExerciseRemovedFromDayEvent",
     "TrainingDayAddedEvent",
     "TrainingDayRemovedEvent",
+    "WorkoutCreatedEvent",
 ]
