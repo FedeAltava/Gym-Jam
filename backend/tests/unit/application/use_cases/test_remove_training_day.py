@@ -34,75 +34,75 @@ def use_case(repo: InMemoryWorkoutRepository) -> RemoveTrainingDayUseCase:
     return RemoveTrainingDayUseCase(repo)
 
 
-def test_remove_training_day_success(
+async def test_remove_training_day_success(
     use_case: RemoveTrainingDayUseCase, repo: InMemoryWorkoutRepository
 ) -> None:
     workout = _make_workout(days=["MONDAY"])
-    repo.save(workout)
+    await repo.save(workout)
     cmd = RemoveTrainingDayCommand(
         workout_id=str(workout.id.value),
         user_id="user-1",
         day_of_week="MONDAY",
     )
-    result = use_case.execute(cmd)
+    result = await use_case.execute(cmd)
     assert isinstance(result, Success)
     assert result.unwrap() is None
 
 
-def test_remove_training_day_workout_not_found(use_case: RemoveTrainingDayUseCase) -> None:
+async def test_remove_training_day_workout_not_found(use_case: RemoveTrainingDayUseCase) -> None:
     cmd = RemoveTrainingDayCommand(
         workout_id=str(uuid.uuid4()),
         user_id="user-1",
         day_of_week="MONDAY",
     )
-    result = use_case.execute(cmd)
+    result = await use_case.execute(cmd)
     assert isinstance(result, Failure)
     assert isinstance(result.failure(), WorkoutNotFoundError)
 
 
-def test_remove_training_day_unauthorized(
+async def test_remove_training_day_unauthorized(
     use_case: RemoveTrainingDayUseCase, repo: InMemoryWorkoutRepository
 ) -> None:
     workout = _make_workout(user_id="user-1", days=["MONDAY"])
-    repo.save(workout)
+    await repo.save(workout)
     cmd = RemoveTrainingDayCommand(
         workout_id=str(workout.id.value),
         user_id="user-EVIL",
         day_of_week="MONDAY",
     )
-    result = use_case.execute(cmd)
+    result = await use_case.execute(cmd)
     assert isinstance(result, Failure)
     assert isinstance(result.failure(), UnauthorizedError)
 
 
-def test_remove_training_day_not_in_workout_returns_domain_violation(
+async def test_remove_training_day_not_in_workout_returns_domain_violation(
     use_case: RemoveTrainingDayUseCase, repo: InMemoryWorkoutRepository
 ) -> None:
     workout = _make_workout(days=["MONDAY"])
-    repo.save(workout)
+    await repo.save(workout)
     cmd = RemoveTrainingDayCommand(
         workout_id=str(workout.id.value),
         user_id="user-1",
         day_of_week="TUESDAY",
     )
-    result = use_case.execute(cmd)
+    result = await use_case.execute(cmd)
     assert isinstance(result, Failure)
     assert isinstance(result.failure(), DomainViolationError)
 
 
-def test_remove_training_day_with_exercises_returns_domain_violation(
+async def test_remove_training_day_with_exercises_returns_domain_violation(
     use_case: RemoveTrainingDayUseCase, repo: InMemoryWorkoutRepository
 ) -> None:
     day = DayOfWeek("MONDAY")
     workout_result = Workout.create(user_id="user-1", name="Test", training_days=[day])
     workout = workout_result.unwrap()
     workout.add_exercise_to_day(day, "ex-abc")
-    repo.save(workout)
+    await repo.save(workout)
     cmd = RemoveTrainingDayCommand(
         workout_id=str(workout.id.value),
         user_id="user-1",
         day_of_week="MONDAY",
     )
-    result = use_case.execute(cmd)
+    result = await use_case.execute(cmd)
     assert isinstance(result, Failure)
     assert isinstance(result.failure(), DomainViolationError)

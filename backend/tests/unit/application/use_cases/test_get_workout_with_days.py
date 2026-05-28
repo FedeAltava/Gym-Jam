@@ -34,16 +34,16 @@ def use_case(repo: InMemoryWorkoutRepository) -> GetWorkoutWithDaysUseCase:
     return GetWorkoutWithDaysUseCase(repo)
 
 
-def test_get_workout_success_returns_dto(
+async def test_get_workout_success_returns_dto(
     use_case: GetWorkoutWithDaysUseCase, repo: InMemoryWorkoutRepository
 ) -> None:
     workout = _make_workout()
-    repo.save(workout)
+    await repo.save(workout)
     query = GetWorkoutWithDaysQuery(
         workout_id=str(workout.id.value),
         user_id="user-1",
     )
-    result = use_case.execute(query)
+    result = await use_case.execute(query)
     assert isinstance(result, Success)
     dto = result.unwrap()
     assert isinstance(dto, WorkoutWithDaysDTO)
@@ -51,25 +51,25 @@ def test_get_workout_success_returns_dto(
     assert len(dto.training_days) == 1
 
 
-def test_get_workout_not_found(use_case: GetWorkoutWithDaysUseCase) -> None:
+async def test_get_workout_not_found(use_case: GetWorkoutWithDaysUseCase) -> None:
     query = GetWorkoutWithDaysQuery(
         workout_id=str(uuid.uuid4()),
         user_id="user-1",
     )
-    result = use_case.execute(query)
+    result = await use_case.execute(query)
     assert isinstance(result, Failure)
     assert isinstance(result.failure(), WorkoutNotFoundError)
 
 
-def test_get_workout_unauthorized(
+async def test_get_workout_unauthorized(
     use_case: GetWorkoutWithDaysUseCase, repo: InMemoryWorkoutRepository
 ) -> None:
     workout = _make_workout(user_id="user-1")
-    repo.save(workout)
+    await repo.save(workout)
     query = GetWorkoutWithDaysQuery(
         workout_id=str(workout.id.value),
         user_id="user-EVIL",
     )
-    result = use_case.execute(query)
+    result = await use_case.execute(query)
     assert isinstance(result, Failure)
     assert isinstance(result.failure(), UnauthorizedError)
