@@ -179,13 +179,14 @@ def test_remove_training_day_does_not_affect_other_days():
     workout = Workout.create(
         user_id="u",
         name="Test Workout",
-        training_days=[DayOfWeek.MONDAY, DayOfWeek.TUESDAY, DayOfWeek.WEDNESDAY],
+        training_days=[DayOfWeek.MONDAY, DayOfWeek.TUESDAY],
     ).unwrap()
-    workout.remove_training_day(DayOfWeek.TUESDAY)
+    workout.add_exercise_to_day(DayOfWeek.MONDAY, "exercise-xyz")
+    with pytest.raises(CannotRemoveDayWithExercisesError):
+        workout.remove_training_day(DayOfWeek.MONDAY)
     days = workout.get_training_days_list()
-    assert DayOfWeek.MONDAY in days
-    assert DayOfWeek.WEDNESDAY in days
-    assert DayOfWeek.TUESDAY not in days
+    assert DayOfWeek.TUESDAY in days
+    assert len(workout.get_exercises_for_day(DayOfWeek.MONDAY)) == 1
 
 
 # ---------------------------------------------------------------------------
