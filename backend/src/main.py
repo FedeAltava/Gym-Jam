@@ -4,13 +4,14 @@ from backend.src.presentation.error_handlers import application_error_handler
 from backend.src.application.errors import ApplicationError
 from backend.src.presentation.routers.workouts import router as workouts_router
 from backend.src.presentation.routers.auth import router as auth_router
+from backend.src.infrastructure.config import settings
 
 
 def create_app() -> FastAPI:
     app = FastAPI(title="Gym-Jam API", version="0.1.0")
     app.add_middleware(
         CORSMiddleware,
-        allow_origins=["http://localhost:3000", "http://localhost:5173"],
+        allow_origins=settings.cors_origins,
         allow_credentials=True,
         allow_methods=["*"],
         allow_headers=["*"],
