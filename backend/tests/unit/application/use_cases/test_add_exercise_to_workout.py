@@ -36,18 +36,18 @@ def use_case(repo: InMemoryWorkoutRepository) -> AddExerciseToWorkoutUseCase:
     return AddExerciseToWorkoutUseCase(repo)
 
 
-def test_add_exercise_success_returns_dto(
+async def test_add_exercise_success_returns_dto(
     use_case: AddExerciseToWorkoutUseCase, repo: InMemoryWorkoutRepository
 ) -> None:
     workout = _make_workout(days=["MONDAY"])
-    repo.save(workout)
+    await repo.save(workout)
     cmd = AddExerciseToWorkoutCommand(
         workout_id=str(workout.id.value),
         user_id="user-1",
         day_of_week="MONDAY",
         exercise_id="ex-abc",
     )
-    result = use_case.execute(cmd)
+    result = await use_case.execute(cmd)
     assert isinstance(result, Success)
     dto = result.unwrap()
     assert isinstance(dto, WorkoutExerciseDTO)
@@ -55,71 +55,71 @@ def test_add_exercise_success_returns_dto(
     assert dto.day == "MONDAY"
 
 
-def test_add_exercise_workout_not_found_returns_error(use_case: AddExerciseToWorkoutUseCase) -> None:
+async def test_add_exercise_workout_not_found_returns_error(use_case: AddExerciseToWorkoutUseCase) -> None:
     cmd = AddExerciseToWorkoutCommand(
         workout_id=str(uuid.uuid4()),
         user_id="user-1",
         day_of_week="MONDAY",
         exercise_id="ex-abc",
     )
-    result = use_case.execute(cmd)
+    result = await use_case.execute(cmd)
     assert isinstance(result, Failure)
     assert isinstance(result.failure(), WorkoutNotFoundError)
 
 
-def test_add_exercise_unauthorized_returns_error(
+async def test_add_exercise_unauthorized_returns_error(
     use_case: AddExerciseToWorkoutUseCase, repo: InMemoryWorkoutRepository
 ) -> None:
     workout = _make_workout(user_id="user-1", days=["MONDAY"])
-    repo.save(workout)
+    await repo.save(workout)
     cmd = AddExerciseToWorkoutCommand(
         workout_id=str(workout.id.value),
         user_id="user-EVIL",
         day_of_week="MONDAY",
         exercise_id="ex-abc",
     )
-    result = use_case.execute(cmd)
+    result = await use_case.execute(cmd)
     assert isinstance(result, Failure)
     assert isinstance(result.failure(), UnauthorizedError)
 
 
-def test_add_exercise_invalid_day_returns_error(
+async def test_add_exercise_invalid_day_returns_error(
     use_case: AddExerciseToWorkoutUseCase, repo: InMemoryWorkoutRepository
 ) -> None:
     workout = _make_workout(days=["MONDAY"])
-    repo.save(workout)
+    await repo.save(workout)
     cmd = AddExerciseToWorkoutCommand(
         workout_id=str(workout.id.value),
         user_id="user-1",
         day_of_week="FUNDAY",
         exercise_id="ex-abc",
     )
-    result = use_case.execute(cmd)
+    result = await use_case.execute(cmd)
     assert isinstance(result, Failure)
     assert isinstance(result.failure(), InvalidDayOfWeekError)
 
 
-def test_add_exercise_day_not_in_workout_returns_domain_violation(
+async def test_add_exercise_day_not_in_workout_returns_domain_violation(
     use_case: AddExerciseToWorkoutUseCase, repo: InMemoryWorkoutRepository
 ) -> None:
     workout = _make_workout(days=["MONDAY"])
-    repo.save(workout)
+    await repo.save(workout)
     cmd = AddExerciseToWorkoutCommand(
         workout_id=str(workout.id.value),
         user_id="user-1",
         day_of_week="TUESDAY",
         exercise_id="ex-abc",
     )
-    result = use_case.execute(cmd)
+    result = await use_case.execute(cmd)
     assert isinstance(result, Failure)
     assert isinstance(result.failure(), DomainViolationError)
 
 
-def test_add_exercise_duplicate_returns_domain_violation(
+async def test_add_exercise_duplicate_returns_domain_violation(
     use_case: AddExerciseToWorkoutUseCase, repo: InMemoryWorkoutRepository
 ) -> None:
     workout = _make_workout(days=["MONDAY"])
-    repo.save(workout)
+    await repo.save(workout)
     cmd = AddExerciseToWorkoutCommand(
         workout_id=str(workout.id.value),
         user_id="user-1",
@@ -127,8 +127,8 @@ def test_add_exercise_duplicate_returns_domain_violation(
         exercise_id="ex-abc",
     )
     # First add succeeds
-    use_case.execute(cmd)
+    await use_case.execute(cmd)
     # Second add is duplicate
-    result = use_case.execute(cmd)
+    result = await use_case.execute(cmd)
     assert isinstance(result, Failure)
     assert isinstance(result.failure(), DomainViolationError)
