@@ -1,0 +1,13 @@
+**/__pycache__
+**/*.pyc
+**/*.pyo
+**/.pytest_cache
+**/.coverage
+**/node_modules
+**/dist
+**/.env
+**/.env.local
+.git
+.gitignore
+frontend/.env.local
+backend/gym_jam.db
