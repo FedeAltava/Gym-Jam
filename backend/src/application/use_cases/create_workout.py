@@ -13,7 +13,7 @@ class CreateWorkoutUseCase:
     def __init__(self, repo: WorkoutRepository) -> None:
         self._repo = repo
 
-    def execute(self, cmd: CreateWorkoutCommand) -> Result[WorkoutWithDaysDTO, ApplicationError]:
+    async def execute(self, cmd: CreateWorkoutCommand) -> Result[WorkoutWithDaysDTO, ApplicationError]:
         # 1. Validate name is not empty/whitespace
         if not cmd.name or not cmd.name.strip():
             return Failure(InvalidWorkoutNameError(reason="Name cannot be empty or whitespace."))
@@ -39,7 +39,7 @@ class CreateWorkoutUseCase:
         workout = workout_result.unwrap()
 
         # 4. Save
-        self._repo.save(workout)
+        await self._repo.save(workout)
 
         # 5. Return DTO
         return Success(WorkoutWithDaysDTO.from_aggregate(workout))

@@ -19,7 +19,7 @@ class AddTrainingDayUseCase:
     def __init__(self, repo: WorkoutRepository) -> None:
         self._repo = repo
 
-    def execute(self, cmd: AddTrainingDayCommand) -> Result[TrainingDayDTO, ApplicationError]:
+    async def execute(self, cmd: AddTrainingDayCommand) -> Result[TrainingDayDTO, ApplicationError]:
         # 1. Validate day
         day_result = DayOfWeekValidator.validate(cmd.day_of_week)
         if isinstance(day_result, Failure):
@@ -32,7 +32,7 @@ class AddTrainingDayUseCase:
         if isinstance(id_result, Failure):
             return Failure(WorkoutNotFoundError(workout_id=cmd.workout_id))
         workout_id = id_result.unwrap()
-        workout = self._repo.get_by_id(workout_id)
+        workout = await self._repo.get_by_id(workout_id)
         if workout is None:
             return Failure(WorkoutNotFoundError(workout_id=cmd.workout_id))
 
@@ -47,7 +47,7 @@ class AddTrainingDayUseCase:
             return Failure(DomainViolationError(domain_error=e, message=str(e)))
 
         # 5. Save
-        self._repo.save(workout)
+        await self._repo.save(workout)
 
         # 6. Return DTO
         training_days = workout.get_training_days()
