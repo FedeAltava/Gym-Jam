@@ -24,10 +24,10 @@ class WorkoutMapper:
         for day_model in model.training_days:
             day_of_week = DayOfWeek(day_model.day_of_week)
             exercises: list[WorkoutExercise] = []
-            workout_id = WorkoutId(model.id)
+            workout_id = WorkoutId.from_string(model.id).unwrap()
             for ex_model in day_model.exercises:
                 exercise = WorkoutExercise(
-                    id=WorkoutExerciseId(ex_model.id),
+                    id=WorkoutExerciseId.from_string(ex_model.id).unwrap(),
                     workout_id=workout_id,
                     day=day_of_week,
                     exercise_id=ex_model.exercise_id,
@@ -35,7 +35,7 @@ class WorkoutMapper:
                 )
                 exercises.append(exercise)
             day = TrainingDay(
-                id=TrainingDayId(day_model.id),
+                id=TrainingDayId.from_string(day_model.id).unwrap(),
                 workout_id=workout_id,
                 day=day_of_week,
                 _exercises=exercises,
@@ -43,7 +43,7 @@ class WorkoutMapper:
             training_days[day_of_week] = day
 
         workout = Workout(
-            id=WorkoutId(model.id),
+            id=WorkoutId.from_string(model.id).unwrap(),
             user_id=model.user_id,
             name=WorkoutName.create(model.name).unwrap(),
             description=model.description,
