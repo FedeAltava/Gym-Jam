@@ -23,6 +23,10 @@ class WorkoutExerciseDTO:
             order=exercise.order,
         )
 
+    @classmethod
+    def from_exercise(cls, exercise: WorkoutExercise) -> "WorkoutExerciseDTO":
+        return cls.from_entity(exercise)
+
 
 @dataclass(frozen=True)
 class TrainingDayDTO:
@@ -38,6 +42,10 @@ class TrainingDayDTO:
                 for ex in training_day.exercises
             ),
         )
+
+    @classmethod
+    def from_training_day(cls, training_day: TrainingDay) -> "TrainingDayDTO":
+        return cls.from_entity(training_day)
 
 
 @dataclass(frozen=True)
@@ -62,3 +70,7 @@ class WorkoutWithDaysDTO:
                 for td in workout.get_training_days().values()
             ),
         )
+
+    @classmethod
+    def from_workout(cls, workout: Workout) -> "WorkoutWithDaysDTO":
+        return cls.from_aggregate(workout)

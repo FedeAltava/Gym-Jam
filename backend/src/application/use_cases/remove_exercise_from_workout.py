@@ -38,7 +38,10 @@ class RemoveExerciseFromWorkoutUseCase:
         we_id = we_id_result.unwrap()
 
         # 3. Load workout
-        workout_id = WorkoutId.from_string(cmd.workout_id).unwrap()
+        id_result = WorkoutId.from_string(cmd.workout_id)
+        if isinstance(id_result, Failure):
+            return Failure(WorkoutNotFoundError(workout_id=cmd.workout_id))
+        workout_id = id_result.unwrap()
         workout = self._repo.get_by_id(workout_id)
         if workout is None:
             return Failure(WorkoutNotFoundError(workout_id=cmd.workout_id))
