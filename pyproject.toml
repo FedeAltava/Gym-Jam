@@ -7,6 +7,11 @@ authors = []
 [tool.poetry.dependencies]
 python = ">=3.12,<4.0"
 returns = ">=0.22"
+sqlalchemy = {version = ">=2.0", extras = ["asyncio"]}
+alembic = ">=1.13"
+asyncpg = ">=0.29"
+aiosqlite = ">=0.20"
+pydantic-settings = ">=2.0"
 
 [tool.poetry.group.dev.dependencies]
 pytest = ">=8"
@@ -14,6 +19,7 @@ pytest-cov = ">=5"
 pytest-mock = "*"
 ruff = ">=0.4"
 mypy = ">=1.10"
+pytest-asyncio = ">=0.23"
 
 [build-system]
 requires = ["poetry-core"]
@@ -22,6 +28,7 @@ build-backend = "poetry.core.masonry.api"
 [tool.pytest.ini_options]
 testpaths = ["backend/tests"]
 addopts = "--cov=backend/src --cov-report=term-missing"
+asyncio_mode = "auto"
 
 [tool.ruff]
 line-length = 100

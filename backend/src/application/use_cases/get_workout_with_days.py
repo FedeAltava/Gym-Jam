@@ -16,13 +16,13 @@ class GetWorkoutWithDaysUseCase:
     def __init__(self, repo: WorkoutRepository) -> None:
         self._repo = repo
 
-    def execute(self, query: GetWorkoutWithDaysQuery) -> Result[WorkoutWithDaysDTO, ApplicationError]:
+    async def execute(self, query: GetWorkoutWithDaysQuery) -> Result[WorkoutWithDaysDTO, ApplicationError]:
         # 1. Load workout
         id_result = WorkoutId.from_string(query.workout_id)
         if isinstance(id_result, Failure):
             return Failure(WorkoutNotFoundError(workout_id=query.workout_id))
         workout_id = id_result.unwrap()
-        workout = self._repo.get_by_id(workout_id)
+        workout = await self._repo.get_by_id(workout_id)
         if workout is None:
             return Failure(WorkoutNotFoundError(workout_id=query.workout_id))
 
