@@ -66,3 +66,21 @@ class DomainViolationError(ApplicationError):
     def __init__(self, domain_error: Exception, message: str) -> None:
         object.__setattr__(self, "domain_error", domain_error)
         object.__setattr__(self, "message", message)
+
+
+@dataclass
+class InvalidCredentialsError(ApplicationError):
+    message: str = "Invalid credentials"
+
+    def __init__(self, message: str = "Invalid credentials") -> None:
+        object.__setattr__(self, "message", message)
+
+
+@dataclass
+class EmailAlreadyExistsError(ApplicationError):
+    email: str
+    message: str = "Email already registered"
+
+    def __init__(self, email: str, message: str = "Email already registered") -> None:
+        object.__setattr__(self, "email", email)
+        object.__setattr__(self, "message", message)

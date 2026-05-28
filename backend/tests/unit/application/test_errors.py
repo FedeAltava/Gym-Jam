@@ -4,6 +4,8 @@ import pytest
 from backend.src.application.errors import (
     ApplicationError,
     DomainViolationError,
+    EmailAlreadyExistsError,
+    InvalidCredentialsError,
     InvalidDayOfWeekError,
     InvalidWorkoutNameError,
     UnauthorizedError,
@@ -42,6 +44,30 @@ def test_domain_violation_error_wraps_original_exception() -> None:
     assert error.domain_error is original
     assert error.message == "Something went wrong"
     assert isinstance(error, ApplicationError)
+
+
+def test_invalid_credentials_error_is_application_error() -> None:
+    error = InvalidCredentialsError()
+    assert isinstance(error, ApplicationError)
+    assert error.message == "Invalid credentials"
+
+
+def test_invalid_credentials_error_is_frozen() -> None:
+    error = InvalidCredentialsError()
+    with pytest.raises(Exception):
+        error.message = "other"  # type: ignore[misc]
+
+
+def test_email_already_exists_error_stores_email() -> None:
+    error = EmailAlreadyExistsError(email="alice@example.com")
+    assert error.email == "alice@example.com"
+    assert error.message == "Email already registered"
+    assert isinstance(error, ApplicationError)
+
+
+def test_email_already_exists_error_different_email() -> None:
+    error = EmailAlreadyExistsError(email="bob@example.com")
+    assert error.email == "bob@example.com"
 
 
 def test_errors_are_frozen_dataclasses() -> None:

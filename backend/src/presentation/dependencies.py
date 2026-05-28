@@ -1,6 +1,10 @@
-from fastapi import Depends
+from fastapi import Depends, HTTPException, status
+from fastapi.security import OAuth2PasswordBearer
 from sqlalchemy.ext.asyncio import AsyncSession
 from backend.src.infrastructure.database import get_session
+from backend.src.infrastructure.auth.jwt import decode_access_token
+from backend.src.infrastructure.persistence.user_repository import SqlAlchemyUserRepository
+from backend.src.infrastructure.persistence.models import UserModel
 from backend.src.infrastructure.persistence.workout_repository import SqlAlchemyWorkoutRepository
 from backend.src.application.use_cases.create_workout import CreateWorkoutUseCase
 from backend.src.application.use_cases.add_training_day import AddTrainingDayUseCase
@@ -11,9 +15,23 @@ from backend.src.application.use_cases.reorder_exercises import ReorderExercises
 from backend.src.application.use_cases.get_workout_with_days import GetWorkoutWithDaysUseCase
 from backend.src.application.use_cases.get_workouts_by_user import GetWorkoutsByUserUseCase
 
+oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/auth/login")
+_user_repo = SqlAlchemyUserRepository()
 
-def get_current_user_id() -> str:
-    return "00000000-0000-0000-0000-000000000001"
+
+async def get_current_user(
+    token: str = Depends(oauth2_scheme),
+    session: AsyncSession = Depends(get_session),
+) -> UserModel:
+    user_id = decode_access_token(token)  # raises 401 on invalid/expired token
+    user = await _user_repo.find_by_id(user_id, session)
+    if user is None:
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="User not found")
+    return user
+
+
+def get_current_user_id(user: UserModel = Depends(get_current_user)) -> str:
+    return user.id
 
 
 def get_workout_repository(session: AsyncSession = Depends(get_session)) -> SqlAlchemyWorkoutRepository:
