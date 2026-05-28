@@ -1,4 +1,6 @@
 """Workout exercise domain errors."""
+from typing import Any
+
 from backend.src.domain.errors.base import WorkoutExerciseError
 
 
@@ -16,7 +18,7 @@ class DuplicateExerciseInDayError(WorkoutExerciseError):
 
 
 class ReorderMismatchError(WorkoutExerciseError):
-    def __init__(self, missing: set[object], extra: set[object]) -> None:
+    def __init__(self, missing: set[Any], extra: set[Any]) -> None:
         super().__init__(
             f"Reorder mismatch — missing: {missing}, extra: {extra}."
         )
