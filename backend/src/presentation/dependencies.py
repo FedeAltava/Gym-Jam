@@ -1,4 +1,3 @@
-from collections.abc import AsyncGenerator
 from fastapi import Depends
 from sqlalchemy.ext.asyncio import AsyncSession
 from backend.src.infrastructure.database import get_session
@@ -10,6 +9,7 @@ from backend.src.application.use_cases.add_exercise_to_workout import AddExercis
 from backend.src.application.use_cases.remove_exercise_from_workout import RemoveExerciseFromWorkoutUseCase
 from backend.src.application.use_cases.reorder_exercises import ReorderExercisesUseCase
 from backend.src.application.use_cases.get_workout_with_days import GetWorkoutWithDaysUseCase
+from backend.src.application.use_cases.get_workouts_by_user import GetWorkoutsByUserUseCase
 
 
 def get_current_user_id() -> str:
@@ -46,3 +46,7 @@ def get_reorder_exercises_uc(repo: SqlAlchemyWorkoutRepository = Depends(get_wor
 
 def get_get_workout_uc(repo: SqlAlchemyWorkoutRepository = Depends(get_workout_repository)) -> GetWorkoutWithDaysUseCase:
     return GetWorkoutWithDaysUseCase(repo)
+
+
+def get_get_workouts_by_user_uc(repo: SqlAlchemyWorkoutRepository = Depends(get_workout_repository)) -> GetWorkoutsByUserUseCase:
+    return GetWorkoutsByUserUseCase(repo)

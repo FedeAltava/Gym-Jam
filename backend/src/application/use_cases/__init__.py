@@ -6,6 +6,7 @@ from backend.src.application.use_cases.add_training_day import AddTrainingDayUse
 from backend.src.application.use_cases.remove_training_day import RemoveTrainingDayUseCase
 from backend.src.application.use_cases.reorder_exercises import ReorderExercisesUseCase
 from backend.src.application.use_cases.get_workout_with_days import GetWorkoutWithDaysUseCase
+from backend.src.application.use_cases.get_workouts_by_user import GetWorkoutsByUserUseCase
 
 __all__ = [
     "CreateWorkoutUseCase",
@@ -15,4 +16,5 @@ __all__ = [
     "RemoveTrainingDayUseCase",
     "ReorderExercisesUseCase",
     "GetWorkoutWithDaysUseCase",
+    "GetWorkoutsByUserUseCase",
 ]
