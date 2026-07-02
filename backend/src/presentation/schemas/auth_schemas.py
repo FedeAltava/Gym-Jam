@@ -1,18 +1,27 @@
 from __future__ import annotations
+
 from datetime import datetime
-from pydantic import BaseModel, EmailStr, field_validator
+
+from pydantic import BaseModel, EmailStr, Field, field_validator
+
+_BCRYPT_MAX_BYTES = 72
 
 
 class RegisterRequest(BaseModel):
     email: EmailStr
-    password: str
+    # bcrypt silently truncates at 72 BYTES (not characters) — enforce the
+    # UTF-8 encoded byte length as the upper bound via the validator below.
+    password: str = Field(min_length=8)
 
     @field_validator("password")
     @classmethod
-    def password_not_empty(cls, v: str) -> str:
-        if not v:
-            raise ValueError("Password cannot be empty")
-        return v
+    def password_within_bcrypt_byte_limit(cls, value: str) -> str:
+        if len(value.encode("utf-8")) > _BCRYPT_MAX_BYTES:
+            raise ValueError(
+                f"Password must be at most {_BCRYPT_MAX_BYTES} bytes when UTF-8 encoded "
+                "(bcrypt limit); note that non-ASCII characters use multiple bytes."
+            )
+        return value
 
 
 class LoginRequest(BaseModel):

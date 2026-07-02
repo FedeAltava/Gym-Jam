@@ -1,14 +1,29 @@
 import pytest
 
+from backend.src.infrastructure.rate_limiter import login_limiter, register_limiter
+
 BASE = "/auth"
+
+# Default password satisfies the min_length=8 requirement.
+_DEFAULT_PASSWORD = "password123"
+
+
+@pytest.fixture(autouse=True)
+def reset_rate_limiters():
+    """Reset rate limiter state before each test to avoid cross-test interference."""
+    login_limiter.reset()
+    register_limiter.reset()
+    yield
+    login_limiter.reset()
+    register_limiter.reset()
 
 
 # Helpers
-async def register(client, email="test@example.com", password="password123"):
+async def register(client, email="test@example.com", password=_DEFAULT_PASSWORD):
     return await client.post(f"{BASE}/register", json={"email": email, "password": password})
 
 
-async def login(client, email="test@example.com", password="password123"):
+async def login(client, email="test@example.com", password=_DEFAULT_PASSWORD):
     return await client.post(f"{BASE}/login", json={"email": email, "password": password})
 
 
@@ -134,3 +149,104 @@ async def test_password_stored_hashed(auth_client, session):
     assert row is not None
     assert row[0].startswith("$2b$")
     assert row[0] != "myplainpassword"
+
+
+# 16. Register — password too short returns 422
+async def test_register_short_password_returns_422(auth_client):
+    r = await auth_client.post(f"{BASE}/register", json={"email": "short@example.com", "password": "abc"})
+    assert r.status_code == 422
+
+
+# 17. Register — password exactly at min length (8 chars) is accepted
+async def test_register_password_min_length_accepted(auth_client):
+    r = await auth_client.post(f"{BASE}/register", json={"email": "minpw@example.com", "password": "12345678"})
+    assert r.status_code == 201
+
+
+# 18. Register — password at max length (72 chars) is accepted
+async def test_register_password_max_length_accepted(auth_client):
+    r = await auth_client.post(
+        f"{BASE}/register",
+        json={"email": "maxpw@example.com", "password": "a" * 72},
+    )
+    assert r.status_code == 201
+
+
+# 19. Register — password over max length (73 chars) returns 422
+async def test_register_password_over_max_length_returns_422(auth_client):
+    r = await auth_client.post(
+        f"{BASE}/register",
+        json={"email": "toolong@example.com", "password": "a" * 73},
+    )
+    assert r.status_code == 422
+
+
+# 19b. Register — multibyte password over 72 BYTES returns 422
+# bcrypt truncates at 72 bytes, not 72 characters: 40 x 'ñ' is 40 chars
+# but 80 UTF-8 bytes, so it must be rejected.
+async def test_register_multibyte_password_over_72_bytes_returns_422(auth_client):
+    password = "ñ" * 40  # 40 chars, 80 bytes in UTF-8
+    r = await auth_client.post(
+        f"{BASE}/register",
+        json={"email": "multibyte@example.com", "password": password},
+    )
+    assert r.status_code == 422
+
+
+# 20. Login rate limit — 5 attempts trigger 429
+async def test_login_rate_limit_returns_429(auth_client):
+    # Exhaust the 5-attempt limit
+    for _ in range(5):
+        await auth_client.post(f"{BASE}/login", json={"email": "nobody@example.com", "password": "badpass123"})
+    r = await auth_client.post(f"{BASE}/login", json={"email": "nobody@example.com", "password": "badpass123"})
+    assert r.status_code == 429
+
+
+# 21. Register rate limit — 10 attempts trigger 429
+async def test_register_rate_limit_returns_429(auth_client):
+    # Exhaust the 10-attempt limit
+    for i in range(10):
+        await auth_client.post(
+            f"{BASE}/register",
+            json={"email": f"ratelimit{i}@example.com", "password": "password123"},
+        )
+    r = await auth_client.post(
+        f"{BASE}/register",
+        json={"email": "ratelimit_over@example.com", "password": "password123"},
+    )
+    assert r.status_code == 429
+
+
+# 22. Rate limit — client-supplied X-Forwarded-For is IGNORED (spoof bypass closed).
+# Rotating XFF values must NOT reset the limit: all requests share the same
+# X-Real-IP key, so the 6th attempt is still rejected.
+async def test_login_rate_limit_ignores_spoofed_x_forwarded_for(auth_client):
+    for i in range(5):
+        await auth_client.post(
+            f"{BASE}/login",
+            json={"email": "nobody@example.com", "password": "badpass123"},
+            headers={"X-Real-IP": "203.0.113.10", "X-Forwarded-For": f"10.0.0.{i}"},
+        )
+    r = await auth_client.post(
+        f"{BASE}/login",
+        json={"email": "nobody@example.com", "password": "badpass123"},
+        headers={"X-Real-IP": "203.0.113.10", "X-Forwarded-For": "10.0.0.99"},
+    )
+    assert r.status_code == 429
+
+
+# 23. Rate limit — X-Real-IP (set by nginx, trusted single hop) is honored as the key:
+# a different X-Real-IP gets its own bucket and is not blocked.
+async def test_login_rate_limit_keys_on_x_real_ip(auth_client):
+    for _ in range(5):
+        await auth_client.post(
+            f"{BASE}/login",
+            json={"email": "nobody@example.com", "password": "badpass123"},
+            headers={"X-Real-IP": "203.0.113.20"},
+        )
+    r = await auth_client.post(
+        f"{BASE}/login",
+        json={"email": "nobody@example.com", "password": "badpass123"},
+        headers={"X-Real-IP": "203.0.113.21"},
+    )
+    assert r.status_code == 401  # not rate-limited — different trusted client IP
