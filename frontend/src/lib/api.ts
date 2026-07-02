@@ -1,24 +1,35 @@
+if (!import.meta.env.VITE_API_URL) {
+  throw new Error('VITE_API_URL is not configured');
+}
+
 const API_URL = import.meta.env.VITE_API_URL as string;
 
-function getToken(): string | null {
-  try {
-    const raw = localStorage.getItem('auth-storage');
-    if (!raw) return null;
-    const parsed = JSON.parse(raw);
-    return parsed?.state?.token ?? null;
-  } catch {
-    return null;
+export class ApiError extends Error {
+  status: number;
+
+  constructor(message: string, status: number) {
+    super(message);
+    this.name = 'ApiError';
+    this.status = status;
   }
+}
+
+function getAuthStore() {
+  // Imported lazily inside the function to avoid any potential circular
+  // dependency if authStore ever imports from api.ts in the future.
+  return import('../store/authStore').then((m) => m.useAuthStore);
 }
 
 export async function apiFetch<T>(
   path: string,
-  options: RequestInit = {}
+  options: RequestInit = {},
 ): Promise<T> {
-  const token = getToken();
+  const useAuthStore = await getAuthStore();
+  const token = useAuthStore.getState().token;
+
   const headers: Record<string, string> = {
     'Content-Type': 'application/json',
-    ...(options.headers as Record<string, string> ?? {}),
+    ...((options.headers as Record<string, string>) ?? {}),
   };
   if (token) {
     headers['Authorization'] = `Bearer ${token}`;
@@ -30,19 +41,19 @@ export async function apiFetch<T>(
   });
 
   if (response.status === 401) {
-    localStorage.removeItem('auth-storage');
+    useAuthStore.getState().logout();
     window.location.href = '/login';
-    throw new Error('Unauthorized');
+    throw new ApiError('Unauthorized', 401);
   }
 
   if (!response.ok) {
-    const error = await response.json().catch(() => ({ detail: 'Unknown error' }));
-    throw new Error(error.detail ?? 'Request failed');
+    const body = await response.json().catch(() => ({ detail: 'Unknown error' }));
+    throw new ApiError(body.detail ?? 'Request failed', response.status);
   }
 
   if (response.status === 204) {
     return undefined as T;
   }
 
-  return response.json();
+  return response.json() as Promise<T>;
 }
