@@ -11,7 +11,9 @@ interface CreateWorkoutPayload {
 export function useWorkouts() {
   return useQuery({
     queryKey: ['workouts'],
-    queryFn: () => apiFetch<WorkoutResponse[]>('/workouts'),
+    // Request the backend max explicitly (default is 50). Pagination UI is
+    // future work for when users exceed 100 workouts.
+    queryFn: () => apiFetch<WorkoutResponse[]>('/workouts?limit=100'),
   });
 }
 
@@ -24,13 +26,22 @@ export function useWorkout(id: string) {
 }
 
 export function useCreateWorkout() {
-  const queryClient = useQueryClient();
+  const qc = useQueryClient();
   return useMutation({
     mutationFn: (data: CreateWorkoutPayload) =>
       apiFetch<WorkoutResponse>('/workouts', {
         method: 'POST',
         body: JSON.stringify(data),
       }),
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['workouts'] }),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ['workouts'] }),
+  });
+}
+
+export function useDeleteWorkout() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (id: string) =>
+      apiFetch<void>(`/workouts/${id}`, { method: 'DELETE' }),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ['workouts'] }),
   });
 }
