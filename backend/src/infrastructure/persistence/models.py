@@ -49,6 +49,7 @@ class WorkoutExerciseModel(Base):
     __table_args__ = (
         UniqueConstraint("training_day_id", "order_in_day"),
         Index("ix_workout_exercises_exercise_id", "exercise_id"),
+        Index("ix_workout_exercises_workout_id", "workout_id"),
     )
     id: Mapped[str] = mapped_column(String(36), primary_key=True)
     workout_id: Mapped[str] = mapped_column(String(36), ForeignKey("workouts.id", ondelete="CASCADE"), nullable=False)
@@ -61,7 +62,10 @@ class WorkoutExerciseModel(Base):
 
 class WorkoutSessionModel(Base):
     __tablename__ = "workout_sessions"
-    __table_args__ = (Index("ix_workout_sessions_user_id", "user_id"),)
+    __table_args__ = (
+        Index("ix_workout_sessions_user_id", "user_id"),
+        Index("ix_workout_sessions_workout_id", "workout_id"),
+    )
     id: Mapped[str] = mapped_column(String(36), primary_key=True)
     user_id: Mapped[str] = mapped_column(String(36), ForeignKey("users.id"), nullable=False)
     workout_id: Mapped[str] = mapped_column(String(36), ForeignKey("workouts.id"), nullable=False)
@@ -74,7 +78,10 @@ class WorkoutSessionModel(Base):
 
 class WorkoutLogModel(Base):
     __tablename__ = "workout_logs"
-    __table_args__ = (Index("ix_workout_logs_session_id", "session_id"),)
+    __table_args__ = (
+        Index("ix_workout_logs_session_id", "session_id"),
+        Index("ix_workout_logs_workout_exercise_id", "workout_exercise_id"),
+    )
     id: Mapped[str] = mapped_column(String(36), primary_key=True)
     session_id: Mapped[str] = mapped_column(String(36), ForeignKey("workout_sessions.id"), nullable=False)
     workout_exercise_id: Mapped[str] = mapped_column(String(36), ForeignKey("workout_exercises.id"), nullable=False)
