@@ -202,3 +202,69 @@ async def test_error_detail_is_string(client):
     assert r.status_code == 404
     assert "detail" in r.json()
     assert isinstance(r.json()["detail"], str)
+
+
+# 24. GET /workouts — pagination limit param
+async def test_list_workouts_pagination_limit(client):
+    for i in range(3):
+        await create_workout(client, f"Paginate Limit Workout {i}")
+    r = await client.get("/workouts?limit=2&offset=0")
+    assert r.status_code == 200
+    assert len(r.json()) <= 2
+
+
+# 25. GET /workouts — pagination offset param
+async def test_list_workouts_pagination_offset(client):
+    for i in range(3):
+        await create_workout(client, f"Paginate Offset Workout {i}")
+    r_all = await client.get("/workouts?limit=100&offset=0")
+    total = len(r_all.json())
+    r_offset = await client.get(f"/workouts?limit=100&offset={total}")
+    assert r_offset.status_code == 200
+    assert r_offset.json() == []
+
+
+# 26. GET /workouts — invalid limit returns 422
+async def test_list_workouts_invalid_limit_returns_422(client):
+    r = await client.get("/workouts?limit=0")
+    assert r.status_code == 422
+
+
+# 27. GET /workouts — limit above max returns 422
+async def test_list_workouts_limit_above_max_returns_422(client):
+    r = await client.get("/workouts?limit=101")
+    assert r.status_code == 422
+
+
+# 28. DELETE /workouts/{id} — happy path returns 204
+async def test_delete_workout_returns_204(client):
+    created = await create_workout(client, "Delete Me Workout")
+    r = await client.delete(f"/workouts/{created['id']}")
+    assert r.status_code == 204
+
+
+# 29. DELETE /workouts/{id} — deleted workout is no longer retrievable
+async def test_delete_workout_removes_resource(client):
+    created = await create_workout(client, "Delete Check Workout")
+    wid = created["id"]
+    await client.delete(f"/workouts/{wid}")
+    r = await client.get(f"/workouts/{wid}")
+    assert r.status_code == 404
+
+
+# 30. DELETE /workouts/{id} — not found returns 404
+async def test_delete_workout_not_found_returns_404(client):
+    r = await client.delete("/workouts/00000000-0000-0000-0000-000000000999")
+    assert r.status_code == 404
+
+
+# 31. POST /workouts — name over 100 chars returns 422
+async def test_create_workout_name_too_long_returns_422(client):
+    r = await client.post("/workouts", json={"name": "a" * 101, "training_days": []})
+    assert r.status_code == 422
+
+
+# 32. POST /workouts — description over 500 chars returns 422
+async def test_create_workout_description_too_long_returns_422(client):
+    r = await client.post("/workouts", json={"name": "Test", "description": "x" * 501, "training_days": []})
+    assert r.status_code == 422

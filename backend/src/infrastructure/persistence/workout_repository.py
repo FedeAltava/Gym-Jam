@@ -40,10 +40,13 @@ class SqlAlchemyWorkoutRepository(WorkoutRepository):
             return None
         return WorkoutMapper.to_domain(model)
 
-    async def get_by_user(self, user_id: str) -> list[Workout]:
+    async def get_by_user(self, user_id: str, limit: int = 50, offset: int = 0) -> list[Workout]:
         stmt = (
             select(WorkoutModel)
             .where(WorkoutModel.user_id == user_id)
+            .order_by(WorkoutModel.created_at.asc())
+            .limit(limit)
+            .offset(offset)
             .options(
                 selectinload(WorkoutModel.training_days).selectinload(TrainingDayModel.exercises)
             )
@@ -51,3 +54,15 @@ class SqlAlchemyWorkoutRepository(WorkoutRepository):
         result = await self._session.execute(stmt)
         models = result.scalars().all()
         return [WorkoutMapper.to_domain(m) for m in models]
+
+    async def delete(self, workout_id: WorkoutId) -> bool:
+        stmt = (
+            select(WorkoutModel)
+            .where(WorkoutModel.id == str(workout_id.value))
+        )
+        result = await self._session.execute(stmt)
+        model = result.scalar_one_or_none()
+        if model is None:
+            return False
+        await self._session.delete(model)
+        return True

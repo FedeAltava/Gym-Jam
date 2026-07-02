@@ -14,6 +14,7 @@ from backend.src.application.use_cases.remove_exercise_from_workout import Remov
 from backend.src.application.use_cases.reorder_exercises import ReorderExercisesUseCase
 from backend.src.application.use_cases.get_workout_with_days import GetWorkoutWithDaysUseCase
 from backend.src.application.use_cases.get_workouts_by_user import GetWorkoutsByUserUseCase
+from backend.src.application.use_cases.delete_workout import DeleteWorkoutUseCase
 
 oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/auth/login")
 _user_repo = SqlAlchemyUserRepository()
@@ -68,3 +69,7 @@ def get_get_workout_uc(repo: SqlAlchemyWorkoutRepository = Depends(get_workout_r
 
 def get_get_workouts_by_user_uc(repo: SqlAlchemyWorkoutRepository = Depends(get_workout_repository)) -> GetWorkoutsByUserUseCase:
     return GetWorkoutsByUserUseCase(repo)
+
+
+def get_delete_workout_uc(repo: SqlAlchemyWorkoutRepository = Depends(get_workout_repository)) -> DeleteWorkoutUseCase:
+    return DeleteWorkoutUseCase(repo)

@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Depends, Response
+from fastapi import APIRouter, Depends, Query, Response
 from returns.result import Failure
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -6,6 +6,7 @@ from backend.src.application.commands import (
     AddExerciseToWorkoutCommand,
     AddTrainingDayCommand,
     CreateWorkoutCommand,
+    DeleteWorkoutCommand,
     GetWorkoutWithDaysQuery,
     RemoveExerciseFromWorkoutCommand,
     RemoveTrainingDayCommand,
@@ -15,6 +16,7 @@ from backend.src.application.use_cases.get_workouts_by_user import GetWorkoutsBy
 from backend.src.application.use_cases.add_exercise_to_workout import AddExerciseToWorkoutUseCase
 from backend.src.application.use_cases.add_training_day import AddTrainingDayUseCase
 from backend.src.application.use_cases.create_workout import CreateWorkoutUseCase
+from backend.src.application.use_cases.delete_workout import DeleteWorkoutUseCase
 from backend.src.application.use_cases.get_workout_with_days import GetWorkoutWithDaysUseCase
 from backend.src.application.use_cases.get_workouts_by_user import GetWorkoutsByUserUseCase
 from backend.src.application.use_cases.remove_exercise_from_workout import RemoveExerciseFromWorkoutUseCase
@@ -25,6 +27,7 @@ from backend.src.presentation.dependencies import (
     get_add_training_day_uc,
     get_create_workout_uc,
     get_current_user_id,
+    get_delete_workout_uc,
     get_get_workout_uc,
     get_get_workouts_by_user_uc,
     get_remove_exercise_uc,
@@ -67,10 +70,12 @@ async def create_workout(
 
 @router.get("", status_code=200, response_model=list[WorkoutResponse])
 async def list_workouts(
+    limit: int = Query(50, ge=1, le=100),
+    offset: int = Query(0, ge=0),
     uc: GetWorkoutsByUserUseCase = Depends(get_get_workouts_by_user_uc),
     user_id: str = Depends(get_current_user_id),
 ) -> list[WorkoutResponse]:
-    result = await uc.execute(GetWorkoutsByUserQuery(user_id=user_id))
+    result = await uc.execute(GetWorkoutsByUserQuery(user_id=user_id, limit=limit, offset=offset))
     if isinstance(result, Failure):
         raise result.failure()
     return [WorkoutResponse.from_dto(dto) for dto in result.unwrap()]
@@ -193,3 +198,18 @@ async def reorder_exercises(
         raise result.failure()
     await session.commit()
     return TrainingDayResponse.from_dto(result.unwrap())
+
+
+@router.delete("/{workout_id}", status_code=204)
+async def delete_workout(
+    workout_id: str,
+    uc: DeleteWorkoutUseCase = Depends(get_delete_workout_uc),
+    user_id: str = Depends(get_current_user_id),
+    session: AsyncSession = Depends(get_session),
+) -> Response:
+    cmd = DeleteWorkoutCommand(workout_id=workout_id, user_id=user_id)
+    result = await uc.execute(cmd)
+    if isinstance(result, Failure):
+        raise result.failure()
+    await session.commit()
+    return Response(status_code=204)

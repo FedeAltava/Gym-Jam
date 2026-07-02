@@ -1,22 +1,28 @@
 from __future__ import annotations
-from pydantic import BaseModel
-from backend.src.application.dtos import WorkoutWithDaysDTO, TrainingDayDTO, WorkoutExerciseDTO
+
+from pydantic import BaseModel, Field
+
+from backend.src.application.dtos import TrainingDayDTO, WorkoutExerciseDTO, WorkoutWithDaysDTO
 
 # ── Request schemas ──────────────────────────────────────────────────────────
 
+
 class CreateWorkoutRequest(BaseModel):
-    name: str
-    description: str | None = None
+    name: str = Field(min_length=1, max_length=100)
+    description: str | None = Field(default=None, max_length=500)
     training_days: list[str] = []
+
 
 class AddTrainingDayRequest(BaseModel):
     day_of_week: str
 
+
 class AddExerciseRequest(BaseModel):
     exercise_id: str
 
+
 class ReorderExercisesRequest(BaseModel):
-    ordered_exercise_ids: list[str]
+    ordered_exercise_ids: list[str] = Field(max_length=50)
 
 # ── Response schemas ─────────────────────────────────────────────────────────
 

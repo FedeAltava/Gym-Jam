@@ -11,6 +11,8 @@ from backend.src.domain.repositories.workout_repository import WorkoutRepository
 @dataclass(frozen=True)
 class GetWorkoutsByUserQuery:
     user_id: str
+    limit: int = 50
+    offset: int = 0
 
 
 class GetWorkoutsByUserUseCase:
@@ -18,6 +20,6 @@ class GetWorkoutsByUserUseCase:
         self._repo = repo
 
     async def execute(self, query: GetWorkoutsByUserQuery) -> Result[list[WorkoutWithDaysDTO], ApplicationError]:
-        workouts = await self._repo.get_by_user(query.user_id)
+        workouts = await self._repo.get_by_user(query.user_id, limit=query.limit, offset=query.offset)
         dtos = [WorkoutWithDaysDTO.from_workout(w) for w in workouts]
         return Success(dtos)

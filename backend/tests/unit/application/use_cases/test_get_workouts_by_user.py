@@ -68,3 +68,23 @@ async def test_returns_only_user_workouts(
     assert len(dtos) == 1
     assert dtos[0].user_id == "user-1"
     assert dtos[0].name == "User1 Workout"
+
+
+async def test_pagination_limit(
+    use_case: GetWorkoutsByUserUseCase, repo: InMemoryWorkoutRepository
+) -> None:
+    for i in range(5):
+        await repo.save(_make_workout(user_id="user-pg", name=f"Workout {i}"))
+    result = await use_case.execute(GetWorkoutsByUserQuery(user_id="user-pg", limit=2, offset=0))
+    assert isinstance(result, Success)
+    assert len(result.unwrap()) == 2
+
+
+async def test_pagination_offset(
+    use_case: GetWorkoutsByUserUseCase, repo: InMemoryWorkoutRepository
+) -> None:
+    for i in range(5):
+        await repo.save(_make_workout(user_id="user-off", name=f"Workout {i}"))
+    result = await use_case.execute(GetWorkoutsByUserQuery(user_id="user-off", limit=10, offset=5))
+    assert isinstance(result, Success)
+    assert result.unwrap() == []

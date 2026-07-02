@@ -51,3 +51,9 @@ class ReorderExercisesCommand:
 class GetWorkoutWithDaysQuery:
     workout_id: str
     user_id: str
+
+
+@dataclass(frozen=True)
+class DeleteWorkoutCommand:
+    workout_id: str
+    user_id: str
