@@ -1,5 +1,5 @@
 from pydantic import model_validator
-from pydantic_settings import BaseSettings
+from pydantic_settings import BaseSettings, SettingsConfigDict
 
 _SENTINEL_SECRET = "dev-secret-key-change-in-production"
 # Known placeholder values that must never be accepted in production,
@@ -14,6 +14,8 @@ _MIN_SECRET_LEN = 32
 
 
 class Settings(BaseSettings):
+    model_config = SettingsConfigDict(env_file=".env", extra="ignore")
+
     database_url: str = "sqlite+aiosqlite:///./gym_jam.db"
     secret_key: str = _SENTINEL_SECRET
     algorithm: str = "HS256"
@@ -24,10 +26,6 @@ class Settings(BaseSettings):
     refresh_token_reuse_grace_seconds: int = 60
     cors_origins: list[str] = ["http://localhost:3000", "http://localhost:5173"]
     environment: str = "development"
-
-    class Config:
-        env_file = ".env"
-        extra = "ignore"
 
     @model_validator(mode="after")
     def validate_secret_key_in_production(self) -> "Settings":
