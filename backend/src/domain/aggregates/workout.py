@@ -164,6 +164,9 @@ class Workout:
             td = next(t for t in self._training_days.values() if t.id == td_id)
             td.order = pos
 
+    def rename(self, new_name: WorkoutName) -> None:
+        self.name = new_name
+
     def activate(self) -> None:
         self.is_active = True
 

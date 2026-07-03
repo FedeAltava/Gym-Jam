@@ -1,8 +1,10 @@
-import { useState } from 'react';
-import type { ChangeEvent } from 'react';
+import { useState, useRef, useEffect } from 'react';
+import type { ChangeEvent, KeyboardEvent } from 'react';
 import { useParams, Link, useNavigate } from 'react-router-dom';
-import { ArrowLeft, Plus, Trash2, X, Play, ChevronDown, ChevronUp } from 'lucide-react';
+import { ArrowLeft, Plus, Trash2, X, Play, ChevronDown, ChevronUp, Pencil } from 'lucide-react';
+import { useQueryClient } from '@tanstack/react-query';
 import { useWorkout, useDeleteWorkout, useReorderTrainingDays } from '../hooks/useWorkouts';
+import { apiFetch } from '../lib/api';
 import {
   useExercises,
   useAddExercise,
@@ -318,6 +320,7 @@ function TrainingDayCard({
 export function WorkoutDetailPage() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
+  const qc = useQueryClient();
   const { data: workout, isLoading, isError, error } = useWorkout(id ?? '');
   const {
     data: exercises,
@@ -327,6 +330,59 @@ export function WorkoutDetailPage() {
   const deleteMutation = useDeleteWorkout();
   const reorderDaysMutation = useReorderTrainingDays(id ?? '');
   const [confirmDelete, setConfirmDelete] = useState(false);
+
+  // Rename state
+  const [isRenaming, setIsRenaming] = useState(false);
+  const [renameValue, setRenameValue] = useState('');
+  const [renamePending, setRenamePending] = useState(false);
+  const [renameError, setRenameError] = useState<string | null>(null);
+  const renameInputRef = useRef<HTMLInputElement>(null);
+
+  useEffect(() => {
+    if (isRenaming && renameInputRef.current) {
+      renameInputRef.current.focus();
+      renameInputRef.current.select();
+    }
+  }, [isRenaming]);
+
+  function startRename() {
+    setRenameValue(workout?.name ?? '');
+    setRenameError(null);
+    setIsRenaming(true);
+  }
+
+  function cancelRename() {
+    setIsRenaming(false);
+    setRenameError(null);
+  }
+
+  async function commitRename() {
+    if (!id || renamePending) return;
+    const trimmed = renameValue.trim();
+    if (!trimmed) {
+      setRenameError('El nombre no puede estar vacío.');
+      return;
+    }
+    setRenamePending(true);
+    setRenameError(null);
+    try {
+      await apiFetch(`/workouts/${id}`, {
+        method: 'PATCH',
+        body: JSON.stringify({ name: trimmed }),
+      });
+      await qc.invalidateQueries({ queryKey: ['workouts', id] });
+      setIsRenaming(false);
+    } catch {
+      setRenameError('No se pudo renombrar. Inténtalo de nuevo.');
+    } finally {
+      setRenamePending(false);
+    }
+  }
+
+  function handleRenameKeyDown(e: KeyboardEvent<HTMLInputElement>) {
+    if (e.key === 'Enter') commitRename();
+    if (e.key === 'Escape') cancelRename();
+  }
 
   if (isLoading) return <Spinner />;
   if (isError)
@@ -353,20 +409,62 @@ export function WorkoutDetailPage() {
 
       <div className="flex items-start gap-3 mb-6">
         <div className="flex-1 min-w-0">
-          <div className="flex items-center gap-2 flex-wrap">
-            <h1 className="font-bold text-2xl text-text">{workout.name}</h1>
-            {workout.is_active && (
-              <span
-                className="text-xs font-semibold px-2 py-0.5 rounded-full text-accent"
-                style={{
-                  backgroundColor: 'rgba(0, 255, 135, 0.1)',
-                  border: '1px solid rgba(0, 255, 135, 0.3)',
-                }}
+          {isRenaming ? (
+            <div className="flex items-center gap-2 flex-wrap">
+              <input
+                ref={renameInputRef}
+                value={renameValue}
+                onChange={(e) => setRenameValue(e.target.value)}
+                onKeyDown={handleRenameKeyDown}
+                disabled={renamePending}
+                className="font-bold text-2xl text-text rounded-input border border-border bg-bg-elevated"
+                style={{ padding: '2px 8px', minWidth: '0', flex: '1 1 0' }}
+                aria-label="Nuevo nombre del entrenamiento"
+              />
+              <button
+                onClick={() => void commitRename()}
+                disabled={renamePending}
+                className="text-sm font-semibold rounded-btn bg-accent text-bg disabled:opacity-60"
+                style={{ height: '32px', padding: '0 10px', border: 'none', cursor: 'pointer', color: 'var(--bg)', backgroundColor: 'var(--neon-green)' }}
               >
-                Activo
-              </span>
-            )}
-          </div>
+                {renamePending ? '…' : 'Guardar'}
+              </button>
+              <button
+                onClick={cancelRename}
+                disabled={renamePending}
+                className="text-sm font-semibold rounded-btn border border-border text-muted"
+                style={{ height: '32px', padding: '0 10px', backgroundColor: 'transparent', cursor: 'pointer' }}
+              >
+                Cancelar
+              </button>
+            </div>
+          ) : (
+            <div className="flex items-center gap-2 flex-wrap">
+              <h1 className="font-bold text-2xl text-text">{workout.name}</h1>
+              <button
+                onClick={startRename}
+                className="inline-flex items-center justify-center rounded text-muted bg-transparent border-none transition-colors hover:text-text"
+                style={{ minHeight: '28px', height: '28px', width: '28px', cursor: 'pointer' }}
+                aria-label="Renombrar entrenamiento"
+              >
+                <Pencil size={15} />
+              </button>
+              {workout.is_active && (
+                <span
+                  className="text-xs font-semibold px-2 py-0.5 rounded-full text-accent"
+                  style={{
+                    backgroundColor: 'rgba(0, 255, 135, 0.1)',
+                    border: '1px solid rgba(0, 255, 135, 0.3)',
+                  }}
+                >
+                  Activo
+                </span>
+              )}
+            </div>
+          )}
+          {renameError && (
+            <p className="text-xs text-danger mt-1">{renameError}</p>
+          )}
           {workout.description && (
             <p className="text-sm mt-1 text-muted">{workout.description}</p>
           )}

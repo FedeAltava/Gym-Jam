@@ -32,6 +32,10 @@ class ReorderTrainingDaysRequest(BaseModel):
     ordered_day_ids: list[str] = Field(max_length=50)
 
 
+class RenameWorkoutRequest(BaseModel):
+    name: str
+
+
 # ── Response schemas ─────────────────────────────────────────────────────────
 
 class WorkoutExerciseResponse(BaseModel):

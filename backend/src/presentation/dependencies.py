@@ -32,6 +32,7 @@ from backend.src.application.use_cases.reorder_training_days import ReorderTrain
 from backend.src.application.use_cases.get_workout_with_days import GetWorkoutWithDaysUseCase
 from backend.src.application.use_cases.get_workouts_by_user import GetWorkoutsByUserUseCase
 from backend.src.application.use_cases.delete_workout import DeleteWorkoutUseCase
+from backend.src.application.use_cases.rename_workout import RenameWorkoutUseCase
 from backend.src.application.use_cases.start_workout_session import StartWorkoutSessionUseCase
 from backend.src.application.use_cases.log_exercise_set import LogExerciseSetUseCase
 from backend.src.application.use_cases.complete_workout_session import CompleteWorkoutSessionUseCase
@@ -167,6 +168,10 @@ def get_get_workouts_by_user_uc(repo: SqlAlchemyWorkoutRepository = Depends(get_
 
 def get_delete_workout_uc(repo: SqlAlchemyWorkoutRepository = Depends(get_workout_repository)) -> DeleteWorkoutUseCase:
     return DeleteWorkoutUseCase(repo)
+
+
+def get_rename_workout_uc(repo: SqlAlchemyWorkoutRepository = Depends(get_workout_repository)) -> RenameWorkoutUseCase:
+    return RenameWorkoutUseCase(repo)
 
 
 def get_session_repository(session: AsyncSession = Depends(get_session)) -> SessionRepository:

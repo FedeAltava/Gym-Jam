@@ -473,3 +473,17 @@ def test_reorder_training_days_mismatch_raises_error():
     with pytest.raises(ReorderMismatchError):
         # Only provide one of the two ids → mismatch
         workout.reorder_training_days([mon_id])
+
+
+# ---------------------------------------------------------------------------
+# rename() — 1 test
+# ---------------------------------------------------------------------------
+
+
+def test_rename_updates_name() -> None:
+    workout = Workout.create(user_id="user-1", name="Push Day").unwrap()
+    from backend.src.domain.value_objects import WorkoutName
+
+    new_name = WorkoutName.create("Pull Day").unwrap()
+    workout.rename(new_name)
+    assert workout.name.value == "Pull Day"

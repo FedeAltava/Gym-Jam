@@ -10,6 +10,7 @@ from backend.src.application.commands import (
     GetWorkoutWithDaysQuery,
     RemoveExerciseFromWorkoutCommand,
     RemoveTrainingDayCommand,
+    RenameWorkoutCommand,
     ReorderExercisesCommand,
     ReorderTrainingDaysCommand,
 )
@@ -18,6 +19,7 @@ from backend.src.application.use_cases.add_exercise_to_workout import AddExercis
 from backend.src.application.use_cases.add_training_day import AddTrainingDayUseCase
 from backend.src.application.use_cases.create_workout import CreateWorkoutUseCase
 from backend.src.application.use_cases.delete_workout import DeleteWorkoutUseCase
+from backend.src.application.use_cases.rename_workout import RenameWorkoutUseCase
 from backend.src.application.use_cases.get_workout_with_days import GetWorkoutWithDaysUseCase
 from backend.src.application.use_cases.get_workouts_by_user import GetWorkoutsByUserUseCase
 from backend.src.application.use_cases.remove_exercise_from_workout import RemoveExerciseFromWorkoutUseCase
@@ -34,6 +36,7 @@ from backend.src.presentation.dependencies import (
     get_get_workouts_by_user_uc,
     get_remove_exercise_uc,
     get_remove_training_day_uc,
+    get_rename_workout_uc,
     get_reorder_exercises_uc,
     get_reorder_training_days_uc,
     get_session,
@@ -42,6 +45,7 @@ from backend.src.presentation.schemas.workout_schemas import (
     AddExerciseRequest,
     AddTrainingDayRequest,
     CreateWorkoutRequest,
+    RenameWorkoutRequest,
     ReorderExercisesRequest,
     ReorderTrainingDaysRequest,
     TrainingDayResponse,
@@ -225,6 +229,22 @@ async def reorder_exercises(
         raise result.failure()
     await session.commit()
     return TrainingDayResponse.from_dto(result.unwrap())
+
+
+@router.patch("/{workout_id}", status_code=200, response_model=WorkoutResponse)
+async def rename_workout(
+    workout_id: str,
+    body: RenameWorkoutRequest,
+    uc: RenameWorkoutUseCase = Depends(get_rename_workout_uc),
+    user_id: str = Depends(get_current_user_id),
+    session: AsyncSession = Depends(get_session),
+) -> WorkoutResponse:
+    cmd = RenameWorkoutCommand(workout_id=workout_id, user_id=user_id, new_name=body.name)
+    result = await uc.execute(cmd)
+    if isinstance(result, Failure):
+        raise result.failure()
+    await session.commit()
+    return WorkoutResponse.from_dto(result.unwrap())
 
 
 @router.delete("/{workout_id}", status_code=204)

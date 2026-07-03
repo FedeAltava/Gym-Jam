@@ -70,6 +70,13 @@ class DeleteWorkoutCommand:
 
 
 @dataclass(frozen=True)
+class RenameWorkoutCommand:
+    workout_id: str
+    user_id: str
+    new_name: str
+
+
+@dataclass(frozen=True)
 class StartWorkoutSessionCommand:
     user_id: str
     workout_id: str

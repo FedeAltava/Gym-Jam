@@ -268,3 +268,32 @@ async def test_create_workout_name_too_long_returns_422(client):
 async def test_create_workout_description_too_long_returns_422(client):
     r = await client.post("/workouts", json={"name": "Test", "description": "x" * 501, "training_days": []})
     assert r.status_code == 422
+
+
+# 33. PATCH /workouts/{id} — happy path returns 200 with updated name
+async def test_rename_workout_returns_200_with_new_name(client):
+    created = await create_workout(client, "Original Name")
+    r = await client.patch(f"/workouts/{created['id']}", json={"name": "Renamed Workout"})
+    assert r.status_code == 200
+    data = r.json()
+    assert data["name"] == "Renamed Workout"
+    assert data["id"] == created["id"]
+
+
+# 34. PATCH /workouts/{id} — no auth returns 401
+async def test_rename_workout_no_auth_returns_401(auth_client):
+    r = await auth_client.patch("/workouts/00000000-0000-0000-0000-000000000001", json={"name": "New Name"})
+    assert r.status_code == 401
+
+
+# 35. PATCH /workouts/{id} — not found returns 404
+async def test_rename_workout_not_found_returns_404(client):
+    r = await client.patch("/workouts/00000000-0000-0000-0000-000000000999", json={"name": "New Name"})
+    assert r.status_code == 404
+
+
+# 36. PATCH /workouts/{id} — empty name returns 422
+async def test_rename_workout_empty_name_returns_422(client):
+    created = await create_workout(client, "Rename Empty Test")
+    r = await client.patch(f"/workouts/{created['id']}", json={"name": ""})
+    assert r.status_code == 422
