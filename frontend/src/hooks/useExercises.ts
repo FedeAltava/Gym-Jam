@@ -2,10 +2,15 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { apiFetch } from '../lib/api';
 import type { ExerciseResponse, WorkoutExerciseResponse } from '../types/api';
 
-export function useExercises() {
+export function useExercises(muscleGroup?: string) {
   return useQuery({
-    queryKey: ['exercises'],
-    queryFn: () => apiFetch<ExerciseResponse[]>('/exercises'),
+    queryKey: ['exercises', muscleGroup ?? ''],
+    queryFn: () => {
+      const url = muscleGroup
+        ? `/exercises?muscle_group=${encodeURIComponent(muscleGroup)}`
+        : '/exercises';
+      return apiFetch<ExerciseResponse[]>(url);
+    },
     // The catalog is static — keep it fresh for a while to avoid refetches.
     staleTime: 1000 * 60 * 5,
   });

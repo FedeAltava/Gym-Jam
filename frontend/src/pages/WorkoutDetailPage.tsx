@@ -110,8 +110,15 @@ function TrainingDayCard({
   reorderPending,
 }: TrainingDayCardProps) {
   const [pickerOpen, setPickerOpen] = useState(false);
+  const [selectedMuscleGroup, setSelectedMuscleGroup] = useState<string | null>(null);
   const addMutation = useAddExercise(workoutId);
   const removeMutation = useRemoveExercise(workoutId);
+
+  const {
+    data: filteredExercises,
+    isLoading: filteredLoading,
+    isError: filteredError,
+  } = useExercises(selectedMuscleGroup ?? undefined);
 
   const sortedDays = [...allDays].sort((a, b) => a.order - b.order);
   const currentIndex = sortedDays.findIndex((d) => d.id === day.id);
@@ -140,9 +147,13 @@ function TrainingDayCard({
 
   const exerciseById = new Map(catalog.map((e) => [e.id, e]));
 
+  // Derive sorted unique muscle groups from the full catalog for the filter chips.
+  const muscleGroups = [...new Set(catalog.map((e) => e.muscle_group))].sort();
+
   // The backend rejects duplicates per day, so hide already-added exercises.
   const usedIds = new Set(day.exercises.map((e) => e.exercise_id));
-  const available = catalog.filter((e) => !usedIds.has(e.id));
+  const pickerSource = filteredExercises ?? catalog;
+  const available = pickerSource.filter((e) => !usedIds.has(e.id));
 
   // Group available exercises by muscle group, preserving catalog order.
   const groups = new Map<string, ExerciseResponse[]>();
@@ -154,6 +165,9 @@ function TrainingDayCard({
       groups.set(exercise.muscle_group, [exercise]);
     }
   }
+
+  const isPickerLoading = catalogLoading || filteredLoading;
+  const isPickerError = catalogError || filteredError;
 
   function handleSelect(event: ChangeEvent<HTMLSelectElement>) {
     const exerciseId = event.target.value;
@@ -220,9 +234,50 @@ function TrainingDayCard({
 
       {pickerOpen && (
         <div className="mb-3">
-          {catalogLoading ? (
+          {/* Muscle group filter chips */}
+          {muscleGroups.length > 0 && (
+            <div
+              className="flex flex-wrap gap-1.5 mb-2"
+              role="group"
+              aria-label="Filtrar por grupo muscular"
+            >
+              <button
+                onClick={() => setSelectedMuscleGroup(null)}
+                className="text-xs font-semibold rounded-btn border"
+                style={{
+                  height: '26px',
+                  padding: '0 10px',
+                  cursor: 'pointer',
+                  backgroundColor: selectedMuscleGroup === null ? 'var(--neon-green)' : 'var(--bg-elevated)',
+                  color: selectedMuscleGroup === null ? 'var(--bg)' : 'var(--text-muted)',
+                  borderColor: selectedMuscleGroup === null ? 'var(--neon-green)' : 'var(--border)',
+                }}
+              >
+                Todos
+              </button>
+              {muscleGroups.map((mg) => (
+                <button
+                  key={mg}
+                  onClick={() => setSelectedMuscleGroup(mg)}
+                  className="text-xs font-semibold rounded-btn border"
+                  style={{
+                    height: '26px',
+                    padding: '0 10px',
+                    cursor: 'pointer',
+                    backgroundColor: selectedMuscleGroup === mg ? 'var(--neon-green)' : 'var(--bg-elevated)',
+                    color: selectedMuscleGroup === mg ? 'var(--bg)' : 'var(--text-muted)',
+                    borderColor: selectedMuscleGroup === mg ? 'var(--neon-green)' : 'var(--border)',
+                  }}
+                >
+                  {mg}
+                </button>
+              ))}
+            </div>
+          )}
+
+          {isPickerLoading ? (
             <p className="text-xs italic text-muted">Cargando ejercicios…</p>
-          ) : catalogError ? (
+          ) : isPickerError ? (
             <p className="text-xs text-danger">
               No se pudo cargar el catálogo de ejercicios. Inténtalo de nuevo.
             </p>

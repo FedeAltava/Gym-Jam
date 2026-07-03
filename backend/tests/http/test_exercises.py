@@ -59,3 +59,26 @@ async def test_add_exercise_known_id_returns_201(client):
     )
     assert r.status_code == 201
     assert r.json()["exercise_id"] == "lat-pulldown"
+
+
+# --- Filter by muscle_group query param ---
+
+
+async def test_list_exercises_no_filter_returns_all(client):
+    r = await client.get("/exercises")
+    assert r.status_code == 200
+    assert len(r.json()) == len(EXERCISE_SEED)
+
+
+async def test_list_exercises_filter_by_muscle_group(client):
+    r = await client.get("/exercises?muscle_group=Pecho")
+    assert r.status_code == 200
+    data = r.json()
+    assert len(data) > 0
+    assert all(item["muscle_group"] == "Pecho" for item in data)
+
+
+async def test_list_exercises_filter_nonexistent_group_returns_empty(client):
+    r = await client.get("/exercises?muscle_group=NonExistent")
+    assert r.status_code == 200
+    assert r.json() == []

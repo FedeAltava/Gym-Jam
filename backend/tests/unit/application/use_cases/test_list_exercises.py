@@ -51,3 +51,41 @@ async def test_list_exercises_empty_catalog_returns_empty_list() -> None:
     result = await use_case.execute()
     assert isinstance(result, Success)
     assert result.unwrap() == []
+
+
+# --- Filter tests ---
+
+
+async def test_list_exercises_no_filter(use_case: ListExercisesUseCase) -> None:
+    result = await use_case.execute()
+    assert isinstance(result, Success)
+    dtos = result.unwrap()
+    assert len(dtos) == 3
+    assert [(dto.muscle_group, dto.name) for dto in dtos] == [
+        ("Pecho", "Flexiones"),
+        ("Pecho", "Press de banca"),
+        ("Piernas", "Sentadilla"),
+    ]
+
+
+async def test_list_exercises_filter_by_muscle_group(use_case: ListExercisesUseCase) -> None:
+    result = await use_case.execute(muscle_group="Pecho")
+    assert isinstance(result, Success)
+    dtos = result.unwrap()
+    assert len(dtos) == 2
+    assert all(dto.muscle_group == "Pecho" for dto in dtos)
+    assert [dto.name for dto in dtos] == ["Flexiones", "Press de banca"]
+
+
+async def test_list_exercises_filter_case_insensitive(use_case: ListExercisesUseCase) -> None:
+    result = await use_case.execute(muscle_group="pecho")
+    assert isinstance(result, Success)
+    dtos = result.unwrap()
+    assert len(dtos) == 2
+    assert all(dto.muscle_group == "Pecho" for dto in dtos)
+
+
+async def test_list_exercises_filter_no_match(use_case: ListExercisesUseCase) -> None:
+    result = await use_case.execute(muscle_group="NonExistent")
+    assert isinstance(result, Success)
+    assert result.unwrap() == []
