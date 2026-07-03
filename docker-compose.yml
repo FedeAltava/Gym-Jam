@@ -23,6 +23,7 @@ services:
       DATABASE_URL: postgresql+asyncpg://${POSTGRES_USER:-gymjam}:${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD in .env (e.g. openssl rand -hex 16)}@postgres:5432/${POSTGRES_DB:-gymjam}
       SECRET_KEY: ${SECRET_KEY:?Set SECRET_KEY in .env (openssl rand -hex 32)}
       ENVIRONMENT: production
+      CORS_ORIGINS: '["http://localhost"]'
     depends_on:
       postgres:
         condition: service_healthy
