@@ -20,11 +20,33 @@ export interface WorkoutExerciseResponse {
   id: string;
   exercise_id: string;
   order: number;
+  sets: number;
+  reps_per_set: number;
+  weight_kg: number | null;
 }
 
 export interface TrainingDayResponse {
+  id: string;
   day_of_week: string;
   exercises: WorkoutExerciseResponse[];
+}
+
+export interface ExerciseLogResponse {
+  id: string;
+  workout_exercise_id: string;
+  set_number: number;
+  reps_completed: number;
+  weight_kg: number | null;
+}
+
+export interface WorkoutSessionResponse {
+  id: string;
+  workout_id: string;
+  training_day_id: string;
+  started_at: string;
+  status: 'in_progress' | 'completed';
+  completed_at: string | null;
+  logs: ExerciseLogResponse[];
 }
 
 export interface WorkoutResponse {

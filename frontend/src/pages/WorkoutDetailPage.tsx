@@ -1,13 +1,14 @@
 import { useState } from 'react';
 import type { ChangeEvent } from 'react';
 import { useParams, Link, useNavigate } from 'react-router-dom';
-import { ArrowLeft, Plus, Trash2, X } from 'lucide-react';
+import { ArrowLeft, Plus, Trash2, X, Play, ChevronDown, ChevronUp } from 'lucide-react';
 import { useWorkout, useDeleteWorkout } from '../hooks/useWorkouts';
 import {
   useExercises,
   useAddExercise,
   useRemoveExercise,
 } from '../hooks/useExercises';
+import { useSessionsForDay } from '../hooks/useSessions';
 import { Spinner } from '../components/Spinner';
 import { DAY_LABEL } from '../lib/days';
 import type { ExerciseResponse, TrainingDayResponse } from '../types/api';
@@ -18,6 +19,79 @@ interface TrainingDayCardProps {
   catalog: ExerciseResponse[];
   catalogLoading: boolean;
   catalogError: boolean;
+}
+
+function PastSessionsList({
+  workoutId,
+  dayId,
+}: {
+  workoutId: string;
+  dayId: string;
+}) {
+  const [expanded, setExpanded] = useState(false);
+  const { data: sessions, isLoading, isError } = useSessionsForDay(workoutId, dayId);
+
+  if (isLoading) {
+    return <p className="text-xs italic text-muted mt-3">Cargando sesiones…</p>;
+  }
+  if (isError) {
+    return (
+      <p className="text-xs text-danger mt-3">
+        No se pudieron cargar las sesiones anteriores.
+      </p>
+    );
+  }
+  if (!sessions || sessions.length === 0) {
+    return (
+      <p className="text-xs italic text-muted mt-3">Sin sesiones anteriores.</p>
+    );
+  }
+
+  return (
+    <div className="mt-3 border-t border-border pt-3">
+      <button
+        onClick={() => setExpanded((v) => !v)}
+        className="inline-flex items-center gap-1 text-xs font-semibold text-muted bg-transparent border-none"
+        style={{ cursor: 'pointer', padding: 0 }}
+      >
+        {expanded ? <ChevronUp size={13} /> : <ChevronDown size={13} />}
+        {sessions.length} sesión{sessions.length !== 1 ? 'es' : ''} anterior{sessions.length !== 1 ? 'es' : ''}
+      </button>
+      {expanded && (
+        <ul className="mt-2 space-y-1">
+          {sessions.map((s) => (
+            <li key={s.id} className="flex items-center gap-2 text-xs">
+              <span className="text-muted">
+                {new Date(s.started_at).toLocaleDateString('es', {
+                  day: '2-digit',
+                  month: 'short',
+                  year: 'numeric',
+                })}
+              </span>
+              <span
+                className="px-1.5 py-0.5 rounded-full text-xs font-semibold"
+                style={
+                  s.status === 'completed'
+                    ? {
+                        backgroundColor: 'rgba(0, 255, 135, 0.1)',
+                        color: 'var(--neon-green)',
+                        border: '1px solid rgba(0, 255, 135, 0.3)',
+                      }
+                    : {
+                        backgroundColor: 'rgba(0, 212, 255, 0.1)',
+                        color: 'var(--neon-blue)',
+                        border: '1px solid rgba(0, 212, 255, 0.3)',
+                      }
+                }
+              >
+                {s.status === 'completed' ? 'completada' : 'en progreso'}
+              </span>
+            </li>
+          ))}
+        </ul>
+      )}
+    </div>
+  );
 }
 
 function TrainingDayCard({
@@ -69,15 +143,28 @@ function TrainingDayCard({
           {DAY_LABEL[day.day_of_week as keyof typeof DAY_LABEL] ??
             day.day_of_week}
         </h3>
-        <button
-          onClick={() => setPickerOpen((open) => !open)}
-          className="inline-flex items-center gap-1 text-xs font-semibold text-accent bg-transparent border-none"
-          style={{ minHeight: '28px', padding: '0 4px', cursor: 'pointer' }}
-          aria-expanded={pickerOpen}
-        >
-          <Plus size={14} />
-          Añadir ejercicio
-        </button>
+        <div className="flex items-center gap-2">
+          {day.id && (
+            <Link
+              to={`/workouts/${workoutId}/session/${day.id}`}
+              className="inline-flex items-center gap-1 text-xs font-semibold text-info no-underline bg-transparent border-none"
+              style={{ minHeight: '28px', padding: '0 4px' }}
+              aria-label="Iniciar sesión"
+            >
+              <Play size={13} />
+              Iniciar
+            </Link>
+          )}
+          <button
+            onClick={() => setPickerOpen((open) => !open)}
+            className="inline-flex items-center gap-1 text-xs font-semibold text-accent bg-transparent border-none"
+            style={{ minHeight: '28px', padding: '0 4px', cursor: 'pointer' }}
+            aria-expanded={pickerOpen}
+          >
+            <Plus size={14} />
+            Añadir
+          </button>
+        </div>
       </div>
 
       {pickerOpen && (
@@ -170,6 +257,10 @@ function TrainingDayCard({
             );
           })}
         </ol>
+      )}
+
+      {day.id && (
+        <PastSessionsList workoutId={workoutId} dayId={day.id} />
       )}
     </div>
   );
