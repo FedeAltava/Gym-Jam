@@ -11,6 +11,7 @@ from backend.src.application.errors import (
     SessionAlreadyCompletedError,
     SessionNotFoundError,
     SetAlreadyLoggedError,
+    SetExceedsPlanError,
     UnauthorizedError,
     WorkoutNotFoundError,
 )
@@ -18,6 +19,7 @@ from backend.src.domain.errors.session_errors import (
     SessionAlreadyCompleted,
     SessionError,
     SetAlreadyLogged,
+    SetExceedsPlan,
 )
 from backend.src.domain.repositories.session_repository import SessionRepository
 from backend.src.domain.repositories.workout_repository import WorkoutRepository
@@ -75,10 +77,12 @@ class LogExerciseSetUseCase:
                 reps_completed=cmd.reps_completed,
                 weight_kg=cmd.weight_kg,
             )
-        except SetAlreadyLogged as e:
+        except SetAlreadyLogged:
             return Failure(SetAlreadyLoggedError(workout_exercise_id=cmd.workout_exercise_id, set_number=cmd.set_number))
-        except SessionAlreadyCompleted as e:
+        except SessionAlreadyCompleted:
             return Failure(SessionAlreadyCompletedError(session_id=cmd.session_id))
+        except SetExceedsPlan as e:
+            return Failure(SetExceedsPlanError(set_number=e.set_number, max_sets=e.max_sets))
         except SessionError as e:
             return Failure(DomainViolationError(domain_error=e, message=str(e)))
 

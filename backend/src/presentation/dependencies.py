@@ -17,6 +17,7 @@ from backend.src.infrastructure.persistence.refresh_token_repository import (
     SqlAlchemyRefreshTokenRepository,
 )
 from backend.src.infrastructure.persistence.workout_repository import SqlAlchemyWorkoutRepository
+from backend.src.domain.repositories.workout_repository import WorkoutRepository
 from backend.src.application.services.token_issuer import TokenIssuer
 from backend.src.application.use_cases.create_workout import CreateWorkoutUseCase
 from backend.src.application.use_cases.logout import LogoutUseCase
@@ -189,5 +190,6 @@ def get_complete_session_uc(
 
 def get_get_sessions_for_day_uc(
     session_repo: SessionRepository = Depends(get_session_repository),
+    workout_repo: WorkoutRepository = Depends(get_workout_repository),
 ) -> GetSessionsForDayUseCase:
-    return GetSessionsForDayUseCase(session_repo)
+    return GetSessionsForDayUseCase(session_repo, workout_repo)

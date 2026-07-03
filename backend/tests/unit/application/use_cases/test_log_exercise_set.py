@@ -13,6 +13,7 @@ from backend.src.application.errors import (
     SessionAlreadyCompletedError,
     SessionNotFoundError,
     SetAlreadyLoggedError,
+    SetExceedsPlanError,
     UnauthorizedError,
 )
 from backend.src.application.use_cases.log_exercise_set import LogExerciseSetUseCase
@@ -191,7 +192,7 @@ async def test_log_set_exceeds_plan(
     )
     result = await use_case.execute(cmd)
     assert isinstance(result, Failure)
-    assert isinstance(result.failure(), DomainViolationError)  # SetExceedsPlan → 422
+    assert isinstance(result.failure(), SetExceedsPlanError)  # SetExceedsPlan → 422
 
 
 async def test_log_set_duplicate(
