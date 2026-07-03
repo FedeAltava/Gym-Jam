@@ -32,6 +32,9 @@ class WorkoutMapper:
                     day=day_of_week,
                     exercise_id=ex_model.exercise_id,
                     order=ex_model.order_in_day,
+                    sets=ex_model.sets,
+                    reps_per_set=ex_model.reps_per_set,
+                    weight_kg=ex_model.weight_kg,
                 )
                 exercises.append(exercise)
             day = TrainingDay(
@@ -80,6 +83,9 @@ class WorkoutMapper:
                     training_day_id=str(day.id.value),
                     exercise_id=ex.exercise_id,
                     order_in_day=ex.order,
+                    sets=ex.sets,
+                    reps_per_set=ex.reps_per_set,
+                    weight_kg=ex.weight_kg,
                 )
                 exercise_models.append(ex_model)
             day_model.exercises = exercise_models

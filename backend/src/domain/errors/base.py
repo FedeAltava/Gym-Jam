@@ -14,3 +14,8 @@ class TrainingDayError(DomainError):
 class WorkoutExerciseError(DomainError):
     """Base class for workout exercise related errors."""
     pass
+
+
+class SessionError(DomainError):
+    """Base class for workout session related errors."""
+    pass

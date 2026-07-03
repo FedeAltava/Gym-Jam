@@ -81,6 +81,9 @@ class WorkoutExerciseModel(Base):
     # (AddExerciseToWorkoutUseCase validates against the catalog).
     exercise_id: Mapped[str] = mapped_column(String(255), nullable=False)
     order_in_day: Mapped[int] = mapped_column(Integer, nullable=False)
+    sets: Mapped[int] = mapped_column(Integer, nullable=False, server_default="3")
+    reps_per_set: Mapped[int] = mapped_column(Integer, nullable=False, server_default="10")
+    weight_kg: Mapped[float | None] = mapped_column(Float, nullable=True)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=lambda: datetime.now(UTC))
     training_day: Mapped[TrainingDayModel] = relationship("TrainingDayModel", back_populates="exercises")
 
@@ -90,29 +93,36 @@ class WorkoutSessionModel(Base):
     __table_args__ = (
         Index("ix_workout_sessions_user_id", "user_id"),
         Index("ix_workout_sessions_workout_id", "workout_id"),
+        Index("ix_workout_sessions_training_day_id", "training_day_id"),
     )
     id: Mapped[str] = mapped_column(String(36), primary_key=True)
     user_id: Mapped[str] = mapped_column(String(36), ForeignKey("users.id"), nullable=False)
-    workout_id: Mapped[str] = mapped_column(String(36), ForeignKey("workouts.id"), nullable=False)
+    workout_id: Mapped[str] = mapped_column(String(36), ForeignKey("workouts.id", ondelete="CASCADE"), nullable=False)
+    training_day_id: Mapped[str] = mapped_column(String(36), ForeignKey("training_days.id", ondelete="CASCADE"), nullable=False)
     started_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
     completed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
     duration_minutes: Mapped[int | None] = mapped_column(Integer, nullable=True)
     notes: Mapped[str | None] = mapped_column(String(1000), nullable=True)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=lambda: datetime.now(UTC))
+    logs: Mapped[list["WorkoutLogModel"]] = relationship(
+        "WorkoutLogModel", back_populates="session", cascade="all, delete-orphan", lazy="selectin"
+    )
 
 
 class WorkoutLogModel(Base):
     __tablename__ = "workout_logs"
     __table_args__ = (
+        UniqueConstraint("session_id", "workout_exercise_id", "set_number"),
         Index("ix_workout_logs_session_id", "session_id"),
         Index("ix_workout_logs_workout_exercise_id", "workout_exercise_id"),
     )
     id: Mapped[str] = mapped_column(String(36), primary_key=True)
-    session_id: Mapped[str] = mapped_column(String(36), ForeignKey("workout_sessions.id"), nullable=False)
-    workout_exercise_id: Mapped[str] = mapped_column(String(36), ForeignKey("workout_exercises.id"), nullable=False)
+    session_id: Mapped[str] = mapped_column(String(36), ForeignKey("workout_sessions.id", ondelete="CASCADE"), nullable=False)
+    workout_exercise_id: Mapped[str] = mapped_column(String(36), ForeignKey("workout_exercises.id", ondelete="CASCADE"), nullable=False)
     set_number: Mapped[int] = mapped_column(Integer, nullable=False)
     reps_completed: Mapped[int] = mapped_column(Integer, nullable=False)
     weight_kg: Mapped[float | None] = mapped_column(Float, nullable=True)
     difficulty_rating: Mapped[int | None] = mapped_column(Integer, nullable=True)
     notes: Mapped[str | None] = mapped_column(String(500), nullable=True)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=lambda: datetime.now(UTC))
+    session: Mapped["WorkoutSessionModel"] = relationship("WorkoutSessionModel", back_populates="logs")
