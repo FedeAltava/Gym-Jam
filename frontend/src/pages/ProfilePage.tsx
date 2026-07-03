@@ -1,3 +1,4 @@
+import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { LogOut, User } from 'lucide-react';
 import { apiFetch } from '../lib/api';
@@ -6,6 +7,40 @@ import { useAuthStore } from '../store/authStore';
 export function ProfilePage() {
   const { user, logout } = useAuthStore();
   const navigate = useNavigate();
+
+  const [currentPassword, setCurrentPassword] = useState('');
+  const [newPassword, setNewPassword] = useState('');
+  const [confirmNewPassword, setConfirmNewPassword] = useState('');
+  const [pwSuccess, setPwSuccess] = useState('');
+  const [pwError, setPwError] = useState('');
+  const [pwLoading, setPwLoading] = useState(false);
+
+  async function handleChangePassword(e: React.FormEvent) {
+    e.preventDefault();
+    setPwSuccess('');
+    setPwError('');
+
+    if (newPassword !== confirmNewPassword) {
+      setPwError('Las nuevas contraseñas no coinciden.');
+      return;
+    }
+
+    setPwLoading(true);
+    try {
+      await apiFetch<void>('/auth/password', {
+        method: 'PATCH',
+        body: JSON.stringify({ current_password: currentPassword, new_password: newPassword }),
+      });
+      setPwSuccess('Contraseña actualizada.');
+      setCurrentPassword('');
+      setNewPassword('');
+      setConfirmNewPassword('');
+    } catch {
+      setPwError('La contraseña actual es incorrecta.');
+    } finally {
+      setPwLoading(false);
+    }
+  }
 
   async function handleLogout() {
     // Best-effort server-side revocation of the refresh token; local logout
@@ -63,6 +98,104 @@ export function ProfilePage() {
           <p className="text-xs text-muted mb-1">Email</p>
           <p className="text-sm text-text">{user?.email}</p>
         </div>
+      </div>
+
+      {/* Change password */}
+      <div className="rounded-card border border-border bg-surface p-6 mt-6">
+        <h2 className="font-bold mb-4 text-base text-text">Cambiar contraseña</h2>
+        <form onSubmit={handleChangePassword} className="space-y-3">
+          <div>
+            <label
+              htmlFor="current-password"
+              className="block font-semibold mb-1 text-text text-sm"
+            >
+              Contraseña actual
+            </label>
+            <input
+              id="current-password"
+              type="password"
+              value={currentPassword}
+              onChange={(e) => setCurrentPassword(e.target.value)}
+              placeholder="••••••••"
+              required
+              className="w-full"
+              style={{
+                height: '44px',
+                borderRadius: '10px',
+                border: '1px solid var(--border)',
+                padding: '0 12px',
+                fontSize: '16px',
+              }}
+            />
+          </div>
+          <div>
+            <label
+              htmlFor="new-password"
+              className="block font-semibold mb-1 text-text text-sm"
+            >
+              Nueva contraseña
+            </label>
+            <input
+              id="new-password"
+              type="password"
+              value={newPassword}
+              onChange={(e) => setNewPassword(e.target.value)}
+              placeholder="••••••••"
+              required
+              minLength={8}
+              className="w-full"
+              style={{
+                height: '44px',
+                borderRadius: '10px',
+                border: '1px solid var(--border)',
+                padding: '0 12px',
+                fontSize: '16px',
+              }}
+            />
+          </div>
+          <div>
+            <label
+              htmlFor="confirm-new-password"
+              className="block font-semibold mb-1 text-text text-sm"
+            >
+              Confirmar nueva contraseña
+            </label>
+            <input
+              id="confirm-new-password"
+              type="password"
+              value={confirmNewPassword}
+              onChange={(e) => setConfirmNewPassword(e.target.value)}
+              placeholder="••••••••"
+              required
+              className="w-full"
+              style={{
+                height: '44px',
+                borderRadius: '10px',
+                border: '1px solid var(--border)',
+                padding: '0 12px',
+                fontSize: '16px',
+              }}
+            />
+          </div>
+
+          {pwSuccess && <p className="text-xs text-accent">{pwSuccess}</p>}
+          {pwError && <p className="text-xs text-danger">{pwError}</p>}
+
+          <button
+            type="submit"
+            disabled={pwLoading}
+            className="w-full font-semibold transition-all duration-200 disabled:opacity-60 rounded-btn bg-accent text-bg"
+            style={{
+              height: '48px',
+              fontSize: '16px',
+              border: 'none',
+              cursor: 'pointer',
+              marginTop: '4px',
+            }}
+          >
+            {pwLoading ? 'Guardando…' : 'Actualizar contraseña'}
+          </button>
+        </form>
       </div>
 
       {/* Logout */}

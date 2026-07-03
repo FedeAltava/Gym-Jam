@@ -1,6 +1,6 @@
 from __future__ import annotations
 from datetime import datetime, UTC
-from sqlalchemy import String, Boolean, Integer, Float, ForeignKey, UniqueConstraint, Index, DateTime
+from sqlalchemy import String, Boolean, Integer, Float, ForeignKey, UniqueConstraint, Index, DateTime, func
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column, relationship
 
 
@@ -127,3 +127,13 @@ class WorkoutLogModel(Base):
     notes: Mapped[str | None] = mapped_column(String(500), nullable=True)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=lambda: datetime.now(UTC))
     session: Mapped["WorkoutSessionModel"] = relationship("WorkoutSessionModel", back_populates="logs")
+
+
+class PasswordResetTokenModel(Base):
+    __tablename__ = "password_reset_tokens"
+    id: Mapped[str] = mapped_column(String(36), primary_key=True)
+    user_id: Mapped[str] = mapped_column(String(36), ForeignKey("users.id", ondelete="CASCADE"), nullable=False, index=True)
+    token_hash: Mapped[str] = mapped_column(String(64), unique=True, nullable=False)
+    expires_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+    used_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now(), nullable=False)

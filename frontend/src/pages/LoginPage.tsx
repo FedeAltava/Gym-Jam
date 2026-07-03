@@ -134,6 +134,12 @@ export function LoginPage() {
                 Regístrate
               </Link>
             </p>
+
+            <p className="text-center text-sm text-muted">
+              <Link to="/forgot-password" className="font-semibold text-info no-underline">
+                ¿Olvidaste tu contraseña?
+              </Link>
+            </p>
           </form>
         </div>
       </div>

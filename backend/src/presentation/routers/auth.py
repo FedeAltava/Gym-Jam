@@ -8,8 +8,11 @@ from returns.result import Failure
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from backend.src.application.services.token_issuer import TokenIssuer
+from backend.src.application.use_cases.change_password import ChangePasswordUseCase
+from backend.src.application.use_cases.forgot_password import ForgotPasswordUseCase
 from backend.src.application.use_cases.logout import LogoutUseCase
 from backend.src.application.use_cases.refresh_session import RefreshSessionUseCase
+from backend.src.application.use_cases.reset_password import ResetPasswordUseCase
 from backend.src.infrastructure.auth.password import (
     DUMMY_HASH,
     hash_password,
@@ -32,10 +35,13 @@ from backend.src.presentation.dependencies import (
     get_token_issuer,
 )
 from backend.src.presentation.schemas.auth_schemas import (
+    ChangePasswordRequest,
+    ForgotPasswordRequest,
     LoginRequest,
     LogoutRequest,
     RefreshRequest,
     RegisterRequest,
+    ResetPasswordRequest,
     TokenResponse,
     UserResponse,
 )
@@ -130,3 +136,43 @@ async def me(
     user: UserModel = Depends(get_current_user),
 ) -> UserResponse:
     return UserResponse(id=user.id, email=user.email, created_at=user.created_at)
+
+
+@router.post("/forgot-password", status_code=204)
+async def forgot_password(
+    body: ForgotPasswordRequest,
+    session: AsyncSession = Depends(get_session),
+) -> Response:
+    uc = ForgotPasswordUseCase(_user_repo)
+    await uc.execute(body.email, session)
+    await session.commit()
+    return Response(status_code=204)
+
+
+@router.post("/reset-password", status_code=204)
+async def reset_password(
+    body: ResetPasswordRequest,
+    session: AsyncSession = Depends(get_session),
+) -> Response:
+    uc = ResetPasswordUseCase(_user_repo)
+    result = await uc.execute(body.token, body.new_password, session)
+    await session.commit()
+    if isinstance(result, Failure):
+        error = result.failure()
+        raise HTTPException(status_code=400, detail=error.message)
+    return Response(status_code=204)
+
+
+@router.patch("/password", status_code=204)
+async def change_password(
+    body: ChangePasswordRequest,
+    user: UserModel = Depends(get_current_user),
+    session: AsyncSession = Depends(get_session),
+) -> Response:
+    uc = ChangePasswordUseCase(_user_repo)
+    result = await uc.execute(user.id, body.current_password, body.new_password, session)
+    await session.commit()
+    if isinstance(result, Failure):
+        error = result.failure()
+        raise HTTPException(status_code=400, detail=error.message)
+    return Response(status_code=204)

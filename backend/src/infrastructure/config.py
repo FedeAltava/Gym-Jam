@@ -26,6 +26,12 @@ class Settings(BaseSettings):
     refresh_token_reuse_grace_seconds: int = 60
     cors_origins: list[str] = ["http://localhost:3000", "http://localhost:5173"]
     environment: str = "development"
+    smtp_host: str = ""
+    smtp_port: int = 587
+    smtp_user: str = ""
+    smtp_password: str = ""
+    smtp_from: str = "noreply@gymjam.app"
+    app_base_url: str = "http://localhost:5173"
 
     @model_validator(mode="after")
     def validate_secret_key_in_production(self) -> "Settings":
