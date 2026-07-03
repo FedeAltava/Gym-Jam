@@ -2,7 +2,7 @@
 
 A full-stack gym workout tracker built as a portfolio project. Manage workout plans, training days, and exercises — with JWT authentication and a clean, modern UI.
 
-> Built with **Clean/Hexagonal Architecture**, strict **TDD** (278 tests), and deployed via **Docker Compose**.
+> Built with **Clean/Hexagonal Architecture**, strict **TDD** (366 tests), and deployed via **Docker Compose**.
 
 ---
 
@@ -135,8 +135,16 @@ Infrastructure (SQLAlchemy, JWT, bcrypt)
 | Method | Path | Description |
 |--------|------|-------------|
 | `POST` | `/auth/register` | Create account |
-| `POST` | `/auth/login` | Get JWT token |
+| `POST` | `/auth/login` | Sign in — returns `access_token` + `refresh_token` |
+| `POST` | `/auth/refresh` | Rotate refresh token — returns a new pair |
+| `POST` | `/auth/logout` | Revoke refresh token |
 | `GET` | `/auth/me` | Current user (requires auth) |
+
+### Exercise catalog
+
+| Method | Path | Description |
+|--------|------|-------------|
+| `GET` | `/exercises` | List all exercises (requires auth) |
 
 ### Workouts
 
@@ -188,7 +196,7 @@ poetry run pytest tests/unit
 poetry run pytest tests/http
 ```
 
-278 tests across unit, integration, and HTTP layers.
+366 tests across unit, integration, and HTTP layers.
 
 ---
 
