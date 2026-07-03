@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { useParams, useNavigate, Link } from 'react-router-dom';
 import { ArrowLeft, CheckCircle2 } from 'lucide-react';
 import { useWorkout } from '../hooks/useWorkouts';
+import { useExercises } from '../hooks/useExercises';
 import {
   useStartSession,
   useLogSet,
@@ -224,6 +225,9 @@ export function WorkoutSessionPage() {
     isError: workoutError,
   } = useWorkout(workoutId);
 
+  const { data: exercises } = useExercises();
+  const exerciseById = new Map((exercises ?? []).map((e) => [e.id, e]));
+
   const startSession = useStartSession();
   const completeSession = useCompleteSession();
 
@@ -354,7 +358,7 @@ export function WorkoutSessionPage() {
                   key={exercise.id}
                   sessionId={session.id}
                   exercise={exercise}
-                  exerciseName={exercise.exercise_id}
+                  exerciseName={exerciseById.get(exercise.exercise_id)?.name ?? exercise.exercise_id}
                   logs={exerciseLogs}
                   workoutId={workoutId}
                   dayId={dayId}
