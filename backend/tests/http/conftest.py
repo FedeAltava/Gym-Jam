@@ -4,7 +4,8 @@ from collections.abc import AsyncGenerator
 from httpx import AsyncClient, ASGITransport
 from sqlalchemy.ext.asyncio import create_async_engine, async_sessionmaker, AsyncSession
 
-from backend.src.infrastructure.persistence.models import Base
+from backend.src.infrastructure.persistence.exercise_seed import EXERCISE_SEED
+from backend.src.infrastructure.persistence.models import Base, ExerciseModel
 from backend.src.infrastructure.database import get_session
 from backend.src.presentation.dependencies import get_current_user_id
 from backend.src.main import create_app
@@ -21,6 +22,9 @@ def engine():
 async def create_tables(engine):
     async with engine.begin() as conn:
         await conn.run_sync(Base.metadata.create_all)
+        # Tests build the schema with metadata.create_all, so the catalog seed
+        # from migration 003 never runs here — insert the standard seed once.
+        await conn.execute(sqlalchemy.insert(ExerciseModel), EXERCISE_SEED)
     yield
     async with engine.begin() as conn:
         await conn.run_sync(Base.metadata.drop_all)

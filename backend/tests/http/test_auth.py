@@ -1,6 +1,6 @@
 import pytest
 
-from backend.src.infrastructure.rate_limiter import login_limiter, register_limiter
+from backend.src.infrastructure.rate_limiter import login_limiter, refresh_limiter, register_limiter
 
 BASE = "/auth"
 
@@ -13,9 +13,11 @@ def reset_rate_limiters():
     """Reset rate limiter state before each test to avoid cross-test interference."""
     login_limiter.reset()
     register_limiter.reset()
+    refresh_limiter.reset()
     yield
     login_limiter.reset()
     register_limiter.reset()
+    refresh_limiter.reset()
 
 
 # Helpers
@@ -61,13 +63,14 @@ async def test_register_missing_password_returns_422(auth_client):
     assert r.status_code == 422
 
 
-# 6. Login — happy path returns token
+# 6. Login — happy path returns access and refresh tokens
 async def test_login_returns_access_token(auth_client):
     await register(auth_client, "login@example.com")
     r = await login(auth_client, "login@example.com")
     assert r.status_code == 200
     data = r.json()
     assert "access_token" in data
+    assert "refresh_token" in data
     assert data["token_type"] == "bearer"
 
 

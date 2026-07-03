@@ -43,6 +43,14 @@ class UnauthorizedError(ApplicationError):
 
 
 @dataclass
+class ExerciseNotFoundError(ApplicationError):
+    exercise_id: str
+
+    def __init__(self, exercise_id: str) -> None:
+        object.__setattr__(self, "exercise_id", exercise_id)
+
+
+@dataclass
 class InvalidDayOfWeekError(ApplicationError):
     value: str
 
@@ -73,6 +81,14 @@ class InvalidCredentialsError(ApplicationError):
     message: str = "Invalid credentials"
 
     def __init__(self, message: str = "Invalid credentials") -> None:
+        object.__setattr__(self, "message", message)
+
+
+@dataclass
+class InvalidRefreshTokenError(ApplicationError):
+    message: str = "Invalid refresh token"
+
+    def __init__(self, message: str = "Invalid refresh token") -> None:
         object.__setattr__(self, "message", message)
 
 

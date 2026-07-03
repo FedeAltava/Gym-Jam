@@ -18,6 +18,10 @@ class Settings(BaseSettings):
     secret_key: str = _SENTINEL_SECRET
     algorithm: str = "HS256"
     access_token_expire_minutes: int = 30
+    refresh_token_expire_days: int = 7
+    # Grace window during which reuse of a rotation-revoked refresh token is
+    # treated as a benign concurrent refresh (multi-tab race), not theft.
+    refresh_token_reuse_grace_seconds: int = 60
     cors_origins: list[str] = ["http://localhost:3000", "http://localhost:5173"]
     environment: str = "development"
 

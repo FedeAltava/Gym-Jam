@@ -6,6 +6,7 @@ from backend.src.application.dtos import WorkoutExerciseDTO
 from backend.src.application.errors import (
     ApplicationError,
     DomainViolationError,
+    ExerciseNotFoundError,
     UnauthorizedError,
     WorkoutNotFoundError,
 )
@@ -14,13 +15,15 @@ from backend.src.domain.errors.training_day_errors import (
     DayNotInWorkoutError,
 )
 from backend.src.domain.errors.workout_exercise_errors import DuplicateExerciseInDayError
+from backend.src.domain.repositories.exercise_repository import ExerciseRepository
 from backend.src.domain.repositories.workout_repository import WorkoutRepository
 from backend.src.domain.value_objects import WorkoutId
 
 
 class AddExerciseToWorkoutUseCase:
-    def __init__(self, repo: WorkoutRepository) -> None:
+    def __init__(self, repo: WorkoutRepository, exercise_repo: ExerciseRepository) -> None:
         self._repo = repo
+        self._exercise_repo = exercise_repo
 
     async def execute(self, cmd: AddExerciseToWorkoutCommand) -> Result[WorkoutExerciseDTO, ApplicationError]:
         # 1. Validate day
@@ -43,14 +46,18 @@ class AddExerciseToWorkoutUseCase:
         if workout.user_id != cmd.user_id:
             return Failure(UnauthorizedError(user_id=cmd.user_id, workout_id=cmd.workout_id))
 
-        # 4. Mutate
+        # 4. Validate exercise against the catalog
+        if not await self._exercise_repo.exists(cmd.exercise_id):
+            return Failure(ExerciseNotFoundError(exercise_id=cmd.exercise_id))
+
+        # 5. Mutate
         try:
             exercise = workout.add_exercise_to_day(day, cmd.exercise_id)
         except (DayNotInWorkoutError, DuplicateExerciseInDayError) as e:
             return Failure(DomainViolationError(domain_error=e, message=str(e)))
 
-        # 5. Save
+        # 6. Save
         await self._repo.save(workout)
 
-        # 6. Return DTO
+        # 7. Return DTO
         return Success(WorkoutExerciseDTO.from_entity(exercise))

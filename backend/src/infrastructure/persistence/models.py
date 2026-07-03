@@ -16,6 +16,28 @@ class UserModel(Base):
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=lambda: datetime.now(UTC))
 
 
+class RefreshTokenModel(Base):
+    __tablename__ = "refresh_tokens"
+    __table_args__ = (Index("ix_refresh_tokens_user_id", "user_id"),)
+    id: Mapped[str] = mapped_column(String(36), primary_key=True)
+    user_id: Mapped[str] = mapped_column(String(36), ForeignKey("users.id"), nullable=False)
+    token_hash: Mapped[str] = mapped_column(String(64), unique=True, nullable=False)
+    expires_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+    revoked_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    # Set when the token was revoked by rotation (id of the replacing token).
+    # NULL on logout revocation — the reuse grace window only applies to rotation.
+    replaced_by_id: Mapped[str | None] = mapped_column(String(36), nullable=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=lambda: datetime.now(UTC))
+
+
+class ExerciseModel(Base):
+    __tablename__ = "exercises"
+    id: Mapped[str] = mapped_column(String(100), primary_key=True)  # slug, e.g. "bench-press"
+    name: Mapped[str] = mapped_column(String(100), nullable=False)
+    muscle_group: Mapped[str] = mapped_column(String(50), nullable=False)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=lambda: datetime.now(UTC))
+
+
 class WorkoutModel(Base):
     __tablename__ = "workouts"
     __table_args__ = (Index("ix_workouts_user_id", "user_id"),)
@@ -54,6 +76,9 @@ class WorkoutExerciseModel(Base):
     id: Mapped[str] = mapped_column(String(36), primary_key=True)
     workout_id: Mapped[str] = mapped_column(String(36), ForeignKey("workouts.id", ondelete="CASCADE"), nullable=False)
     training_day_id: Mapped[str] = mapped_column(String(36), ForeignKey("training_days.id", ondelete="CASCADE"), nullable=False)
+    # Deliberate soft reference (no FK to exercises): legacy rows hold free-text
+    # ids that predate the catalog. Integrity is enforced in the use case layer
+    # (AddExerciseToWorkoutUseCase validates against the catalog).
     exercise_id: Mapped[str] = mapped_column(String(255), nullable=False)
     order_in_day: Mapped[int] = mapped_column(Integer, nullable=False)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=lambda: datetime.now(UTC))

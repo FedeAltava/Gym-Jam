@@ -3,8 +3,26 @@ from __future__ import annotations
 from dataclasses import dataclass
 
 from backend.src.domain.aggregates.workout import Workout
+from backend.src.domain.entities.exercise import Exercise
 from backend.src.domain.entities.training_day import TrainingDay
 from backend.src.domain.entities.workout_exercise import WorkoutExercise
+
+
+@dataclass(frozen=True)
+class ExerciseDTO:
+    id: str
+    name: str
+    muscle_group: str
+
+    @classmethod
+    def from_entity(cls, exercise: Exercise) -> "ExerciseDTO":
+        return cls(id=exercise.id, name=exercise.name, muscle_group=exercise.muscle_group)
+
+
+@dataclass(frozen=True)
+class TokenPairDTO:
+    access_token: str
+    refresh_token: str
 
 
 @dataclass(frozen=True)

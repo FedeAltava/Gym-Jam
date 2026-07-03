@@ -1,12 +1,27 @@
+from datetime import timedelta
+
 from fastapi import Depends, HTTPException, status
 from fastapi.security import OAuth2PasswordBearer
 from sqlalchemy.ext.asyncio import AsyncSession
 from backend.src.infrastructure.database import get_session
-from backend.src.infrastructure.auth.jwt import decode_access_token
+from backend.src.infrastructure.auth.jwt import create_access_token, decode_access_token
+from backend.src.infrastructure.auth.refresh_tokens import (
+    generate_refresh_token,
+    hash_refresh_token,
+)
+from backend.src.infrastructure.config import settings
 from backend.src.infrastructure.persistence.user_repository import SqlAlchemyUserRepository
 from backend.src.infrastructure.persistence.models import UserModel
+from backend.src.infrastructure.persistence.exercise_repository import SqlAlchemyExerciseRepository
+from backend.src.infrastructure.persistence.refresh_token_repository import (
+    SqlAlchemyRefreshTokenRepository,
+)
 from backend.src.infrastructure.persistence.workout_repository import SqlAlchemyWorkoutRepository
+from backend.src.application.services.token_issuer import TokenIssuer
 from backend.src.application.use_cases.create_workout import CreateWorkoutUseCase
+from backend.src.application.use_cases.logout import LogoutUseCase
+from backend.src.application.use_cases.refresh_session import RefreshSessionUseCase
+from backend.src.application.use_cases.list_exercises import ListExercisesUseCase
 from backend.src.application.use_cases.add_training_day import AddTrainingDayUseCase
 from backend.src.application.use_cases.remove_training_day import RemoveTrainingDayUseCase
 from backend.src.application.use_cases.add_exercise_to_workout import AddExerciseToWorkoutUseCase
@@ -17,6 +32,7 @@ from backend.src.application.use_cases.get_workouts_by_user import GetWorkoutsBy
 from backend.src.application.use_cases.delete_workout import DeleteWorkoutUseCase
 
 oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/auth/login")
+oauth2_scheme_optional = OAuth2PasswordBearer(tokenUrl="/auth/login", auto_error=False)
 _user_repo = SqlAlchemyUserRepository()
 
 
@@ -31,12 +47,75 @@ async def get_current_user(
     return user
 
 
+async def get_current_user_optional(
+    token: str | None = Depends(oauth2_scheme_optional),
+    session: AsyncSession = Depends(get_session),
+) -> UserModel | None:
+    """Best-effort identity: missing, invalid, or expired bearer yields None.
+
+    Used by routes that can authenticate by other means (e.g. logout, where
+    possession of the refresh token is itself the credential).
+    """
+    if token is None:
+        return None
+    try:
+        return await get_current_user(token, session)
+    except HTTPException:
+        return None
+
+
 def get_current_user_id(user: UserModel = Depends(get_current_user)) -> str:
     return user.id
 
 
 def get_workout_repository(session: AsyncSession = Depends(get_session)) -> SqlAlchemyWorkoutRepository:
     return SqlAlchemyWorkoutRepository(session)
+
+
+def get_exercise_repository(session: AsyncSession = Depends(get_session)) -> SqlAlchemyExerciseRepository:
+    return SqlAlchemyExerciseRepository(session)
+
+
+def get_refresh_token_repository(
+    session: AsyncSession = Depends(get_session),
+) -> SqlAlchemyRefreshTokenRepository:
+    return SqlAlchemyRefreshTokenRepository(session)
+
+
+def get_token_issuer(
+    repo: SqlAlchemyRefreshTokenRepository = Depends(get_refresh_token_repository),
+) -> TokenIssuer:
+    return TokenIssuer(
+        repo,
+        hash_token=hash_refresh_token,
+        generate_token=generate_refresh_token,
+        create_access_token=create_access_token,
+        refresh_token_ttl=timedelta(days=settings.refresh_token_expire_days),
+    )
+
+
+def get_refresh_session_uc(
+    repo: SqlAlchemyRefreshTokenRepository = Depends(get_refresh_token_repository),
+    token_issuer: TokenIssuer = Depends(get_token_issuer),
+) -> RefreshSessionUseCase:
+    return RefreshSessionUseCase(
+        repo,
+        hash_token=hash_refresh_token,
+        token_issuer=token_issuer,
+        reuse_grace_period=timedelta(seconds=settings.refresh_token_reuse_grace_seconds),
+    )
+
+
+def get_logout_uc(
+    repo: SqlAlchemyRefreshTokenRepository = Depends(get_refresh_token_repository),
+) -> LogoutUseCase:
+    return LogoutUseCase(repo, hash_token=hash_refresh_token)
+
+
+def get_list_exercises_uc(
+    exercise_repo: SqlAlchemyExerciseRepository = Depends(get_exercise_repository),
+) -> ListExercisesUseCase:
+    return ListExercisesUseCase(exercise_repo)
 
 
 def get_create_workout_uc(repo: SqlAlchemyWorkoutRepository = Depends(get_workout_repository)) -> CreateWorkoutUseCase:
@@ -51,8 +130,11 @@ def get_remove_training_day_uc(repo: SqlAlchemyWorkoutRepository = Depends(get_w
     return RemoveTrainingDayUseCase(repo)
 
 
-def get_add_exercise_uc(repo: SqlAlchemyWorkoutRepository = Depends(get_workout_repository)) -> AddExerciseToWorkoutUseCase:
-    return AddExerciseToWorkoutUseCase(repo)
+def get_add_exercise_uc(
+    repo: SqlAlchemyWorkoutRepository = Depends(get_workout_repository),
+    exercise_repo: SqlAlchemyExerciseRepository = Depends(get_exercise_repository),
+) -> AddExerciseToWorkoutUseCase:
+    return AddExerciseToWorkoutUseCase(repo, exercise_repo)
 
 
 def get_remove_exercise_uc(repo: SqlAlchemyWorkoutRepository = Depends(get_workout_repository)) -> RemoveExerciseFromWorkoutUseCase:

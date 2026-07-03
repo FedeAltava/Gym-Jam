@@ -3,6 +3,7 @@
 Per-IP limits:
   - /auth/login:    5 attempts per 60 seconds
   - /auth/register: 10 attempts per 60 seconds
+  - /auth/refresh:  30 attempts per 60 seconds
 
 Returns HTTP 429 when the limit is exceeded.
 """
@@ -71,3 +72,5 @@ class SlidingWindowRateLimiter:
 # Module-level limiter instances — one per endpoint group.
 login_limiter = SlidingWindowRateLimiter(max_calls=5, window_seconds=60)
 register_limiter = SlidingWindowRateLimiter(max_calls=10, window_seconds=60)
+refresh_limiter = SlidingWindowRateLimiter(max_calls=30, window_seconds=60)
+logout_limiter = SlidingWindowRateLimiter(max_calls=30, window_seconds=60)

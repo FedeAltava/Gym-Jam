@@ -8,13 +8,18 @@ from backend.src.application.commands import AddExerciseToWorkoutCommand
 from backend.src.application.dtos import WorkoutExerciseDTO
 from backend.src.application.errors import (
     DomainViolationError,
+    ExerciseNotFoundError,
     InvalidDayOfWeekError,
     UnauthorizedError,
     WorkoutNotFoundError,
 )
 from backend.src.application.use_cases.add_exercise_to_workout import AddExerciseToWorkoutUseCase
 from backend.src.domain.aggregates.workout import Workout
+from backend.src.domain.entities.exercise import Exercise
 from backend.src.domain.value_objects import DayOfWeek, WorkoutId
+from backend.tests.unit.application.use_cases.in_memory_exercise_repository import (
+    InMemoryExerciseRepository,
+)
 from backend.tests.unit.application.use_cases.in_memory_workout_repository import (
     InMemoryWorkoutRepository,
 )
@@ -32,8 +37,17 @@ def repo() -> InMemoryWorkoutRepository:
 
 
 @pytest.fixture
-def use_case(repo: InMemoryWorkoutRepository) -> AddExerciseToWorkoutUseCase:
-    return AddExerciseToWorkoutUseCase(repo)
+def exercise_repo() -> InMemoryExerciseRepository:
+    return InMemoryExerciseRepository(
+        [Exercise(id="ex-abc", name="Press de banca", muscle_group="Pecho")]
+    )
+
+
+@pytest.fixture
+def use_case(
+    repo: InMemoryWorkoutRepository, exercise_repo: InMemoryExerciseRepository
+) -> AddExerciseToWorkoutUseCase:
+    return AddExerciseToWorkoutUseCase(repo, exercise_repo)
 
 
 async def test_add_exercise_success_returns_dto(
@@ -113,6 +127,24 @@ async def test_add_exercise_day_not_in_workout_returns_domain_violation(
     result = await use_case.execute(cmd)
     assert isinstance(result, Failure)
     assert isinstance(result.failure(), DomainViolationError)
+
+
+async def test_add_exercise_unknown_exercise_returns_not_found(
+    use_case: AddExerciseToWorkoutUseCase, repo: InMemoryWorkoutRepository
+) -> None:
+    workout = _make_workout(days=["MONDAY"])
+    await repo.save(workout)
+    cmd = AddExerciseToWorkoutCommand(
+        workout_id=str(workout.id.value),
+        user_id="user-1",
+        day_of_week="MONDAY",
+        exercise_id="not-in-catalog",
+    )
+    result = await use_case.execute(cmd)
+    assert isinstance(result, Failure)
+    error = result.failure()
+    assert isinstance(error, ExerciseNotFoundError)
+    assert error.exercise_id == "not-in-catalog"
 
 
 async def test_add_exercise_duplicate_returns_domain_violation(

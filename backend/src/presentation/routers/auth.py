@@ -3,10 +3,13 @@ from __future__ import annotations
 import logging
 import uuid
 
-from fastapi import APIRouter, Depends, HTTPException, Request
+from fastapi import APIRouter, Depends, HTTPException, Request, Response
+from returns.result import Failure
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from backend.src.infrastructure.auth.jwt import create_access_token
+from backend.src.application.services.token_issuer import TokenIssuer
+from backend.src.application.use_cases.logout import LogoutUseCase
+from backend.src.application.use_cases.refresh_session import RefreshSessionUseCase
 from backend.src.infrastructure.auth.password import (
     DUMMY_HASH,
     hash_password,
@@ -15,10 +18,23 @@ from backend.src.infrastructure.auth.password import (
 from backend.src.infrastructure.database import get_session
 from backend.src.infrastructure.persistence.models import UserModel
 from backend.src.infrastructure.persistence.user_repository import SqlAlchemyUserRepository
-from backend.src.infrastructure.rate_limiter import login_limiter, register_limiter
-from backend.src.presentation.dependencies import get_current_user
+from backend.src.infrastructure.rate_limiter import (
+    login_limiter,
+    logout_limiter,
+    refresh_limiter,
+    register_limiter,
+)
+from backend.src.presentation.dependencies import (
+    get_current_user,
+    get_current_user_optional,
+    get_logout_uc,
+    get_refresh_session_uc,
+    get_token_issuer,
+)
 from backend.src.presentation.schemas.auth_schemas import (
     LoginRequest,
+    LogoutRequest,
+    RefreshRequest,
     RegisterRequest,
     TokenResponse,
     UserResponse,
@@ -55,6 +71,7 @@ async def login(
     request: Request,
     body: LoginRequest,
     session: AsyncSession = Depends(get_session),
+    token_issuer: TokenIssuer = Depends(get_token_issuer),
     _rate: None = Depends(login_limiter.dependency),
 ) -> TokenResponse:
     user = await _user_repo.find_by_email(body.email, session)
@@ -66,8 +83,46 @@ async def login(
     if not verify_password(body.password, user.hashed_password):
         logger.warning("Failed login attempt (wrong password)")
         raise HTTPException(status_code=401, detail="Invalid credentials")
-    token = create_access_token(user.id)
-    return TokenResponse(access_token=token)
+    pair = await token_issuer.issue_for_login(user.id)
+    await session.commit()
+    return TokenResponse(access_token=pair.access_token, refresh_token=pair.refresh_token)
+
+
+@router.post("/refresh", response_model=TokenResponse, status_code=200)
+async def refresh(
+    request: Request,
+    body: RefreshRequest,
+    session: AsyncSession = Depends(get_session),
+    use_case: RefreshSessionUseCase = Depends(get_refresh_session_uc),
+    _rate: None = Depends(refresh_limiter.dependency),
+) -> TokenResponse:
+    result = await use_case.execute(body.refresh_token)
+    # Commit even on failure: reuse detection revokes the whole token family
+    # and that revocation must be persisted.
+    await session.commit()
+    if isinstance(result, Failure):
+        raise HTTPException(status_code=401, detail="Invalid refresh token")
+    pair = result.unwrap()
+    return TokenResponse(access_token=pair.access_token, refresh_token=pair.refresh_token)
+
+
+@router.post("/logout", status_code=204)
+async def logout(
+    body: LogoutRequest | None = None,
+    _rate: None = Depends(logout_limiter.dependency),
+    user: UserModel | None = Depends(get_current_user_optional),
+    session: AsyncSession = Depends(get_session),
+    use_case: LogoutUseCase = Depends(get_logout_uc),
+) -> Response:
+    raw_refresh_token = body.refresh_token if body is not None else None
+    if raw_refresh_token is None and user is None:
+        # Revoke-all needs a user identity; single-token logout authenticates
+        # by possession of the refresh token itself (works after the access
+        # token expired — otherwise the refresh token would outlive logout).
+        raise HTTPException(status_code=401, detail="Not authenticated")
+    await use_case.execute(user.id if user is not None else None, raw_refresh_token)
+    await session.commit()
+    return Response(status_code=204)
 
 
 @router.get("/me", response_model=UserResponse)
