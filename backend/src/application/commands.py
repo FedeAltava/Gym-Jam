@@ -51,6 +51,13 @@ class ReorderExercisesCommand:
 
 
 @dataclass(frozen=True)
+class ReorderTrainingDaysCommand:
+    workout_id: str
+    user_id: str
+    ordered_day_ids: tuple[str, ...]
+
+
+@dataclass(frozen=True)
 class GetWorkoutWithDaysQuery:
     workout_id: str
     user_id: str

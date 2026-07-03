@@ -27,6 +27,7 @@ class TrainingDay:
     id: TrainingDayId
     workout_id: WorkoutId
     day: DayOfWeek
+    order: int = 1
     _exercises: list[WorkoutExercise] = field(default_factory=list, repr=False)
     _events: list[DomainEvent] = field(default_factory=list, repr=False)
 

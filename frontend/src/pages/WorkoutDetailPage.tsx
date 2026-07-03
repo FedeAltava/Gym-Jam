@@ -2,7 +2,7 @@ import { useState } from 'react';
 import type { ChangeEvent } from 'react';
 import { useParams, Link, useNavigate } from 'react-router-dom';
 import { ArrowLeft, Plus, Trash2, X, Play, ChevronDown, ChevronUp } from 'lucide-react';
-import { useWorkout, useDeleteWorkout } from '../hooks/useWorkouts';
+import { useWorkout, useDeleteWorkout, useReorderTrainingDays } from '../hooks/useWorkouts';
 import {
   useExercises,
   useAddExercise,
@@ -16,9 +16,12 @@ import type { ExerciseResponse, TrainingDayResponse } from '../types/api';
 interface TrainingDayCardProps {
   workoutId: string;
   day: TrainingDayResponse;
+  allDays: TrainingDayResponse[];
   catalog: ExerciseResponse[];
   catalogLoading: boolean;
   catalogError: boolean;
+  onReorder: (orderedIds: string[]) => void;
+  reorderPending: boolean;
 }
 
 function PastSessionsList({
@@ -97,13 +100,41 @@ function PastSessionsList({
 function TrainingDayCard({
   workoutId,
   day,
+  allDays,
   catalog,
   catalogLoading,
   catalogError,
+  onReorder,
+  reorderPending,
 }: TrainingDayCardProps) {
   const [pickerOpen, setPickerOpen] = useState(false);
   const addMutation = useAddExercise(workoutId);
   const removeMutation = useRemoveExercise(workoutId);
+
+  const sortedDays = [...allDays].sort((a, b) => a.order - b.order);
+  const currentIndex = sortedDays.findIndex((d) => d.id === day.id);
+  const canMoveUp = currentIndex > 0;
+  const canMoveDown = currentIndex < sortedDays.length - 1;
+
+  function handleMoveUp() {
+    if (!canMoveUp) return;
+    const newOrder = [...sortedDays];
+    [newOrder[currentIndex - 1], newOrder[currentIndex]] = [
+      newOrder[currentIndex],
+      newOrder[currentIndex - 1],
+    ];
+    onReorder(newOrder.map((d) => d.id));
+  }
+
+  function handleMoveDown() {
+    if (!canMoveDown) return;
+    const newOrder = [...sortedDays];
+    [newOrder[currentIndex], newOrder[currentIndex + 1]] = [
+      newOrder[currentIndex + 1],
+      newOrder[currentIndex],
+    ];
+    onReorder(newOrder.map((d) => d.id));
+  }
 
   const exerciseById = new Map(catalog.map((e) => [e.id, e]));
 
@@ -144,6 +175,24 @@ function TrainingDayCard({
             day.day_of_week}
         </h3>
         <div className="flex items-center gap-2">
+          <button
+            onClick={handleMoveUp}
+            disabled={!canMoveUp || reorderPending}
+            className="inline-flex items-center justify-center rounded text-muted bg-transparent border-none transition-colors hover:text-text disabled:opacity-30"
+            style={{ minHeight: '28px', height: '28px', width: '28px', cursor: canMoveUp ? 'pointer' : 'default' }}
+            aria-label="Mover día arriba"
+          >
+            <ChevronUp size={14} />
+          </button>
+          <button
+            onClick={handleMoveDown}
+            disabled={!canMoveDown || reorderPending}
+            className="inline-flex items-center justify-center rounded text-muted bg-transparent border-none transition-colors hover:text-text disabled:opacity-30"
+            style={{ minHeight: '28px', height: '28px', width: '28px', cursor: canMoveDown ? 'pointer' : 'default' }}
+            aria-label="Mover día abajo"
+          >
+            <ChevronDown size={14} />
+          </button>
           {day.id && (
             <Link
               to={`/workouts/${workoutId}/session/${day.id}`}
@@ -276,6 +325,7 @@ export function WorkoutDetailPage() {
     isError: exercisesError,
   } = useExercises();
   const deleteMutation = useDeleteWorkout();
+  const reorderDaysMutation = useReorderTrainingDays(id ?? '');
   const [confirmDelete, setConfirmDelete] = useState(false);
 
   if (isLoading) return <Spinner />;
@@ -376,9 +426,12 @@ export function WorkoutDetailPage() {
               key={day.day_of_week}
               workoutId={workout.id}
               day={day}
+              allDays={workout.training_days}
               catalog={exercises ?? []}
               catalogLoading={exercisesLoading}
               catalogError={exercisesError}
+              onReorder={(orderedIds) => reorderDaysMutation.mutate({ orderedDayIds: orderedIds })}
+              reorderPending={reorderDaysMutation.isPending}
             />
           ))}
         </div>

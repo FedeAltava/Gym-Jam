@@ -11,6 +11,7 @@ from backend.src.application.commands import (
     RemoveExerciseFromWorkoutCommand,
     RemoveTrainingDayCommand,
     ReorderExercisesCommand,
+    ReorderTrainingDaysCommand,
 )
 from backend.src.application.use_cases.get_workouts_by_user import GetWorkoutsByUserQuery
 from backend.src.application.use_cases.add_exercise_to_workout import AddExerciseToWorkoutUseCase
@@ -22,6 +23,7 @@ from backend.src.application.use_cases.get_workouts_by_user import GetWorkoutsBy
 from backend.src.application.use_cases.remove_exercise_from_workout import RemoveExerciseFromWorkoutUseCase
 from backend.src.application.use_cases.remove_training_day import RemoveTrainingDayUseCase
 from backend.src.application.use_cases.reorder_exercises import ReorderExercisesUseCase
+from backend.src.application.use_cases.reorder_training_days import ReorderTrainingDaysUseCase
 from backend.src.presentation.dependencies import (
     get_add_exercise_uc,
     get_add_training_day_uc,
@@ -33,6 +35,7 @@ from backend.src.presentation.dependencies import (
     get_remove_exercise_uc,
     get_remove_training_day_uc,
     get_reorder_exercises_uc,
+    get_reorder_training_days_uc,
     get_session,
 )
 from backend.src.presentation.schemas.workout_schemas import (
@@ -40,6 +43,7 @@ from backend.src.presentation.schemas.workout_schemas import (
     AddTrainingDayRequest,
     CreateWorkoutRequest,
     ReorderExercisesRequest,
+    ReorderTrainingDaysRequest,
     TrainingDayResponse,
     WorkoutExerciseResponse,
     WorkoutResponse,
@@ -112,6 +116,26 @@ async def add_training_day(
         raise result.failure()
     await session.commit()
     return TrainingDayResponse.from_dto(result.unwrap())
+
+
+@router.put("/{workout_id}/training-days/reorder", status_code=200, response_model=WorkoutResponse)
+async def reorder_training_days(
+    workout_id: str,
+    body: ReorderTrainingDaysRequest,
+    uc: ReorderTrainingDaysUseCase = Depends(get_reorder_training_days_uc),
+    user_id: str = Depends(get_current_user_id),
+    session: AsyncSession = Depends(get_session),
+) -> WorkoutResponse:
+    cmd = ReorderTrainingDaysCommand(
+        workout_id=workout_id,
+        user_id=user_id,
+        ordered_day_ids=tuple(body.ordered_day_ids),
+    )
+    result = await uc.execute(cmd)
+    if isinstance(result, Failure):
+        raise result.failure()
+    await session.commit()
+    return WorkoutResponse.from_dto(result.unwrap())
 
 
 @router.delete("/{workout_id}/training-days/{day}", status_code=204)

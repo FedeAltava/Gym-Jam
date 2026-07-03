@@ -28,6 +28,7 @@ from backend.src.application.use_cases.remove_training_day import RemoveTraining
 from backend.src.application.use_cases.add_exercise_to_workout import AddExerciseToWorkoutUseCase
 from backend.src.application.use_cases.remove_exercise_from_workout import RemoveExerciseFromWorkoutUseCase
 from backend.src.application.use_cases.reorder_exercises import ReorderExercisesUseCase
+from backend.src.application.use_cases.reorder_training_days import ReorderTrainingDaysUseCase
 from backend.src.application.use_cases.get_workout_with_days import GetWorkoutWithDaysUseCase
 from backend.src.application.use_cases.get_workouts_by_user import GetWorkoutsByUserUseCase
 from backend.src.application.use_cases.delete_workout import DeleteWorkoutUseCase
@@ -150,6 +151,10 @@ def get_remove_exercise_uc(repo: SqlAlchemyWorkoutRepository = Depends(get_worko
 
 def get_reorder_exercises_uc(repo: SqlAlchemyWorkoutRepository = Depends(get_workout_repository)) -> ReorderExercisesUseCase:
     return ReorderExercisesUseCase(repo)
+
+
+def get_reorder_training_days_uc(repo: SqlAlchemyWorkoutRepository = Depends(get_workout_repository)) -> ReorderTrainingDaysUseCase:
+    return ReorderTrainingDaysUseCase(repo)
 
 
 def get_get_workout_uc(repo: SqlAlchemyWorkoutRepository = Depends(get_workout_repository)) -> GetWorkoutWithDaysUseCase:

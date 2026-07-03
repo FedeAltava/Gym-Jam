@@ -28,6 +28,7 @@ export interface WorkoutExerciseResponse {
 export interface TrainingDayResponse {
   id: string;
   day_of_week: string;
+  order: number;
   exercises: WorkoutExerciseResponse[];
 }
 

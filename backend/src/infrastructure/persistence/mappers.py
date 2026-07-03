@@ -48,6 +48,7 @@ class WorkoutMapper:
                 id=TrainingDayId.from_string(day_model.id).unwrap(),
                 workout_id=workout_id,
                 day=day_of_week,
+                order=day_model.order,
                 _exercises=exercises,
             )
             training_days[day_of_week] = day
@@ -81,6 +82,7 @@ class WorkoutMapper:
                 id=str(day.id.value),
                 workout_id=str(domain.id.value),
                 day_of_week=day_of_week.value,
+                order=day.order,
             )
             exercise_models: list[WorkoutExerciseModel] = []
             for ex in day.exercises:

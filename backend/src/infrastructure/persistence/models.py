@@ -59,6 +59,7 @@ class TrainingDayModel(Base):
     id: Mapped[str] = mapped_column(String(36), primary_key=True)
     workout_id: Mapped[str] = mapped_column(String(36), ForeignKey("workouts.id", ondelete="CASCADE"), nullable=False)
     day_of_week: Mapped[str] = mapped_column(String(10), nullable=False)
+    order: Mapped[int] = mapped_column(Integer, nullable=False, default=1)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=lambda: datetime.now(UTC))
     workout: Mapped[WorkoutModel] = relationship("WorkoutModel", back_populates="training_days")
     exercises: Mapped[list[WorkoutExerciseModel]] = relationship(

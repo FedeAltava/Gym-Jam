@@ -13,6 +13,7 @@ from backend.src.domain.errors.training_day_errors import (
     DayAlreadyInWorkoutError,
     DayNotInWorkoutError,
 )
+from backend.src.domain.errors.workout_exercise_errors import ReorderMismatchError
 from backend.src.domain.events.base import DomainEvent
 from backend.src.domain.events.training_day_events import (
     TrainingDayAddedEvent,
@@ -150,6 +151,18 @@ class Workout:
         if day not in self._training_days:
             raise DayNotInWorkoutError(day=day.value, workout_id=str(self.id.value))
         self._training_days[day].reorder_exercises(ordered_ids)
+
+    def reorder_training_days(self, ordered_ids: list[TrainingDayId]) -> None:
+        existing = {td.id for td in self._training_days.values()}
+        provided = set(ordered_ids)
+        if provided != existing:
+            raise ReorderMismatchError(
+                missing=existing - provided,
+                extra=provided - existing,
+            )
+        for pos, td_id in enumerate(ordered_ids, start=1):
+            td = next(t for t in self._training_days.values() if t.id == td_id)
+            td.order = pos
 
     def activate(self) -> None:
         self.is_active = True

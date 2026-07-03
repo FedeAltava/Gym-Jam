@@ -58,6 +58,7 @@ class WorkoutExerciseDTO:
 class TrainingDayDTO:
     id: str
     day_of_week: str
+    order: int
     exercises: tuple[WorkoutExerciseDTO, ...]
 
     @classmethod
@@ -65,6 +66,7 @@ class TrainingDayDTO:
         return cls(
             id=str(training_day.id.value),
             day_of_week=training_day.day.value,
+            order=training_day.order,
             exercises=tuple(
                 WorkoutExerciseDTO.from_entity(ex)
                 for ex in training_day.exercises
@@ -95,7 +97,10 @@ class WorkoutWithDaysDTO:
             is_active=workout.is_active,
             training_days=tuple(
                 TrainingDayDTO.from_entity(td)
-                for td in workout.get_training_days().values()
+                for td in sorted(
+                    workout.get_training_days().values(),
+                    key=lambda td: td.order,
+                )
             ),
         )
 

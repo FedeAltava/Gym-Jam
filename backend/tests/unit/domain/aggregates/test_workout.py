@@ -433,3 +433,43 @@ def test_pull_events_is_idempotent_second_call_returns_empty():
     workout.pull_events()  # drain
     events = workout.pull_events()
     assert events == []
+
+
+# ---------------------------------------------------------------------------
+# reorder_training_days — 2 tests
+# ---------------------------------------------------------------------------
+
+
+def test_reorder_training_days_applies_correct_order():
+    workout = Workout.create(
+        user_id="u",
+        name="Test Workout",
+        training_days=[DayOfWeek.MONDAY, DayOfWeek.TUESDAY, DayOfWeek.WEDNESDAY],
+    ).unwrap()
+    days = workout.get_training_days()
+    mon_id = days[DayOfWeek.MONDAY].id
+    tue_id = days[DayOfWeek.TUESDAY].id
+    wed_id = days[DayOfWeek.WEDNESDAY].id
+
+    # Reverse the order: Wed=1, Tue=2, Mon=3
+    workout.reorder_training_days([wed_id, tue_id, mon_id])
+
+    updated = workout.get_training_days()
+    assert updated[DayOfWeek.WEDNESDAY].order == 1
+    assert updated[DayOfWeek.TUESDAY].order == 2
+    assert updated[DayOfWeek.MONDAY].order == 3
+
+
+def test_reorder_training_days_mismatch_raises_error():
+    workout = Workout.create(
+        user_id="u",
+        name="Test Workout",
+        training_days=[DayOfWeek.MONDAY, DayOfWeek.TUESDAY],
+    ).unwrap()
+    days = workout.get_training_days()
+    mon_id = days[DayOfWeek.MONDAY].id
+
+    from backend.src.domain.errors.workout_exercise_errors import ReorderMismatchError
+    with pytest.raises(ReorderMismatchError):
+        # Only provide one of the two ids → mismatch
+        workout.reorder_training_days([mon_id])

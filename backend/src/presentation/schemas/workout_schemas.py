@@ -27,6 +27,11 @@ class AddExerciseRequest(BaseModel):
 class ReorderExercisesRequest(BaseModel):
     ordered_exercise_ids: list[str] = Field(max_length=50)
 
+
+class ReorderTrainingDaysRequest(BaseModel):
+    ordered_day_ids: list[str] = Field(max_length=50)
+
+
 # ── Response schemas ─────────────────────────────────────────────────────────
 
 class WorkoutExerciseResponse(BaseModel):
@@ -51,6 +56,7 @@ class WorkoutExerciseResponse(BaseModel):
 class TrainingDayResponse(BaseModel):
     id: str
     day_of_week: str
+    order: int
     exercises: list[WorkoutExerciseResponse]
 
     @classmethod
@@ -58,6 +64,7 @@ class TrainingDayResponse(BaseModel):
         return cls(
             id=dto.id,
             day_of_week=dto.day_of_week,
+            order=dto.order,
             exercises=[WorkoutExerciseResponse.from_dto(e) for e in dto.exercises],
         )
 

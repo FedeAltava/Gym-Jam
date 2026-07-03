@@ -7,6 +7,10 @@ import {
 import { apiFetch } from '../lib/api';
 import type { WorkoutResponse } from '../types/api';
 
+interface ReorderTrainingDaysPayload {
+  orderedDayIds: string[];
+}
+
 interface CreateWorkoutPayload {
   name: string;
   description?: string;
@@ -54,5 +58,20 @@ export function useDeleteWorkout() {
     mutationFn: (id: string) =>
       apiFetch<void>(`/workouts/${id}`, { method: 'DELETE' }),
     onSuccess: () => qc.invalidateQueries({ queryKey: ['workouts'] }),
+  });
+}
+
+export function useReorderTrainingDays(workoutId: string) {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: ({ orderedDayIds }: ReorderTrainingDaysPayload) =>
+      apiFetch<WorkoutResponse>(
+        `/workouts/${workoutId}/training-days/reorder`,
+        {
+          method: 'PUT',
+          body: JSON.stringify({ ordered_day_ids: orderedDayIds }),
+        },
+      ),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ['workouts', workoutId] }),
   });
 }
