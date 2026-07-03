@@ -100,3 +100,39 @@ class EmailAlreadyExistsError(ApplicationError):
     def __init__(self, email: str, message: str = "Email already registered") -> None:
         object.__setattr__(self, "email", email)
         object.__setattr__(self, "message", message)
+
+
+@dataclass
+class SessionNotFoundError(ApplicationError):
+    session_id: str
+
+    def __init__(self, session_id: str) -> None:
+        object.__setattr__(self, "session_id", session_id)
+
+
+@dataclass
+class SessionAlreadyCompletedError(ApplicationError):
+    session_id: str
+
+    def __init__(self, session_id: str) -> None:
+        object.__setattr__(self, "session_id", session_id)
+
+
+@dataclass
+class SetExceedsPlanError(ApplicationError):
+    set_number: int
+    max_sets: int
+
+    def __init__(self, set_number: int, max_sets: int) -> None:
+        object.__setattr__(self, "set_number", set_number)
+        object.__setattr__(self, "max_sets", max_sets)
+
+
+@dataclass
+class SetAlreadyLoggedError(ApplicationError):
+    workout_exercise_id: str
+    set_number: int
+
+    def __init__(self, workout_exercise_id: str, set_number: int) -> None:
+        object.__setattr__(self, "workout_exercise_id", workout_exercise_id)
+        object.__setattr__(self, "set_number", set_number)

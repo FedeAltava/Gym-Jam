@@ -51,6 +51,9 @@ class TrainingDay:
         self,
         exercise_id: str,
         workout_exercise_id: WorkoutExerciseId | None = None,
+        sets: int = 3,
+        reps_per_set: int = 10,
+        weight_kg: float | None = None,
     ) -> WorkoutExercise:
         for ex in self._exercises:
             if ex.exercise_id == exercise_id:
@@ -63,6 +66,9 @@ class TrainingDay:
             day=self.day,
             exercise_id=exercise_id,
             order=order,
+            sets=sets,
+            reps_per_set=reps_per_set,
+            weight_kg=weight_kg,
         )
         self._exercises.append(exercise)
         self._events.append(
