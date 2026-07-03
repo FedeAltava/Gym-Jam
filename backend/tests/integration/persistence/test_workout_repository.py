@@ -91,6 +91,35 @@ async def test_get_by_user_returns_all_workouts(session):
     assert len(results) == 2
 
 
+# ─── 5b. get_by_user orders newest first ────────────────────────────────────
+
+async def test_get_by_user_orders_newest_first(session):
+    from datetime import UTC, datetime, timedelta
+
+    from backend.src.infrastructure.persistence.models import WorkoutModel
+
+    user = "user-ordering"
+    base = datetime(2026, 1, 1, tzinfo=UTC)
+    for index, name in enumerate(["Oldest", "Middle", "Newest"]):
+        session.add(
+            WorkoutModel(
+                id=str(uuid4()),
+                user_id=user,
+                name=name,
+                description=None,
+                is_active=True,
+                created_at=base + timedelta(days=index),
+                updated_at=base + timedelta(days=index),
+            )
+        )
+    await session.flush()
+
+    repo = SqlAlchemyWorkoutRepository(session)
+    results = await repo.get_by_user(user)
+
+    assert [str(w.name.value) for w in results] == ["Newest", "Middle", "Oldest"]
+
+
 # ─── 6. get_by_user empty for unknown user ─────────────────────────────────
 
 async def test_get_by_user_returns_empty_for_unknown_user(session):

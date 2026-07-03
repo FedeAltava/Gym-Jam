@@ -129,15 +129,15 @@ async def test_reorder_exercises_returns_200(client):
     created = await create_workout(client, "Reorder Test")
     wid = created["id"]
     await client.post(f"/workouts/{wid}/training-days", json={"day_of_week": "SUNDAY"})
-    r1 = await client.post(f"/workouts/{wid}/training-days/SUNDAY/exercises", json={"exercise_id": "ex-a"})
-    r2 = await client.post(f"/workouts/{wid}/training-days/SUNDAY/exercises", json={"exercise_id": "ex-b"})
+    r1 = await client.post(f"/workouts/{wid}/training-days/SUNDAY/exercises", json={"exercise_id": "squat"})
+    r2 = await client.post(f"/workouts/{wid}/training-days/SUNDAY/exercises", json={"exercise_id": "deadlift"})
     id1 = r1.json()["id"]
     id2 = r2.json()["id"]
     r = await client.put(f"/workouts/{wid}/training-days/SUNDAY/exercises/reorder", json={"ordered_exercise_ids": [id2, id1]})
     assert r.status_code == 200
     exercises = r.json()["exercises"]
-    assert exercises[0]["exercise_id"] == "ex-b"
-    assert exercises[1]["exercise_id"] == "ex-a"
+    assert exercises[0]["exercise_id"] == "deadlift"
+    assert exercises[1]["exercise_id"] == "squat"
 
 
 # 17. PUT reorder — workout not found

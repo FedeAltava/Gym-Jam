@@ -44,7 +44,9 @@ class SqlAlchemyWorkoutRepository(WorkoutRepository):
         stmt = (
             select(WorkoutModel)
             .where(WorkoutModel.user_id == user_id)
-            .order_by(WorkoutModel.created_at.asc())
+            # Newest first so recent workouts land on page 1 of the dashboard;
+            # id breaks created_at ties deterministically.
+            .order_by(WorkoutModel.created_at.desc(), WorkoutModel.id.asc())
             .limit(limit)
             .offset(offset)
             .options(
