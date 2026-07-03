@@ -58,37 +58,9 @@ def upgrade() -> None:
     )
     op.create_index("ix_workout_exercises_exercise_id", "workout_exercises", ["exercise_id"])
 
-    op.create_table(
-        "workout_sessions",
-        sa.Column("id", sa.String(36), primary_key=True),
-        sa.Column("user_id", sa.String(36), sa.ForeignKey("users.id"), nullable=False),
-        sa.Column("workout_id", sa.String(36), sa.ForeignKey("workouts.id"), nullable=False),
-        sa.Column("started_at", sa.DateTime(timezone=True), nullable=False),
-        sa.Column("completed_at", sa.DateTime(timezone=True), nullable=True),
-        sa.Column("duration_minutes", sa.Integer(), nullable=True),
-        sa.Column("notes", sa.String(1000), nullable=True),
-        sa.Column("created_at", sa.DateTime(timezone=True), nullable=False),
-    )
-    op.create_index("ix_workout_sessions_user_id", "workout_sessions", ["user_id"])
-
-    op.create_table(
-        "workout_logs",
-        sa.Column("id", sa.String(36), primary_key=True),
-        sa.Column("session_id", sa.String(36), sa.ForeignKey("workout_sessions.id"), nullable=False),
-        sa.Column("workout_exercise_id", sa.String(36), sa.ForeignKey("workout_exercises.id"), nullable=False),
-        sa.Column("set_number", sa.Integer(), nullable=False),
-        sa.Column("reps_completed", sa.Integer(), nullable=False),
-        sa.Column("weight_kg", sa.Float(), nullable=True),
-        sa.Column("difficulty_rating", sa.Integer(), nullable=True),
-        sa.Column("notes", sa.String(500), nullable=True),
-        sa.Column("created_at", sa.DateTime(timezone=True), nullable=False),
-    )
-    op.create_index("ix_workout_logs_session_id", "workout_logs", ["session_id"])
 
 
 def downgrade() -> None:
-    op.drop_table("workout_logs")
-    op.drop_table("workout_sessions")
     op.drop_table("workout_exercises")
     op.drop_table("training_days")
     op.drop_table("workouts")

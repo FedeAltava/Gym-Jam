@@ -90,6 +90,7 @@ def downgrade() -> None:
     # Drop workout_logs first (FK dependency on workout_sessions)
     op.drop_index("ix_workout_logs_workout_exercise_id", table_name="workout_logs")
     op.drop_index("ix_workout_logs_session_id", table_name="workout_logs")
+
     op.drop_table("workout_logs")
 
     # Drop workout_sessions
