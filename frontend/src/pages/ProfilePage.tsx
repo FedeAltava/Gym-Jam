@@ -1,12 +1,31 @@
 import { useNavigate } from 'react-router-dom';
 import { LogOut, User } from 'lucide-react';
+import { apiFetch } from '../lib/api';
 import { useAuthStore } from '../store/authStore';
 
 export function ProfilePage() {
   const { user, logout } = useAuthStore();
   const navigate = useNavigate();
 
-  function handleLogout() {
+  async function handleLogout() {
+    // Best-effort server-side revocation of the refresh token; local logout
+    // must happen regardless of the outcome. The refresh token is read from
+    // the store AT SEND TIME so a rotation that happened in between (another
+    // tab, background refresh) cannot leave a stale token in the request.
+    // Legacy sessions (persisted before refresh tokens existed) have none —
+    // skip the server call entirely instead of POSTing refresh_token: null,
+    // which the backend treats as a revoke-all request.
+    const refreshToken = useAuthStore.getState().refreshToken;
+    if (refreshToken) {
+      try {
+        await apiFetch<void>('/auth/logout', {
+          method: 'POST',
+          body: JSON.stringify({ refresh_token: refreshToken }),
+        });
+      } catch {
+        // Ignore errors — the session is cleared locally anyway.
+      }
+    }
     logout();
     navigate('/login');
   }

@@ -1,4 +1,9 @@
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import {
+  useQuery,
+  useInfiniteQuery,
+  useMutation,
+  useQueryClient,
+} from '@tanstack/react-query';
 import { apiFetch } from '../lib/api';
 import type { WorkoutResponse } from '../types/api';
 
@@ -8,12 +13,18 @@ interface CreateWorkoutPayload {
   training_days: string[];
 }
 
+const PAGE_SIZE = 20;
+
 export function useWorkouts() {
-  return useQuery({
+  return useInfiniteQuery({
     queryKey: ['workouts'],
-    // Request the backend max explicitly (default is 50). Pagination UI is
-    // future work for when users exceed 100 workouts.
-    queryFn: () => apiFetch<WorkoutResponse[]>('/workouts?limit=100'),
+    queryFn: ({ pageParam }) =>
+      apiFetch<WorkoutResponse[]>(`/workouts?limit=${PAGE_SIZE}&offset=${pageParam}`),
+    initialPageParam: 0,
+    // The endpoint returns a bare array (no total): a full page means there
+    // may be more; a short page means we reached the end.
+    getNextPageParam: (lastPage, allPages) =>
+      lastPage.length === PAGE_SIZE ? allPages.length * PAGE_SIZE : undefined,
   });
 }
 

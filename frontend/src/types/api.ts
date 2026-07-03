@@ -6,7 +6,14 @@ export interface UserResponse {
 
 export interface TokenResponse {
   access_token: string;
+  refresh_token: string;
   token_type: string;
+}
+
+export interface ExerciseResponse {
+  id: string;
+  name: string;
+  muscle_group: string;
 }
 
 export interface WorkoutExerciseResponse {

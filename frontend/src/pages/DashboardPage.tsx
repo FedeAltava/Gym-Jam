@@ -5,7 +5,23 @@ import { Spinner } from '../components/Spinner';
 import { useWorkouts } from '../hooks/useWorkouts';
 
 export function DashboardPage() {
-  const { data: workouts, isLoading, isError, error } = useWorkouts();
+  const {
+    data,
+    isLoading,
+    isError,
+    error,
+    hasNextPage,
+    isFetchingNextPage,
+    fetchNextPage,
+  } = useWorkouts();
+
+  // Offset pagination can return the same workout on two pages when items
+  // shift between requests — dedupe by id to avoid duplicate React keys.
+  const workouts = data
+    ? Array.from(
+        new Map(data.pages.flat().map((w) => [w.id, w])).values(),
+      )
+    : undefined;
 
   return (
     <div>
@@ -46,6 +62,19 @@ export function DashboardPage() {
       <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
         {workouts?.map((w) => <WorkoutCard key={w.id} workout={w} />)}
       </div>
+
+      {hasNextPage && (
+        <div className="flex justify-center mt-6">
+          <button
+            onClick={() => fetchNextPage()}
+            disabled={isFetchingNextPage}
+            className="inline-flex items-center gap-2 text-sm font-semibold rounded-btn border border-accent text-accent bg-transparent transition-colors hover:bg-accent hover:text-bg disabled:opacity-60 disabled:pointer-events-none"
+            style={{ height: '40px', padding: '0 20px', cursor: 'pointer' }}
+          >
+            {isFetchingNextPage ? 'Cargando…' : 'Cargar más'}
+          </button>
+        </div>
+      )}
     </div>
   );
 }
