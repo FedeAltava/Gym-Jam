@@ -127,10 +127,19 @@ class Workout:
         day: DayOfWeek,
         exercise_id: str,
         workout_exercise_id: WorkoutExerciseId | None = None,
+        sets: int = 3,
+        reps_per_set: int = 10,
+        weight_kg: float | None = None,
     ) -> WorkoutExercise:
         if day not in self._training_days:
             raise DayNotInWorkoutError(day=day.value, workout_id=str(self.id.value))
-        return self._training_days[day].add_exercise(exercise_id, workout_exercise_id)
+        return self._training_days[day].add_exercise(
+            exercise_id,
+            workout_exercise_id,
+            sets=sets,
+            reps_per_set=reps_per_set,
+            weight_kg=weight_kg,
+        )
 
     def remove_exercise_from_day(self, day: DayOfWeek, workout_exercise_id: WorkoutExerciseId) -> None:
         if day not in self._training_days:

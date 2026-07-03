@@ -148,6 +148,9 @@ async def add_exercise(
         user_id=user_id,
         day_of_week=day.upper(),
         exercise_id=body.exercise_id,
+        sets=body.sets,
+        reps_per_set=body.reps_per_set,
+        weight_kg=body.weight_kg,
     )
     result = await uc.execute(cmd)
     if isinstance(result, Failure):

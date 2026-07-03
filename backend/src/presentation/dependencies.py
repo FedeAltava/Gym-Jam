@@ -30,6 +30,12 @@ from backend.src.application.use_cases.reorder_exercises import ReorderExercises
 from backend.src.application.use_cases.get_workout_with_days import GetWorkoutWithDaysUseCase
 from backend.src.application.use_cases.get_workouts_by_user import GetWorkoutsByUserUseCase
 from backend.src.application.use_cases.delete_workout import DeleteWorkoutUseCase
+from backend.src.application.use_cases.start_workout_session import StartWorkoutSessionUseCase
+from backend.src.application.use_cases.log_exercise_set import LogExerciseSetUseCase
+from backend.src.application.use_cases.complete_workout_session import CompleteWorkoutSessionUseCase
+from backend.src.application.use_cases.get_sessions_for_day import GetSessionsForDayUseCase
+from backend.src.infrastructure.persistence.session_repository import SqlAlchemySessionRepository
+from backend.src.domain.repositories.session_repository import SessionRepository
 
 oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/auth/login")
 oauth2_scheme_optional = OAuth2PasswordBearer(tokenUrl="/auth/login", auto_error=False)
@@ -155,3 +161,33 @@ def get_get_workouts_by_user_uc(repo: SqlAlchemyWorkoutRepository = Depends(get_
 
 def get_delete_workout_uc(repo: SqlAlchemyWorkoutRepository = Depends(get_workout_repository)) -> DeleteWorkoutUseCase:
     return DeleteWorkoutUseCase(repo)
+
+
+def get_session_repository(session: AsyncSession = Depends(get_session)) -> SessionRepository:
+    return SqlAlchemySessionRepository(session)
+
+
+def get_start_session_uc(
+    workout_repo: SqlAlchemyWorkoutRepository = Depends(get_workout_repository),
+    session_repo: SessionRepository = Depends(get_session_repository),
+) -> StartWorkoutSessionUseCase:
+    return StartWorkoutSessionUseCase(workout_repo, session_repo)
+
+
+def get_log_exercise_set_uc(
+    workout_repo: SqlAlchemyWorkoutRepository = Depends(get_workout_repository),
+    session_repo: SessionRepository = Depends(get_session_repository),
+) -> LogExerciseSetUseCase:
+    return LogExerciseSetUseCase(workout_repo, session_repo)
+
+
+def get_complete_session_uc(
+    session_repo: SessionRepository = Depends(get_session_repository),
+) -> CompleteWorkoutSessionUseCase:
+    return CompleteWorkoutSessionUseCase(session_repo)
+
+
+def get_get_sessions_for_day_uc(
+    session_repo: SessionRepository = Depends(get_session_repository),
+) -> GetSessionsForDayUseCase:
+    return GetSessionsForDayUseCase(session_repo)

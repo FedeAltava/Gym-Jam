@@ -1,17 +1,24 @@
 from __future__ import annotations
 from datetime import datetime, UTC
 from backend.src.domain.aggregates.workout import Workout
+from backend.src.domain.entities.exercise_log import ExerciseLog
 from backend.src.domain.entities.training_day import TrainingDay
 from backend.src.domain.entities.workout_exercise import WorkoutExercise
+from backend.src.domain.entities.workout_session import WorkoutSession
 from backend.src.domain.value_objects import (
     WorkoutId,
     TrainingDayId,
     WorkoutExerciseId,
     WorkoutName,
     DayOfWeek,
+    ExerciseLogId,
+    WorkoutSessionId,
 )
+from backend.src.domain.value_objects.training_day_id import TrainingDayId
 from backend.src.infrastructure.persistence.models import (
     WorkoutModel,
+    WorkoutLogModel,
+    WorkoutSessionModel,
     TrainingDayModel,
     WorkoutExerciseModel,
 )
@@ -92,3 +99,58 @@ class WorkoutMapper:
             training_day_models.append(day_model)
         workout_model.training_days = training_day_models
         return workout_model
+
+
+class WorkoutSessionMapper:
+    @staticmethod
+    def to_domain(model: WorkoutSessionModel) -> WorkoutSession:
+        logs: list[ExerciseLog] = []
+        for log_model in model.logs:
+            log = ExerciseLog(
+                id=ExerciseLogId.from_string(log_model.id).unwrap(),
+                session_id=WorkoutSessionId.from_string(log_model.session_id).unwrap(),
+                workout_exercise_id=WorkoutExerciseId.from_string(log_model.workout_exercise_id).unwrap(),
+                set_number=log_model.set_number,
+                reps_completed=log_model.reps_completed,
+                weight_kg=log_model.weight_kg,
+            )
+            logs.append(log)
+
+        def _as_utc(dt: datetime | None) -> datetime | None:
+            if dt is None:
+                return None
+            return dt if dt.tzinfo is not None else dt.replace(tzinfo=UTC)
+
+        return WorkoutSession(
+            id=WorkoutSessionId.from_string(model.id).unwrap(),
+            user_id=model.user_id,
+            workout_id=WorkoutId.from_string(model.workout_id).unwrap(),
+            training_day_id=TrainingDayId.from_string(model.training_day_id).unwrap(),
+            started_at=_as_utc(model.started_at),
+            completed_at=_as_utc(model.completed_at),
+            _logs=logs,
+        )
+
+    @staticmethod
+    def to_model(session: WorkoutSession) -> WorkoutSessionModel:
+        session_model = WorkoutSessionModel(
+            id=str(session.id.value),
+            user_id=session.user_id,
+            workout_id=str(session.workout_id.value),
+            training_day_id=str(session.training_day_id.value),
+            started_at=session.started_at,
+            completed_at=session.completed_at,
+        )
+        log_models: list[WorkoutLogModel] = []
+        for log in session.logs:
+            log_model = WorkoutLogModel(
+                id=str(log.id.value),
+                session_id=str(session.id.value),
+                workout_exercise_id=str(log.workout_exercise_id.value),
+                set_number=log.set_number,
+                reps_completed=log.reps_completed,
+                weight_kg=log.weight_kg,
+            )
+            log_models.append(log_model)
+        session_model.logs = log_models
+        return session_model

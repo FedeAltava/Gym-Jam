@@ -52,7 +52,13 @@ class AddExerciseToWorkoutUseCase:
 
         # 5. Mutate
         try:
-            exercise = workout.add_exercise_to_day(day, cmd.exercise_id)
+            exercise = workout.add_exercise_to_day(
+                day,
+                cmd.exercise_id,
+                sets=cmd.sets,
+                reps_per_set=cmd.reps_per_set,
+                weight_kg=cmd.weight_kg,
+            )
         except (DayNotInWorkoutError, DuplicateExerciseInDayError) as e:
             return Failure(DomainViolationError(domain_error=e, message=str(e)))
 

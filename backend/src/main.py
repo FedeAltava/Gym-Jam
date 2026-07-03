@@ -9,6 +9,7 @@ from backend.src.infrastructure.config import settings
 from backend.src.presentation.error_handlers import application_error_handler
 from backend.src.presentation.routers.auth import router as auth_router
 from backend.src.presentation.routers.exercises import router as exercises_router
+from backend.src.presentation.routers.sessions import router as sessions_router
 from backend.src.presentation.routers.workouts import router as workouts_router
 
 _LOGGING_CONFIG = {
@@ -48,6 +49,7 @@ def create_app() -> FastAPI:
     app.include_router(auth_router, prefix="/auth", tags=["auth"])
     app.include_router(exercises_router, prefix="/exercises", tags=["exercises"])
     app.include_router(workouts_router, prefix="/workouts", tags=["workouts"])
+    app.include_router(sessions_router, prefix="/api", tags=["sessions"])
     return app
 
 

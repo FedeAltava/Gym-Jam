@@ -19,6 +19,9 @@ class AddTrainingDayRequest(BaseModel):
 
 class AddExerciseRequest(BaseModel):
     exercise_id: str
+    sets: int = Field(default=3, ge=1)
+    reps_per_set: int = Field(default=10, ge=1)
+    weight_kg: float | None = Field(default=None, ge=0.0)
 
 
 class ReorderExercisesRequest(BaseModel):
@@ -30,18 +33,30 @@ class WorkoutExerciseResponse(BaseModel):
     id: str
     exercise_id: str
     order: int
+    sets: int
+    reps_per_set: int
+    weight_kg: float | None
 
     @classmethod
     def from_dto(cls, dto: WorkoutExerciseDTO) -> WorkoutExerciseResponse:
-        return cls(id=dto.id, exercise_id=dto.exercise_id, order=dto.order)
+        return cls(
+            id=dto.id,
+            exercise_id=dto.exercise_id,
+            order=dto.order,
+            sets=dto.sets,
+            reps_per_set=dto.reps_per_set,
+            weight_kg=dto.weight_kg,
+        )
 
 class TrainingDayResponse(BaseModel):
+    id: str
     day_of_week: str
     exercises: list[WorkoutExerciseResponse]
 
     @classmethod
     def from_dto(cls, dto: TrainingDayDTO) -> TrainingDayResponse:
         return cls(
+            id=dto.id,
             day_of_week=dto.day_of_week,
             exercises=[WorkoutExerciseResponse.from_dto(e) for e in dto.exercises],
         )
