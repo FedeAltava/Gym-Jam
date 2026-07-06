@@ -7,25 +7,32 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from backend.src.application.commands import (
     CompleteWorkoutSessionCommand,
+    DeleteWorkoutSessionCommand,
     GetSessionsForDayCommand,
     LogExerciseSetCommand,
     StartWorkoutSessionCommand,
+    UpdateExerciseLogCommand,
 )
 from backend.src.application.use_cases.complete_workout_session import CompleteWorkoutSessionUseCase
+from backend.src.application.use_cases.delete_workout_session import DeleteWorkoutSessionUseCase
 from backend.src.application.use_cases.get_sessions_for_day import GetSessionsForDayUseCase
 from backend.src.application.use_cases.log_exercise_set import LogExerciseSetUseCase
 from backend.src.application.use_cases.start_workout_session import StartWorkoutSessionUseCase
+from backend.src.application.use_cases.update_exercise_log import UpdateExerciseLogUseCase
 from backend.src.infrastructure.database import get_session
 from backend.src.presentation.dependencies import (
     get_complete_session_uc,
     get_current_user_id,
+    get_delete_session_uc,
     get_get_sessions_for_day_uc,
     get_log_exercise_set_uc,
     get_start_session_uc,
+    get_update_log_uc,
 )
 from backend.src.presentation.schemas.session_schemas import (
     ExerciseLogResponse,
     LogSetRequest,
+    UpdateLogRequest,
     WorkoutSessionResponse,
 )
 
@@ -105,6 +112,33 @@ async def log_exercise_set(
     return ExerciseLogResponse.from_dto(result.unwrap())
 
 
+@router.patch(
+    "/sessions/{session_id}/logs/{log_id}",
+    status_code=200,
+    response_model=ExerciseLogResponse,
+)
+async def update_exercise_log(
+    session_id: str,
+    log_id: str,
+    body: UpdateLogRequest,
+    uc: UpdateExerciseLogUseCase = Depends(get_update_log_uc),
+    user_id: str = Depends(get_current_user_id),
+    session: AsyncSession = Depends(get_session),
+) -> ExerciseLogResponse:
+    cmd = UpdateExerciseLogCommand(
+        user_id=user_id,
+        session_id=session_id,
+        log_id=log_id,
+        reps_completed=body.reps_completed,
+        weight_kg=body.weight_kg,
+    )
+    result = await uc.execute(cmd)
+    if isinstance(result, Failure):
+        raise result.failure()
+    await session.commit()
+    return ExerciseLogResponse.from_dto(result.unwrap())
+
+
 @router.post(
     "/sessions/{session_id}/complete",
     status_code=200,
@@ -122,3 +156,20 @@ async def complete_session(
         raise result.failure()
     await session.commit()
     return WorkoutSessionResponse.from_dto(result.unwrap())
+
+
+@router.delete(
+    "/sessions/{session_id}",
+    status_code=204,
+)
+async def delete_session(
+    session_id: str,
+    uc: DeleteWorkoutSessionUseCase = Depends(get_delete_session_uc),
+    user_id: str = Depends(get_current_user_id),
+    session: AsyncSession = Depends(get_session),
+) -> None:
+    cmd = DeleteWorkoutSessionCommand(user_id=user_id, session_id=session_id)
+    result = await uc.execute(cmd)
+    if isinstance(result, Failure):
+        raise result.failure()
+    await session.commit()

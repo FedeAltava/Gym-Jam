@@ -94,7 +94,22 @@ class LogExerciseSetCommand:
 
 
 @dataclass(frozen=True)
+class UpdateExerciseLogCommand:
+    user_id: str
+    session_id: str
+    log_id: str
+    reps_completed: int | None = None
+    weight_kg: float | None = None
+
+
+@dataclass(frozen=True)
 class CompleteWorkoutSessionCommand:
+    user_id: str
+    session_id: str
+
+
+@dataclass(frozen=True)
+class DeleteWorkoutSessionCommand:
     user_id: str
     session_id: str
 

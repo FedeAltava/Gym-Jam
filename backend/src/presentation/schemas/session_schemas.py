@@ -13,6 +13,11 @@ class LogSetRequest(BaseModel):
     workout_exercise_id: str
     set_number: int = Field(ge=1)
     reps_completed: int = Field(ge=1)
+    weight_kg: float = Field(ge=0.0)
+
+
+class UpdateLogRequest(BaseModel):
+    reps_completed: int | None = Field(default=None, ge=1)
     weight_kg: float | None = Field(default=None, ge=0.0)
 
 

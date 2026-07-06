@@ -4,6 +4,7 @@ from backend.src.application.errors import (
     ApplicationError,
     ExerciseNotFoundError,
     InvalidRefreshTokenError,
+    LogNotFoundError,
     SessionAlreadyCompletedError,
     SessionNotFoundError,
     SetAlreadyLoggedError,
@@ -14,7 +15,7 @@ from backend.src.application.errors import (
 
 
 async def application_error_handler(request: Request, exc: ApplicationError) -> JSONResponse:
-    if isinstance(exc, (WorkoutNotFoundError, ExerciseNotFoundError, SessionNotFoundError)):
+    if isinstance(exc, (WorkoutNotFoundError, ExerciseNotFoundError, SessionNotFoundError, LogNotFoundError)):
         status_code = 404
     elif isinstance(exc, UnauthorizedError):
         status_code = 403

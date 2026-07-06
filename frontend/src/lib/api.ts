@@ -144,7 +144,10 @@ export async function apiFetch<T>(
 
   if (!response.ok) {
     const body = await response.json().catch(() => ({ detail: 'Unknown error' }));
-    throw new ApiError(body.detail ?? 'Request failed', response.status);
+    const detail = Array.isArray(body.detail)
+      ? body.detail.map((e: { msg: string }) => e.msg).join('; ')
+      : (body.detail ?? 'Request failed');
+    throw new ApiError(detail, response.status);
   }
 
   if (response.status === 204) {

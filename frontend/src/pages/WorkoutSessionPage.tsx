@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useParams, useNavigate, Link } from 'react-router-dom';
 import { ArrowLeft, CheckCircle2 } from 'lucide-react';
 import { useWorkout } from '../hooks/useWorkouts';
@@ -6,7 +6,9 @@ import { useExercises } from '../hooks/useExercises';
 import {
   useStartSession,
   useLogSet,
+  useUpdateLog,
   useCompleteSession,
+  useSessionsForDay,
 } from '../hooks/useSessions';
 import { Spinner } from '../components/Spinner';
 import { DAY_LABEL } from '../lib/days';
@@ -47,27 +49,82 @@ function SetRow({
 }: SetRowProps) {
   const [reps, setReps] = useState('');
   const [weight, setWeight] = useState('');
+  // Latest known log for this set — seeded from the session, then kept in
+  // sync locally after log/update mutations succeed.
+  const [log, setLog] = useState<ExerciseLogResponse | undefined>(existingLog);
+  const [validationError, setValidationError] = useState<string | null>(null);
   const logSet = useLogSet();
+  const updateLog = useUpdateLog();
 
-  const isLogged = !!existingLog;
-  const isDisabled = isLogged || sessionCompleted || logSet.isPending;
+  const isLogged = !!log;
+  const isPending = logSet.isPending || updateLog.isPending;
+  const isDisabled = sessionCompleted || isPending;
+  const mutationError = logSet.error ?? updateLog.error;
 
   function handleLog() {
     const repsVal = parseInt(reps, 10);
-    if (!reps || isNaN(repsVal) || repsVal < 1) return;
-    const weightVal = weight !== '' ? parseFloat(weight) : null;
-    logSet.mutate({
-      sessionId,
-      workoutExerciseId: exercise.id,
-      setNumber,
-      repsCompleted: repsVal,
-      weightKg: weightVal,
-      workoutId,
-      dayId,
-    });
+    if (!reps || Number.isNaN(repsVal) || repsVal < 1) {
+      setValidationError('Ingresa las repeticiones (mínimo 1).');
+      return;
+    }
+    // A number input reports '' for invalid content, so `weight` can be empty
+    // even when the placeholder makes it look filled. Never let NaN through:
+    // JSON.stringify(NaN) serializes to null and the API rejects it (422).
+    const weightVal = parseFloat(weight);
+    if (weight === '' || !Number.isFinite(weightVal) || weightVal < 0) {
+      setValidationError('Ingresa un peso válido en kg (0 o más).');
+      return;
+    }
+    setValidationError(null);
+    logSet.mutate(
+      {
+        sessionId,
+        workoutExerciseId: exercise.id,
+        setNumber,
+        repsCompleted: repsVal,
+        weightKg: weightVal,
+        workoutId,
+        dayId,
+      },
+      { onSuccess: (data) => setLog(data) },
+    );
   }
 
-  if (isLogged && existingLog) {
+  function handleUpdate() {
+    if (!log) return;
+    const repsVal = reps !== '' ? parseInt(reps, 10) : undefined;
+    if (repsVal !== undefined && (Number.isNaN(repsVal) || repsVal < 1)) {
+      setValidationError('Las repeticiones deben ser 1 o más.');
+      return;
+    }
+    const weightVal = weight !== '' ? parseFloat(weight) : undefined;
+    if (
+      weightVal !== undefined &&
+      (!Number.isFinite(weightVal) || weightVal < 0)
+    ) {
+      setValidationError('El peso debe ser un número de 0 o más kg.');
+      return;
+    }
+    if (repsVal === undefined && weightVal === undefined) {
+      setValidationError('Ingresa nuevas repeticiones o un nuevo peso.');
+      return;
+    }
+    setValidationError(null);
+    updateLog.mutate(
+      {
+        sessionId,
+        logId: log.id,
+        repsCompleted: repsVal,
+        weightKg: weightVal,
+        workoutId,
+        dayId,
+      },
+      { onSuccess: (data) => setLog(data) },
+    );
+  }
+
+  // Read-only summary once the session is completed.
+  if (sessionCompleted && log) {
     return (
       <div
         className="flex items-center gap-3 py-2 px-3 rounded-btn"
@@ -77,13 +134,17 @@ function SetRow({
           Serie {setNumber}
         </span>
         <span className="text-sm text-text flex-1">
-          {existingLog.reps_completed} reps
-          {existingLog.weight_kg != null && ` · ${existingLog.weight_kg} kg`}
+          {log.reps_completed} reps
+          {log.weight_kg != null && ` · ${log.weight_kg} kg`}
         </span>
         <CheckCircle2 size={16} className="text-accent shrink-0" />
       </div>
     );
   }
+
+  const canSubmit = isLogged
+    ? reps !== '' || weight !== ''
+    : !!reps && weight !== '';
 
   return (
     <div className="flex items-center gap-2 py-1.5">
@@ -95,7 +156,7 @@ function SetRow({
         min={1}
         value={reps}
         onChange={(e) => setReps(e.target.value)}
-        placeholder={String(suggestedReps)}
+        placeholder={log ? String(log.reps_completed) : String(suggestedReps)}
         disabled={isDisabled}
         aria-label={`Repeticiones, serie ${setNumber}`}
         className="w-20 text-sm disabled:opacity-50"
@@ -114,7 +175,13 @@ function SetRow({
         step={0.5}
         value={weight}
         onChange={(e) => setWeight(e.target.value)}
-        placeholder={suggestedWeight != null ? String(suggestedWeight) : '—'}
+        placeholder={
+          log?.weight_kg != null
+            ? String(log.weight_kg)
+            : suggestedWeight != null
+              ? String(suggestedWeight)
+              : '0'
+        }
         disabled={isDisabled}
         aria-label={`Peso kg, serie ${setNumber}`}
         className="w-20 text-sm disabled:opacity-50"
@@ -128,23 +195,33 @@ function SetRow({
         }}
       />
       <button
-        onClick={handleLog}
-        disabled={isDisabled || !reps}
+        onClick={isLogged ? handleUpdate : handleLog}
+        disabled={isDisabled || !canSubmit}
         className="text-xs font-semibold rounded-btn disabled:opacity-50"
         style={{
           height: '36px',
           padding: '0 12px',
           border: 'none',
-          backgroundColor: 'var(--neon-green)',
-          color: 'var(--bg)',
           cursor: 'pointer',
+          // Inline colors on purpose: Tailwind's content scanner can miss
+          // dynamically-composed class strings and purge bg-orange-500 from
+          // the production CSS. Inline styles cannot be purged.
+          ...(isLogged
+            ? { backgroundColor: '#f97316', color: '#fff' }
+            : { backgroundColor: 'var(--neon-green)', color: 'var(--bg)' }),
         }}
       >
-        {logSet.isPending ? '…' : 'Registrar'}
+        {isPending ? '…' : isLogged ? 'Cambiar' : 'Registrar'}
       </button>
-      {logSet.isError && (
+      {isLogged && (
+        <CheckCircle2 size={16} className="text-accent shrink-0" />
+      )}
+      {validationError && (
+        <span className="text-xs text-danger">{validationError}</span>
+      )}
+      {!validationError && (logSet.isError || updateLog.isError) && (
         <span className="text-xs text-danger">
-          {(logSet.error as Error).message}
+          {(mutationError as Error).message}
         </span>
       )}
     </div>
@@ -231,12 +308,36 @@ export function WorkoutSessionPage() {
   const startSession = useStartSession();
   const completeSession = useCompleteSession();
 
-  // Active session held in local state — created once per page visit.
+  // Existing sessions for this day — used to resume an in_progress session
+  // instead of creating a zombie duplicate on every page visit.
+  const { data: pastSessions, isLoading: sessionsLoading } = useSessionsForDay(
+    workoutId,
+    dayId,
+  );
+
+  // Active session held in local state — resumed from the backend if an
+  // in_progress session exists, otherwise created on "Iniciar sesión".
   const [session, setSession] = useState<{
     id: string;
     status: 'in_progress' | 'completed';
     logs: import('../types/api').ExerciseLogResponse[];
   } | null>(null);
+
+  // Seed local state from the fetched in_progress session (resume, not restart).
+  useEffect(() => {
+    if (session !== null || !pastSessions) return;
+    const inProgress = pastSessions.find((s) => s.status === 'in_progress');
+    if (inProgress) {
+      setSession({
+        id: inProgress.id,
+        status: inProgress.status,
+        logs: inProgress.logs,
+      });
+    }
+  }, [pastSessions, session]);
+
+  const hasInProgress =
+    pastSessions?.some((s) => s.status === 'in_progress') ?? false;
 
   if (workoutLoading) return <Spinner />;
   if (workoutError || !workout)
@@ -308,8 +409,12 @@ export function WorkoutSessionPage() {
         <p className="text-sm text-muted mt-1">{dayLabel}</p>
       </div>
 
-      {/* Pre-start state */}
-      {!session && (
+      {/* Loading existing sessions — don't offer "Iniciar" until we know
+          whether there is an in_progress session to resume. */}
+      {!session && sessionsLoading && <Spinner />}
+
+      {/* Pre-start state — only when there is NO in_progress session */}
+      {!session && !sessionsLoading && !hasInProgress && (
         <div className="rounded-card border-2 border-dashed border-border p-8 text-center">
           <p className="text-sm text-muted mb-4">
             {day.exercises.length === 0

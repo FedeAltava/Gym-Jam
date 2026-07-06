@@ -35,7 +35,9 @@ from backend.src.application.use_cases.delete_workout import DeleteWorkoutUseCas
 from backend.src.application.use_cases.rename_workout import RenameWorkoutUseCase
 from backend.src.application.use_cases.start_workout_session import StartWorkoutSessionUseCase
 from backend.src.application.use_cases.log_exercise_set import LogExerciseSetUseCase
+from backend.src.application.use_cases.update_exercise_log import UpdateExerciseLogUseCase
 from backend.src.application.use_cases.complete_workout_session import CompleteWorkoutSessionUseCase
+from backend.src.application.use_cases.delete_workout_session import DeleteWorkoutSessionUseCase
 from backend.src.application.use_cases.get_sessions_for_day import GetSessionsForDayUseCase
 from backend.src.infrastructure.persistence.session_repository import SqlAlchemySessionRepository
 from backend.src.domain.repositories.session_repository import SessionRepository
@@ -192,10 +194,22 @@ def get_log_exercise_set_uc(
     return LogExerciseSetUseCase(workout_repo, session_repo)
 
 
+def get_update_log_uc(
+    session_repo: SessionRepository = Depends(get_session_repository),
+) -> UpdateExerciseLogUseCase:
+    return UpdateExerciseLogUseCase(session_repo)
+
+
 def get_complete_session_uc(
     session_repo: SessionRepository = Depends(get_session_repository),
 ) -> CompleteWorkoutSessionUseCase:
     return CompleteWorkoutSessionUseCase(session_repo)
+
+
+def get_delete_session_uc(
+    session_repo: SessionRepository = Depends(get_session_repository),
+) -> DeleteWorkoutSessionUseCase:
+    return DeleteWorkoutSessionUseCase(session_repo)
 
 
 def get_get_sessions_for_day_uc(
