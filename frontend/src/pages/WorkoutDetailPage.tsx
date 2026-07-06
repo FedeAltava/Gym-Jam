@@ -1,15 +1,11 @@
 import { useState, useRef, useEffect } from 'react';
-import type { ChangeEvent, KeyboardEvent } from 'react';
+import type { KeyboardEvent } from 'react';
 import { useParams, Link, useNavigate } from 'react-router-dom';
 import { ArrowLeft, Plus, X, Play, ChevronDown, ChevronUp, Pencil, Trash2 } from 'lucide-react';
 import { useQueryClient } from '@tanstack/react-query';
 import { useWorkout, useDeleteWorkout, useReorderTrainingDays } from '../hooks/useWorkouts';
 import { apiFetch } from '../lib/api';
-import {
-  useExercises,
-  useAddExercise,
-  useRemoveExercise,
-} from '../hooks/useExercises';
+import { useExercises, useRemoveExercise } from '../hooks/useExercises';
 import {
   useSessionsForDay,
   useCompleteSession,
@@ -152,21 +148,10 @@ function TrainingDayCard({
   day,
   allDays,
   catalog,
-  catalogLoading,
-  catalogError,
   onReorder,
   reorderPending,
 }: TrainingDayCardProps) {
-  const [pickerOpen, setPickerOpen] = useState(false);
-  const [selectedMuscleGroup, setSelectedMuscleGroup] = useState<string | null>(null);
-  const addMutation = useAddExercise(workoutId);
   const removeMutation = useRemoveExercise(workoutId);
-
-  const {
-    data: filteredExercises,
-    isLoading: filteredLoading,
-    isError: filteredError,
-  } = useExercises(selectedMuscleGroup ?? undefined);
 
   const sortedDays = [...allDays].sort((a, b) => a.order - b.order);
   const currentIndex = sortedDays.findIndex((d) => d.id === day.id);
@@ -194,38 +179,6 @@ function TrainingDayCard({
   }
 
   const exerciseById = new Map(catalog.map((e) => [e.id, e]));
-
-  // Derive sorted unique muscle groups from the full catalog for the filter chips.
-  const muscleGroups = [...new Set(catalog.map((e) => e.muscle_group))].sort();
-
-  // The backend rejects duplicates per day, so hide already-added exercises.
-  const usedIds = new Set(day.exercises.map((e) => e.exercise_id));
-  const pickerSource = filteredExercises ?? catalog;
-  const available = pickerSource.filter((e) => !usedIds.has(e.id));
-
-  // Group available exercises by muscle group, preserving catalog order.
-  const groups = new Map<string, ExerciseResponse[]>();
-  for (const exercise of available) {
-    const list = groups.get(exercise.muscle_group);
-    if (list) {
-      list.push(exercise);
-    } else {
-      groups.set(exercise.muscle_group, [exercise]);
-    }
-  }
-
-  const isPickerLoading = catalogLoading || filteredLoading;
-  const isPickerError = catalogError || filteredError;
-
-  function handleSelect(event: ChangeEvent<HTMLSelectElement>) {
-    const exerciseId = event.target.value;
-    if (!exerciseId) return;
-    event.target.value = '';
-    addMutation.mutate(
-      { day: day.day_of_week, exerciseId },
-      { onSuccess: () => setPickerOpen(false) },
-    );
-  }
 
   function handleRemove(workoutExerciseId: string) {
     removeMutation.mutate({ day: day.day_of_week, workoutExerciseId });
@@ -268,103 +221,17 @@ function TrainingDayCard({
               Iniciar
             </Link>
           )}
-          <button
-            onClick={() => setPickerOpen((open) => !open)}
-            className="inline-flex items-center gap-1 text-xs font-semibold text-accent bg-transparent border-none"
-            style={{ minHeight: '28px', padding: '0 4px', cursor: 'pointer' }}
-            aria-expanded={pickerOpen}
+          <Link
+            to={`/workouts/${workoutId}/days/${day.day_of_week}/add-exercises`}
+            className="inline-flex items-center gap-1 text-xs font-semibold text-accent no-underline bg-transparent"
+            style={{ minHeight: '28px', padding: '0 4px' }}
           >
             <Plus size={14} />
             Añadir
-          </button>
+          </Link>
         </div>
       </div>
 
-      {pickerOpen && (
-        <div className="mb-3">
-          {/* Muscle group filter chips */}
-          {muscleGroups.length > 0 && (
-            <div
-              className="flex flex-wrap gap-1.5 mb-2"
-              role="group"
-              aria-label="Filtrar por grupo muscular"
-            >
-              <button
-                onClick={() => setSelectedMuscleGroup(null)}
-                className="text-xs font-semibold rounded-btn border"
-                style={{
-                  height: '26px',
-                  padding: '0 10px',
-                  cursor: 'pointer',
-                  backgroundColor: selectedMuscleGroup === null ? 'var(--neon-green)' : 'var(--bg-elevated)',
-                  color: selectedMuscleGroup === null ? 'var(--bg)' : 'var(--text-muted)',
-                  borderColor: selectedMuscleGroup === null ? 'var(--neon-green)' : 'var(--border)',
-                }}
-              >
-                Todos
-              </button>
-              {muscleGroups.map((mg) => (
-                <button
-                  key={mg}
-                  onClick={() => setSelectedMuscleGroup(mg)}
-                  className="text-xs font-semibold rounded-btn border"
-                  style={{
-                    height: '26px',
-                    padding: '0 10px',
-                    cursor: 'pointer',
-                    backgroundColor: selectedMuscleGroup === mg ? 'var(--neon-green)' : 'var(--bg-elevated)',
-                    color: selectedMuscleGroup === mg ? 'var(--bg)' : 'var(--text-muted)',
-                    borderColor: selectedMuscleGroup === mg ? 'var(--neon-green)' : 'var(--border)',
-                  }}
-                >
-                  {mg}
-                </button>
-              ))}
-            </div>
-          )}
-
-          {isPickerLoading ? (
-            <p className="text-xs italic text-muted">Cargando ejercicios…</p>
-          ) : isPickerError ? (
-            <p className="text-xs text-danger">
-              No se pudo cargar el catálogo de ejercicios. Inténtalo de nuevo.
-            </p>
-          ) : available.length === 0 ? (
-            <p className="text-xs italic text-muted">
-              Todos los ejercicios ya están añadidos.
-            </p>
-          ) : (
-            <select
-              onChange={handleSelect}
-              disabled={addMutation.isPending}
-              defaultValue=""
-              className="w-full text-sm rounded-input border border-border disabled:opacity-60"
-              style={{ height: '40px', padding: '0 10px' }}
-              aria-label="Selecciona un ejercicio"
-            >
-              <option value="" disabled>
-                {addMutation.isPending ? 'Añadiendo…' : 'Selecciona un ejercicio'}
-              </option>
-              {[...groups.entries()].map(([muscleGroup, exercises]) => (
-                <optgroup key={muscleGroup} label={muscleGroup}>
-                  {exercises.map((exercise) => (
-                    <option key={exercise.id} value={exercise.id}>
-                      {exercise.name}
-                    </option>
-                  ))}
-                </optgroup>
-              ))}
-            </select>
-          )}
-
-        </div>
-      )}
-
-      {addMutation.isError && (
-        <p className="mb-2 text-xs text-danger">
-          No se pudo añadir el ejercicio. Inténtalo de nuevo.
-        </p>
-      )}
       {removeMutation.isError && (
         <p className="mb-2 text-xs text-danger">
           No se pudo eliminar el ejercicio. Inténtalo de nuevo.

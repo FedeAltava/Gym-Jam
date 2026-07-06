@@ -11,6 +11,7 @@ import { DashboardPage } from './pages/DashboardPage';
 import { NewWorkoutPage } from './pages/NewWorkoutPage';
 import { WorkoutDetailPage } from './pages/WorkoutDetailPage';
 import { WorkoutSessionPage } from './pages/WorkoutSessionPage';
+import { AddExercisesPage } from './pages/AddExercisesPage';
 import { ProfilePage } from './pages/ProfilePage';
 
 export default function App() {
@@ -35,6 +36,7 @@ export default function App() {
             <Route path="workouts/new" element={<NewWorkoutPage />} />
             <Route path="workouts/:id" element={<WorkoutDetailPage />} />
             <Route path="workouts/:workoutId/session/:dayId" element={<WorkoutSessionPage />} />
+            <Route path="workouts/:workoutId/days/:day/add-exercises" element={<AddExercisesPage />} />
             <Route path="profile" element={<ProfilePage />} />
           </Route>
           <Route path="*" element={<Navigate to="/dashboard" replace />} />
