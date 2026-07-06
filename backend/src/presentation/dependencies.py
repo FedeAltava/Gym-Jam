@@ -22,8 +22,6 @@ from backend.src.application.services.token_issuer import TokenIssuer
 from backend.src.application.use_cases.create_workout import CreateWorkoutUseCase
 from backend.src.application.use_cases.logout import LogoutUseCase
 from backend.src.application.use_cases.refresh_session import RefreshSessionUseCase
-from backend.src.application.use_cases.create_exercise import CreateExerciseUseCase
-from backend.src.application.use_cases.delete_exercise import DeleteExerciseUseCase
 from backend.src.application.use_cases.list_exercises import ListExercisesUseCase
 from backend.src.application.use_cases.add_training_day import AddTrainingDayUseCase
 from backend.src.application.use_cases.remove_training_day import RemoveTrainingDayUseCase
@@ -129,18 +127,6 @@ def get_list_exercises_uc(
     exercise_repo: SqlAlchemyExerciseRepository = Depends(get_exercise_repository),
 ) -> ListExercisesUseCase:
     return ListExercisesUseCase(exercise_repo)
-
-
-def get_create_exercise_uc(
-    exercise_repo: SqlAlchemyExerciseRepository = Depends(get_exercise_repository),
-) -> CreateExerciseUseCase:
-    return CreateExerciseUseCase(exercise_repo)
-
-
-def get_delete_exercise_uc(
-    exercise_repo: SqlAlchemyExerciseRepository = Depends(get_exercise_repository),
-) -> DeleteExerciseUseCase:
-    return DeleteExerciseUseCase(exercise_repo)
 
 
 def get_create_workout_uc(repo: SqlAlchemyWorkoutRepository = Depends(get_workout_repository)) -> CreateWorkoutUseCase:

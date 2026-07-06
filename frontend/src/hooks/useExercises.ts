@@ -15,33 +15,6 @@ export function useExercises(muscleGroup?: string) {
   });
 }
 
-interface CreateExercisePayload {
-  name: string;
-  muscle_group: string;
-  is_bodyweight?: boolean;
-}
-
-export function useCreateExercise() {
-  const qc = useQueryClient();
-  return useMutation({
-    mutationFn: (payload: CreateExercisePayload) =>
-      apiFetch<ExerciseResponse>('/exercises', {
-        method: 'POST',
-        body: JSON.stringify(payload),
-      }),
-    onSuccess: () => qc.invalidateQueries({ queryKey: ['exercises'] }),
-  });
-}
-
-export function useDeleteExercise() {
-  const qc = useQueryClient();
-  return useMutation({
-    mutationFn: (exerciseId: string) =>
-      apiFetch<void>(`/exercises/${exerciseId}`, { method: 'DELETE' }),
-    onSuccess: () => qc.invalidateQueries({ queryKey: ['exercises'] }),
-  });
-}
-
 interface AddExercisePayload {
   day: string;
   exerciseId: string;

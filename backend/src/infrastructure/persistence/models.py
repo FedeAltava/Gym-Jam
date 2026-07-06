@@ -32,12 +32,10 @@ class RefreshTokenModel(Base):
 
 class ExerciseModel(Base):
     __tablename__ = "exercises"
-    __table_args__ = (Index("ix_exercises_owner_id", "owner_id"),)
     id: Mapped[str] = mapped_column(String(100), primary_key=True)
     name: Mapped[str] = mapped_column(String(100), nullable=False)
     muscle_group: Mapped[str] = mapped_column(String(50), nullable=False)
     is_bodyweight: Mapped[bool] = mapped_column(Boolean, nullable=False, server_default="false")
-    owner_id: Mapped[str | None] = mapped_column(String(36), ForeignKey("users.id"), nullable=True)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=lambda: datetime.now(UTC))
 
 

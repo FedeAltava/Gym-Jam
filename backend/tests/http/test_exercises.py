@@ -19,18 +19,10 @@ async def test_list_exercises_items_have_expected_fields(client):
     r = await client.get("/exercises")
     assert r.status_code == 200
     first = r.json()[0]
-    assert set(first.keys()) == {"id", "name", "muscle_group", "is_bodyweight", "is_custom"}
+    assert set(first.keys()) == {"id", "name", "muscle_group", "is_bodyweight"}
 
 
-# 2b. GET /exercises — seeded exercises are not custom
-async def test_list_exercises_seeded_exercises_not_custom(client):
-    r = await client.get("/exercises")
-    assert r.status_code == 200
-    for item in r.json():
-        assert item["is_custom"] is False
-
-
-# 2c. GET /exercises — bodyweight exercises are flagged in the catalog
+# 2b. GET /exercises — bodyweight exercises are flagged in the catalog
 async def test_list_exercises_marks_bodyweight_exercises(client):
     r = await client.get("/exercises")
     assert r.status_code == 200
@@ -100,101 +92,3 @@ async def test_list_exercises_filter_nonexistent_group_returns_empty(client):
     r = await client.get("/exercises?muscle_group=NonExistent")
     assert r.status_code == 200
     assert r.json() == []
-
-
-# --- Custom exercise CRUD ---
-
-
-async def test_create_exercise_returns_201_with_is_custom_true(client):
-    r = await client.post("/exercises", json={"name": "Mi ejercicio", "muscle_group": "Pecho"})
-    assert r.status_code == 201
-    data = r.json()
-    assert data["name"] == "Mi ejercicio"
-    assert data["muscle_group"] == "Pecho"
-    assert data["is_bodyweight"] is False
-    assert data["is_custom"] is True
-
-
-async def test_create_exercise_bodyweight_flag(client):
-    r = await client.post(
-        "/exercises",
-        json={"name": "Dragon Flag", "muscle_group": "Core", "is_bodyweight": True},
-    )
-    assert r.status_code == 201
-    data = r.json()
-    assert data["is_bodyweight"] is True
-    assert data["is_custom"] is True
-
-
-async def test_create_exercise_appears_in_list(client):
-    r = await client.post("/exercises", json={"name": "Custom Pull", "muscle_group": "Espalda"})
-    assert r.status_code == 201
-    created_id = r.json()["id"]
-
-    r = await client.get("/exercises")
-    ids = [item["id"] for item in r.json()]
-    assert created_id in ids
-
-
-async def test_create_exercise_not_visible_to_other_user(client, client_user2):
-    r = await client.post("/exercises", json={"name": "My Private Exercise", "muscle_group": "Pecho"})
-    assert r.status_code == 201
-    created_id = r.json()["id"]
-
-    r2 = await client_user2.get("/exercises")
-    ids = [item["id"] for item in r2.json()]
-    assert created_id not in ids
-
-
-async def test_delete_custom_exercise_returns_204(client):
-    r = await client.post("/exercises", json={"name": "Temp Exercise", "muscle_group": "Pecho"})
-    assert r.status_code == 201
-    eid = r.json()["id"]
-
-    r = await client.delete(f"/exercises/{eid}")
-    assert r.status_code == 204
-
-    r = await client.get("/exercises")
-    ids = [item["id"] for item in r.json()]
-    assert eid not in ids
-
-
-async def test_delete_exercise_not_found_returns_404(client):
-    r = await client.delete("/exercises/nonexistent-id")
-    assert r.status_code == 404
-
-
-async def test_delete_global_exercise_returns_403(client):
-    r = await client.delete("/exercises/bench-press")
-    assert r.status_code == 403
-
-
-async def test_delete_exercise_owned_by_other_user_returns_403(client, client_user2):
-    r = await client.post("/exercises", json={"name": "User1 Exercise", "muscle_group": "Pecho"})
-    assert r.status_code == 201
-    eid = r.json()["id"]
-
-    r2 = await client_user2.delete(f"/exercises/{eid}")
-    assert r2.status_code == 403
-
-
-async def test_delete_exercise_in_use_returns_409(client):
-    r = await client.post("/exercises", json={"name": "In Use Exercise", "muscle_group": "Espalda"})
-    assert r.status_code == 201
-    eid = r.json()["id"]
-
-    r = await client.post("/workouts", json={"name": "Test W", "training_days": ["FRIDAY"]})
-    wid = r.json()["id"]
-    r = await client.post(
-        f"/workouts/{wid}/training-days/FRIDAY/exercises",
-        json={"exercise_id": eid},
-    )
-    assert r.status_code == 201
-
-    r = await client.delete(f"/exercises/{eid}")
-    assert r.status_code == 409
-
-
-async def test_create_exercise_requires_auth(auth_client):
-    r = await auth_client.post("/exercises", json={"name": "No auth", "muscle_group": "Pecho"})
-    assert r.status_code == 401

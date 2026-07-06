@@ -16,7 +16,6 @@ class ExerciseDTO:
     name: str
     muscle_group: str
     is_bodyweight: bool
-    owner_id: str | None = None
 
     @classmethod
     def from_entity(cls, exercise: Exercise) -> "ExerciseDTO":
@@ -25,7 +24,6 @@ class ExerciseDTO:
             name=exercise.name,
             muscle_group=exercise.muscle_group,
             is_bodyweight=exercise.is_bodyweight,
-            owner_id=exercise.owner_id,
         )
 
 
