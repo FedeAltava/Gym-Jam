@@ -2,9 +2,7 @@ import { useState, useRef, useEffect } from 'react';
 import type { KeyboardEvent } from 'react';
 import { useParams, Link, useNavigate } from 'react-router-dom';
 import { ArrowLeft, Plus, X, Play, ChevronDown, ChevronUp, Pencil, Trash2 } from 'lucide-react';
-import { useQueryClient } from '@tanstack/react-query';
-import { useWorkout, useDeleteWorkout, useReorderTrainingDays } from '../hooks/useWorkouts';
-import { apiFetch } from '../lib/api';
+import { useWorkout, useDeleteWorkout, useReorderTrainingDays, useRenameWorkout } from '../hooks/useWorkouts';
 import { useExercises, useRemoveExercise } from '../hooks/useExercises';
 import {
   useSessionsForDay,
@@ -300,12 +298,12 @@ export function WorkoutDetailPage() {
   } = useExercises();
   const deleteMutation = useDeleteWorkout();
   const reorderDaysMutation = useReorderTrainingDays(id ?? '');
+  const renameMutation = useRenameWorkout(id ?? '');
   const [confirmDelete, setConfirmDelete] = useState(false);
 
   // Rename state
   const [isRenaming, setIsRenaming] = useState(false);
   const [renameValue, setRenameValue] = useState('');
-  const [renamePending, setRenamePending] = useState(false);
   const [renameError, setRenameError] = useState<string | null>(null);
   const renameInputRef = useRef<HTMLInputElement>(null);
 
@@ -327,27 +325,18 @@ export function WorkoutDetailPage() {
     setRenameError(null);
   }
 
-  async function commitRename() {
-    if (!id || renamePending) return;
+  function commitRename() {
+    if (!id || renameMutation.isPending) return;
     const trimmed = renameValue.trim();
     if (!trimmed) {
       setRenameError('El nombre no puede estar vacío.');
       return;
     }
-    setRenamePending(true);
     setRenameError(null);
-    try {
-      await apiFetch(`/workouts/${id}`, {
-        method: 'PATCH',
-        body: JSON.stringify({ name: trimmed }),
-      });
-      await qc.invalidateQueries({ queryKey: ['workouts', id] });
-      setIsRenaming(false);
-    } catch {
-      setRenameError('No se pudo renombrar. Inténtalo de nuevo.');
-    } finally {
-      setRenamePending(false);
-    }
+    renameMutation.mutate(trimmed, {
+      onSuccess: () => setIsRenaming(false),
+      onError: () => setRenameError('No se pudo renombrar. Inténtalo de nuevo.'),
+    });
   }
 
   function handleRenameKeyDown(e: KeyboardEvent<HTMLInputElement>) {
@@ -387,22 +376,22 @@ export function WorkoutDetailPage() {
                 value={renameValue}
                 onChange={(e) => setRenameValue(e.target.value)}
                 onKeyDown={handleRenameKeyDown}
-                disabled={renamePending}
+                disabled={renameMutation.isPending}
                 className="font-bold text-2xl text-text rounded-input border border-border bg-bg-elevated"
                 style={{ padding: '2px 8px', minWidth: '0', flex: '1 1 0' }}
                 aria-label="Nuevo nombre del entrenamiento"
               />
               <button
-                onClick={() => void commitRename()}
-                disabled={renamePending}
+                onClick={commitRename}
+                disabled={renameMutation.isPending}
                 className="text-sm font-semibold rounded-btn bg-accent text-bg disabled:opacity-60"
                 style={{ height: '32px', padding: '0 10px', border: 'none', cursor: 'pointer', color: 'var(--bg)', backgroundColor: 'var(--neon-green)' }}
               >
-                {renamePending ? '…' : 'Guardar'}
+                {renameMutation.isPending ? '…' : 'Guardar'}
               </button>
               <button
                 onClick={cancelRename}
-                disabled={renamePending}
+                disabled={renameMutation.isPending}
                 className="text-sm font-semibold rounded-btn border border-border text-muted"
                 style={{ height: '32px', padding: '0 10px', backgroundColor: 'transparent', cursor: 'pointer' }}
               >

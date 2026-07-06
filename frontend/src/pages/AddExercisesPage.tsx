@@ -25,7 +25,7 @@ export function AddExercisesPage() {
   const [selectedMuscleGroup, setSelectedMuscleGroup] = useState<string | null>(null);
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [isPending, setIsPending] = useState(false);
-  const [addError, setAddError] = useState(false);
+  const [addError, setAddError] = useState<string | null>(null);
 
   const { data: exercises, isLoading, isError } = useExercises();
   const { data: workout } = useQuery({
@@ -39,11 +39,16 @@ export function AddExercisesPage() {
 
   const catalog = exercises ?? [];
   const muscleGroups = [...new Set(catalog.map((e) => e.muscle_group))].sort();
-  const displayed = catalog.filter(
-    (e) =>
-      !usedIds.has(e.id) &&
-      (selectedMuscleGroup === null || e.muscle_group === selectedMuscleGroup),
-  );
+  const displayed = catalog
+    .filter(
+      (e) =>
+        !usedIds.has(e.id) &&
+        (selectedMuscleGroup === null || e.muscle_group === selectedMuscleGroup),
+    )
+    .sort((a, b) => {
+      const mg = a.muscle_group.localeCompare(b.muscle_group);
+      return mg !== 0 ? mg : a.name.localeCompare(b.name);
+    });
 
   function toggle(id: string) {
     setSelected((prev) => {
@@ -57,20 +62,35 @@ export function AddExercisesPage() {
   async function handleAdd() {
     if (!workoutId || !day || selected.size === 0 || isPending) return;
     setIsPending(true);
-    setAddError(false);
-    try {
-      for (const id of [...selected]) {
-        await apiFetch(`/workouts/${workoutId}/training-days/${day}/exercises`, {
+    setAddError(null);
+
+    const results = await Promise.allSettled(
+      [...selected].map((id) =>
+        apiFetch(`/workouts/${workoutId}/training-days/${day}/exercises`, {
           method: 'POST',
           body: JSON.stringify({ exercise_id: id }),
-        });
-      }
-      await queryClient.invalidateQueries({ queryKey: ['workouts', workoutId] });
+        }),
+      ),
+    );
+
+    const failed = results.filter((r) => r.status === 'rejected').length;
+    const succeeded = results.filter((r) => r.status === 'fulfilled').length;
+
+    await queryClient.invalidateQueries({ queryKey: ['workouts', workoutId] });
+
+    setIsPending(false);
+
+    if (failed === 0) {
       navigate(`/workouts/${workoutId}`);
-    } catch {
-      setAddError(true);
-    } finally {
-      setIsPending(false);
+    } else if (succeeded > 0) {
+      // Partial success: some exercises were added; navigate back and show error.
+      setAddError(
+        `Se añadieron ${succeeded} ejercicio${succeeded !== 1 ? 's' : ''}, pero ${failed} no se pudo${failed !== 1 ? 'n' : ''} añadir. Inténtalo de nuevo.`,
+      );
+      navigate(`/workouts/${workoutId}`);
+    } else {
+      // All failed: stay on page so the user can retry.
+      setAddError('No se pudieron añadir los ejercicios. Inténtalo de nuevo.');
     }
   }
 
@@ -131,7 +151,7 @@ export function AddExercisesPage() {
         </div>
       )}
 
-      <div className="pb-24">
+      <div className="pb-[140px] md:pb-24">
         {isLoading ? (
           <Spinner />
         ) : isError ? (
@@ -183,13 +203,11 @@ export function AddExercisesPage() {
       </div>
 
       <div
-        className="fixed bottom-0 left-0 right-0 p-4 border-t border-border"
+        className="fixed bottom-[60px] md:bottom-0 left-0 right-0 p-4 border-t border-border"
         style={{ backgroundColor: 'var(--bg)' }}
       >
         {addError && (
-          <p className="mb-2 text-xs text-danger">
-            No se pudieron añadir los ejercicios. Inténtalo de nuevo.
-          </p>
+          <p className="mb-2 text-xs text-danger">{addError}</p>
         )}
         <button
           onClick={() => void handleAdd()}

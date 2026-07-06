@@ -61,6 +61,18 @@ export function useDeleteWorkout() {
   });
 }
 
+export function useRenameWorkout(workoutId: string) {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (name: string) =>
+      apiFetch<WorkoutResponse>(`/workouts/${workoutId}`, {
+        method: 'PATCH',
+        body: JSON.stringify({ name }),
+      }),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ['workouts', workoutId] }),
+  });
+}
+
 export function useReorderTrainingDays(workoutId: string) {
   const qc = useQueryClient();
   return useMutation({

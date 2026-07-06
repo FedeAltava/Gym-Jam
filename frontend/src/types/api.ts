@@ -35,6 +35,7 @@ export interface TrainingDayResponse {
 
 export interface ExerciseLogResponse {
   id: string;
+  session_id: string;
   workout_exercise_id: string;
   set_number: number;
   reps_completed: number;

@@ -371,11 +371,15 @@ export function WorkoutSessionPage() {
     logs: import('../types/api').ExerciseLogResponse[];
   } | null>(null);
 
-  // Derive the active session: prefer a session started this visit, then fall
-  // back to any in_progress session already in the backend history. This avoids
-  // calling setState inside an effect.
+  // An in_progress session found in past history that the user has not yet
+  // explicitly chosen to resume or replace.
   const inProgressFromHistory = pastSessions?.find((s) => s.status === 'in_progress') ?? null;
-  const session = newSession ?? inProgressFromHistory;
+
+  // The active session is only set once the user makes a deliberate choice:
+  // - "Retomar" calls setNewSession(inProgressFromHistory)
+  // - "Nueva sesión" calls handleStart() which sets newSession on success
+  // - "Iniciar sesión" (no history) calls handleStart() directly
+  const session = newSession;
 
   const hasInProgress = session !== null;
 
@@ -433,7 +437,12 @@ export function WorkoutSessionPage() {
   // The catalog hook (useExercises) is not needed here — exercise names are
   // not included in WorkoutExerciseResponse. We show the exercise id as
   // fallback and order by `order` field.
-  const sortedExercises = [...day.exercises].sort((a, b) => a.order - b.order);
+  const sortedExercises = [...day.exercises].sort((a, b) => {
+    const mgA = exerciseById.get(a.exercise_id)?.muscle_group ?? '';
+    const mgB = exerciseById.get(b.exercise_id)?.muscle_group ?? '';
+    const mg = mgA.localeCompare(mgB);
+    return mg !== 0 ? mg : a.order - b.order;
+  });
 
   // Pre-fill placeholders from the most recent completed session for this
   // training day (any calendar date). Falls back to plan values if no history.
@@ -466,8 +475,73 @@ export function WorkoutSessionPage() {
           whether there is an in_progress session to resume. */}
       {!session && sessionsLoading && <Spinner />}
 
-      {/* Pre-start state — only when there is NO in_progress session */}
-      {!session && !sessionsLoading && !hasInProgress && (
+      {/* Resume confirmation — shown when there is an in_progress session from
+          a previous visit and the user has not yet chosen what to do. */}
+      {!newSession && inProgressFromHistory && !sessionsLoading && (
+        <div
+          className="rounded-card border border-border bg-surface p-4 mb-4"
+          role="alert"
+        >
+          <p className="text-sm font-semibold text-text mb-1">
+            Sesión en progreso del{' '}
+            {new Date(inProgressFromHistory.started_at).toLocaleDateString('es', {
+              day: 'numeric',
+              month: 'short',
+              year: 'numeric',
+            })}
+          </p>
+          <p className="text-xs text-muted mb-3">
+            ¿Deseas retomarla o iniciar una nueva sesión?
+          </p>
+          <div className="flex gap-2">
+            <button
+              onClick={() =>
+                setNewSession({
+                  id: inProgressFromHistory.id,
+                  status: inProgressFromHistory.status,
+                  logs: inProgressFromHistory.logs,
+                })
+              }
+              className="text-sm font-semibold rounded-btn"
+              style={{
+                height: '36px',
+                padding: '0 16px',
+                border: 'none',
+                cursor: 'pointer',
+                backgroundColor: 'var(--neon-green)',
+                color: 'var(--bg)',
+              }}
+            >
+              Retomar
+            </button>
+            <button
+              onClick={handleStart}
+              disabled={startSession.isPending}
+              className="text-sm font-semibold rounded-btn disabled:opacity-60"
+              style={{
+                height: '36px',
+                padding: '0 16px',
+                cursor: 'pointer',
+                backgroundColor: 'transparent',
+                border: '1px solid var(--border)',
+                color: 'var(--text)',
+              }}
+            >
+              {startSession.isPending ? 'Iniciando…' : 'Nueva sesión'}
+            </button>
+          </div>
+          {startSession.isError && (
+            <p className="mt-2 text-xs text-danger">
+              {(startSession.error as Error).message}
+            </p>
+          )}
+        </div>
+      )}
+
+      {/* Pre-start state — only when there is no in_progress history and no
+          active session. When inProgressFromHistory exists, the confirmation
+          banner above handles user choice instead. */}
+      {!newSession && !sessionsLoading && !inProgressFromHistory && (
         <div className="rounded-card border-2 border-dashed border-border p-8 text-center">
           <p className="text-sm text-muted mb-4">
             {day.exercises.length === 0
