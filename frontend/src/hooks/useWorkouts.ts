@@ -87,3 +87,18 @@ export function useReorderTrainingDays(workoutId: string) {
     onSuccess: () => qc.invalidateQueries({ queryKey: ['workouts', workoutId] }),
   });
 }
+
+export function useSetWorkoutActive(workoutId: string) {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (isActive: boolean) =>
+      apiFetch<WorkoutResponse>(`/workouts/${workoutId}/active`, {
+        method: 'PATCH',
+        body: JSON.stringify({ is_active: isActive }),
+      }),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['workouts', workoutId] });
+      qc.invalidateQueries({ queryKey: ['workouts'] });
+    },
+  });
+}

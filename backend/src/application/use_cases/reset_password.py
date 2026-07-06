@@ -10,13 +10,13 @@ from returns.result import Failure, Result, Success
 from backend.src.application.errors import ApplicationError, DomainViolationError
 from backend.src.infrastructure.auth.password import hash_password
 from backend.src.infrastructure.persistence.models import PasswordResetTokenModel, RefreshTokenModel
-from backend.src.infrastructure.persistence.user_repository import SqlAlchemyUserRepository
+from backend.src.domain.repositories.user_repository import UserRepository
 
 _INVALID_TOKEN_MSG = "Invalid or expired reset token"
 
 
 class ResetPasswordUseCase:
-    def __init__(self, user_repo: SqlAlchemyUserRepository) -> None:
+    def __init__(self, user_repo: UserRepository) -> None:
         self._user_repo = user_repo
 
     async def execute(self, raw_token: str, new_password: str, session: AsyncSession) -> Result[None, ApplicationError]:

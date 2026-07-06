@@ -2,7 +2,7 @@ import { useState, useRef, useEffect } from 'react';
 import type { KeyboardEvent } from 'react';
 import { useParams, Link, useNavigate } from 'react-router-dom';
 import { ArrowLeft, Plus, X, Play, ChevronDown, ChevronUp, Pencil, Trash2 } from 'lucide-react';
-import { useWorkout, useDeleteWorkout, useReorderTrainingDays, useRenameWorkout } from '../hooks/useWorkouts';
+import { useWorkout, useDeleteWorkout, useReorderTrainingDays, useRenameWorkout, useSetWorkoutActive } from '../hooks/useWorkouts';
 import { useExercises, useRemoveExercise } from '../hooks/useExercises';
 import {
   useSessionsForDay,
@@ -298,6 +298,7 @@ export function WorkoutDetailPage() {
   const deleteMutation = useDeleteWorkout();
   const reorderDaysMutation = useReorderTrainingDays(id ?? '');
   const renameMutation = useRenameWorkout(id ?? '');
+  const setActiveMutation = useSetWorkoutActive(id ?? '');
   const [confirmDelete, setConfirmDelete] = useState(false);
 
   // Rename state
@@ -408,17 +409,29 @@ export function WorkoutDetailPage() {
               >
                 <Pencil size={15} />
               </button>
-              {workout.is_active && (
-                <span
-                  className="text-xs font-semibold px-2 py-0.5 rounded-full text-accent"
-                  style={{
-                    backgroundColor: 'rgba(0, 255, 135, 0.1)',
-                    border: '1px solid rgba(0, 255, 135, 0.3)',
-                  }}
-                >
-                  Activo
-                </span>
-              )}
+              <button
+                onClick={() => setActiveMutation.mutate(!workout.is_active)}
+                disabled={setActiveMutation.isPending}
+                className="text-xs font-semibold px-2 py-0.5 rounded-full transition-opacity hover:opacity-80 disabled:opacity-50"
+                style={
+                  workout.is_active
+                    ? {
+                        backgroundColor: 'rgba(0, 255, 135, 0.1)',
+                        border: '1px solid rgba(0, 255, 135, 0.3)',
+                        color: 'var(--color-accent)',
+                        cursor: 'pointer',
+                      }
+                    : {
+                        backgroundColor: 'rgba(128, 128, 128, 0.1)',
+                        border: '1px solid rgba(128, 128, 128, 0.3)',
+                        color: 'var(--color-muted)',
+                        cursor: 'pointer',
+                      }
+                }
+                aria-label={workout.is_active ? 'Desactivar entrenamiento' : 'Activar entrenamiento'}
+              >
+                {workout.is_active ? 'Activo' : 'Inactivo'}
+              </button>
             </div>
           )}
           {renameError && (
