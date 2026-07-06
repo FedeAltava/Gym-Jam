@@ -37,7 +37,7 @@ jobs:
       - name: ESLint
         run: npm run lint
       - name: TypeScript
-        run: npx tsc --noEmit
+        run: npm run typecheck
 
   test-backend:
     name: Backend tests
