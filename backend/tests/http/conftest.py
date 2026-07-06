@@ -5,7 +5,7 @@ from httpx import AsyncClient, ASGITransport
 from sqlalchemy.ext.asyncio import create_async_engine, async_sessionmaker, AsyncSession
 
 from backend.src.infrastructure.persistence.exercise_seed import EXERCISE_SEED
-from backend.src.infrastructure.persistence.models import Base, ExerciseModel
+from backend.src.infrastructure.persistence.models import Base, ExerciseModel, UserModel
 from backend.src.infrastructure.database import get_session
 from backend.src.presentation.dependencies import get_current_user_id
 from backend.src.main import create_app
@@ -25,6 +25,24 @@ async def create_tables(engine):
         # Tests build the schema with metadata.create_all, so the catalog seed
         # from migration 003 never runs here — insert the standard seed once.
         await conn.execute(sqlalchemy.insert(ExerciseModel), EXERCISE_SEED)
+        # Seed stub users for fixtures that bypass auth via dependency override.
+        # These users are never authenticated through the normal flow; the
+        # hashed_password value is intentionally a placeholder.
+        await conn.execute(
+            sqlalchemy.insert(UserModel),
+            [
+                {
+                    "id": "00000000-0000-0000-0000-000000000001",
+                    "email": "testuser1@example.com",
+                    "hashed_password": "$stub$",
+                },
+                {
+                    "id": "00000000-0000-0000-0000-000000000002",
+                    "email": "testuser2@example.com",
+                    "hashed_password": "$stub$",
+                },
+            ],
+        )
     yield
     async with engine.begin() as conn:
         await conn.run_sync(Base.metadata.drop_all)
@@ -37,7 +55,7 @@ async def session(engine, create_tables) -> AsyncGenerator[AsyncSession, None]:
     # between tests — instead, each test creates its own uniquely named data.
     # The session-scoped engine uses a single :memory: database so tables persist.
     async with engine.connect() as conn:
-        await conn.execute(sqlalchemy.text("PRAGMA foreign_keys=OFF"))
+        await conn.execute(sqlalchemy.text("PRAGMA foreign_keys=ON"))
         session_factory = async_sessionmaker(conn, class_=AsyncSession, expire_on_commit=False)
         async with session_factory() as s:
             yield s
