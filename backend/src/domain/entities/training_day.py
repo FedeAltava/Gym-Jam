@@ -60,7 +60,7 @@ class TrainingDay:
             if ex.exercise_id == exercise_id:
                 raise DuplicateExerciseInDayError(exercise_id=exercise_id, day=self.day.value)
         ex_id = workout_exercise_id or WorkoutExerciseId.generate()
-        order = len(self._exercises) + 1
+        order = (max(ex.order for ex in self._exercises) + 1) if self._exercises else 1
         exercise = WorkoutExercise(
             id=ex_id,
             workout_id=self.workout_id,
