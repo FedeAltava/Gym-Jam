@@ -185,21 +185,22 @@ async def test_log_set_reps_zero_returns_422(client) -> None:
     assert r2.status_code == 422
 
 
-# ── 8. Log set — set_number exceeds plan → DomainViolation 422 ──────────────
+# ── 8. Log extra set beyond plan — now allowed ───────────────────────────────
 
-async def test_log_set_exceeds_plan_returns_422(client) -> None:
+async def test_log_extra_set_beyond_plan_returns_201(client) -> None:
     wid, day_id = await create_workout_with_day(client, "SATURDAY")
     ex_id = await add_exercise_to_day(client, wid, "SATURDAY", "deadlift")
 
     r = await client.post(f"/workouts/{wid}/days/{day_id}/sessions", json={})
     session_id = r.json()["id"]
 
-    # Exercise has sets=3; set_number=4 should fail
+    # Exercise has sets=3; set_number=4 is now an allowed extra set
     r2 = await client.post(
         f"/sessions/{session_id}/logs",
         json={"workout_exercise_id": ex_id, "set_number": 4, "reps_completed": 5, "weight_kg": 50.0},
     )
-    assert r2.status_code == 422
+    assert r2.status_code == 201
+    assert r2.json()["set_number"] == 4
 
 
 # ── 9. Log set — duplicate → 409 ─────────────────────────────────────────────

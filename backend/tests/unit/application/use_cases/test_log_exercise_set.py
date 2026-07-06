@@ -175,7 +175,7 @@ async def test_log_set_unauthorized(
     assert isinstance(result.failure(), UnauthorizedError)
 
 
-async def test_log_set_exceeds_plan(
+async def test_log_extra_set_beyond_plan_succeeds(
     use_case: LogExerciseSetUseCase,
     workout_repo: InMemoryWorkoutRepository,
     session_repo: InMemorySessionRepository,
@@ -186,13 +186,13 @@ async def test_log_set_exceeds_plan(
         user_id="user-1",
         session_id=str(session.id.value),
         workout_exercise_id=ex_id,
-        set_number=4,  # exceeds 3
+        set_number=4,  # beyond plan — now allowed
         reps_completed=10,
-        weight_kg=None,
+        weight_kg=80.0,
     )
     result = await use_case.execute(cmd)
-    assert isinstance(result, Failure)
-    assert isinstance(result.failure(), SetExceedsPlanError)  # SetExceedsPlan → 422
+    assert isinstance(result, Success)
+    assert result.unwrap().set_number == 4
 
 
 async def test_log_set_duplicate(

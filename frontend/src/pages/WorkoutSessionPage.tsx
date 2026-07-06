@@ -237,6 +237,7 @@ interface ExerciseBlockProps {
   exercise: WorkoutExerciseResponse;
   exerciseName: string;
   logs: ExerciseLogResponse[];
+  lastSessionLogs: Map<string, ExerciseLogResponse>;
   workoutId: string;
   dayId: string;
   sessionCompleted: boolean;
@@ -247,11 +248,14 @@ function ExerciseBlock({
   exercise,
   exerciseName,
   logs,
+  lastSessionLogs,
   workoutId,
   dayId,
   sessionCompleted,
 }: ExerciseBlockProps) {
+  const [extraSets, setExtraSets] = useState(0);
   const logsBySet = new Map(logs.map((l) => [l.set_number, l]));
+  const totalSets = exercise.sets + extraSets;
 
   return (
     <div className="rounded-card border border-border bg-surface p-4">
@@ -263,24 +267,36 @@ function ExerciseBlock({
         </p>
       </div>
       <div className="space-y-1">
-        {Array.from({ length: exercise.sets }, (_, i) => i + 1).map(
-          (setNum) => (
-            <SetRow
-              key={setNum}
-              sessionId={sessionId}
-              exercise={exercise}
-              exerciseName={exerciseName}
-              setNumber={setNum}
-              suggestedReps={exercise.reps_per_set}
-              suggestedWeight={exercise.weight_kg}
-              existingLog={logsBySet.get(setNum)}
-              workoutId={workoutId}
-              dayId={dayId}
-              sessionCompleted={sessionCompleted}
-            />
-          ),
+        {Array.from({ length: totalSets }, (_, i) => i + 1).map(
+          (setNum) => {
+            const lastLog = lastSessionLogs.get(`${exercise.id}:${setNum}`);
+            return (
+              <SetRow
+                key={setNum}
+                sessionId={sessionId}
+                exercise={exercise}
+                exerciseName={exerciseName}
+                setNumber={setNum}
+                suggestedReps={lastLog?.reps_completed ?? exercise.reps_per_set}
+                suggestedWeight={lastLog?.weight_kg ?? exercise.weight_kg}
+                existingLog={logsBySet.get(setNum)}
+                workoutId={workoutId}
+                dayId={dayId}
+                sessionCompleted={sessionCompleted}
+              />
+            );
+          },
         )}
       </div>
+      {!sessionCompleted && (
+        <button
+          onClick={() => setExtraSets((n) => n + 1)}
+          className="mt-2 text-xs text-muted"
+          style={{ background: 'none', border: 'none', cursor: 'pointer', padding: 0 }}
+        >
+          + Serie extra
+        </button>
+      )}
     </div>
   );
 }
@@ -395,6 +411,19 @@ export function WorkoutSessionPage() {
   // fallback and order by `order` field.
   const sortedExercises = [...day.exercises].sort((a, b) => a.order - b.order);
 
+  // Pre-fill placeholders from the most recent completed session for this
+  // training day (any calendar date). Falls back to plan values if no history.
+  const lastCompletedSession = (pastSessions ?? [])
+    .filter((s) => s.status === 'completed')
+    .sort((a, b) => new Date(b.started_at).getTime() - new Date(a.started_at).getTime())[0];
+
+  const lastSessionLogs = new Map(
+    (lastCompletedSession?.logs ?? []).map((l) => [
+      `${l.workout_exercise_id}:${l.set_number}`,
+      l,
+    ]),
+  );
+
   return (
     <div>
       <Link
@@ -465,6 +494,7 @@ export function WorkoutSessionPage() {
                   exercise={exercise}
                   exerciseName={exerciseById.get(exercise.exercise_id)?.name ?? exercise.exercise_id}
                   logs={exerciseLogs}
+                  lastSessionLogs={lastSessionLogs}
                   workoutId={workoutId}
                   dayId={dayId}
                   sessionCompleted={session.status === 'completed'}
