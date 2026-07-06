@@ -16,7 +16,7 @@ from backend.src.application.errors import (
 from backend.src.application.use_cases.add_exercise_to_workout import AddExerciseToWorkoutUseCase
 from backend.src.domain.aggregates.workout import Workout
 from backend.src.domain.entities.exercise import Exercise
-from backend.src.domain.value_objects import DayOfWeek, WorkoutId
+from backend.src.domain.value_objects import DayOfWeek
 from backend.tests.unit.application.use_cases.in_memory_exercise_repository import (
     InMemoryExerciseRepository,
 )

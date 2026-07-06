@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 import { useParams, useNavigate, Link } from 'react-router-dom';
 import { ArrowLeft, CheckCircle2 } from 'lucide-react';
 import { useWorkout } from '../hooks/useWorkouts';
@@ -39,7 +39,6 @@ interface SetRowProps {
 function SetRow({
   sessionId,
   exercise,
-  exerciseName: _exerciseName,
   setNumber,
   suggestedReps,
   suggestedWeight,
@@ -364,29 +363,21 @@ export function WorkoutSessionPage() {
     dayId,
   );
 
-  // Active session held in local state — resumed from the backend if an
-  // in_progress session exists, otherwise created on "Iniciar sesión".
-  const [session, setSession] = useState<{
+  // Tracks a session created during this page visit (after "Iniciar sesión").
+  // null = no new session started yet this visit.
+  const [newSession, setNewSession] = useState<{
     id: string;
     status: 'in_progress' | 'completed';
     logs: import('../types/api').ExerciseLogResponse[];
   } | null>(null);
 
-  // Seed local state from the fetched in_progress session (resume, not restart).
-  useEffect(() => {
-    if (session !== null || !pastSessions) return;
-    const inProgress = pastSessions.find((s) => s.status === 'in_progress');
-    if (inProgress) {
-      setSession({
-        id: inProgress.id,
-        status: inProgress.status,
-        logs: inProgress.logs,
-      });
-    }
-  }, [pastSessions, session]);
+  // Derive the active session: prefer a session started this visit, then fall
+  // back to any in_progress session already in the backend history. This avoids
+  // calling setState inside an effect.
+  const inProgressFromHistory = pastSessions?.find((s) => s.status === 'in_progress') ?? null;
+  const session = newSession ?? inProgressFromHistory;
 
-  const hasInProgress =
-    pastSessions?.some((s) => s.status === 'in_progress') ?? false;
+  const hasInProgress = session !== null;
 
   if (workoutLoading) return <Spinner />;
   if (workoutError || !workout)
@@ -416,7 +407,7 @@ export function WorkoutSessionPage() {
       { workoutId, dayId },
       {
         onSuccess: (data) => {
-          setSession({
+          setNewSession({
             id: data.id,
             status: data.status,
             logs: data.logs,

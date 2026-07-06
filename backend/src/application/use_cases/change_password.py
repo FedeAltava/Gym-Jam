@@ -8,7 +8,7 @@ from returns.result import Failure, Result, Success
 
 from backend.src.application.errors import ApplicationError, DomainViolationError
 from backend.src.infrastructure.auth.password import hash_password, verify_password
-from backend.src.infrastructure.persistence.models import RefreshTokenModel, UserModel
+from backend.src.infrastructure.persistence.models import RefreshTokenModel
 from backend.src.infrastructure.persistence.user_repository import SqlAlchemyUserRepository
 
 

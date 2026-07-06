@@ -1,5 +1,4 @@
 """Tests for domain error hierarchy — FASE 2."""
-import pytest
 
 from backend.src.domain.errors.base import DomainError, TrainingDayError, WorkoutExerciseError
 from backend.src.domain.errors.training_day_errors import (

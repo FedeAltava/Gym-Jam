@@ -1,4 +1,3 @@
-import pytest
 
 from backend.src.infrastructure.persistence.exercise_seed import EXERCISE_SEED
 

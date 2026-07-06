@@ -1,5 +1,4 @@
 """HTTP tests for PUT /workouts/{id}/training-days/reorder."""
-import pytest
 
 
 async def _create_workout_with_days(client, name: str = "Reorder Days Test") -> dict:

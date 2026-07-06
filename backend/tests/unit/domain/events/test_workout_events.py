@@ -1,5 +1,4 @@
 """Tests for WorkoutCreatedEvent — FASE 3, Slice 1."""
-import dataclasses
 import uuid
 from datetime import datetime
 

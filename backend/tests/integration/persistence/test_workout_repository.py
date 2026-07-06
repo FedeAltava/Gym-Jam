@@ -1,5 +1,4 @@
 """Integration tests for SqlAlchemyWorkoutRepository — 17 tests."""
-import pytest
 from uuid import uuid4
 
 from backend.src.domain.aggregates.workout import Workout
@@ -7,8 +6,6 @@ from backend.src.domain.value_objects import (
     WorkoutId,
     WorkoutName,
     DayOfWeek,
-    TrainingDayId,
-    WorkoutExerciseId,
 )
 from backend.src.infrastructure.persistence.workout_repository import SqlAlchemyWorkoutRepository
 

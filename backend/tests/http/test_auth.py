@@ -1,13 +1,8 @@
-import hashlib
-import secrets
-import uuid
-from datetime import UTC, datetime, timedelta
 from unittest.mock import AsyncMock, patch
 
 import pytest
 
 from backend.src.infrastructure.rate_limiter import login_limiter, refresh_limiter, register_limiter
-from backend.src.infrastructure.persistence.models import PasswordResetTokenModel
 
 BASE = "/auth"
 

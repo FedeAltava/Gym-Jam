@@ -3,7 +3,7 @@ from __future__ import annotations
 
 import uuid
 
-from returns.result import Failure, Result, Success
+from returns.result import Result, Success
 
 from backend.src.application.commands import CreateExerciseCommand
 from backend.src.application.dtos import ExerciseDTO

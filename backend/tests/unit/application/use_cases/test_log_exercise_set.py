@@ -9,11 +9,9 @@ from returns.result import Failure, Success
 from backend.src.application.commands import LogExerciseSetCommand
 from backend.src.application.dtos import ExerciseLogDTO
 from backend.src.application.errors import (
-    DomainViolationError,
     SessionAlreadyCompletedError,
     SessionNotFoundError,
     SetAlreadyLoggedError,
-    SetExceedsPlanError,
     UnauthorizedError,
 )
 from backend.src.application.use_cases.log_exercise_set import LogExerciseSetUseCase

@@ -1,7 +1,6 @@
 """Tests for WorkoutExerciseId VO — FASE 1."""
 import uuid
 
-import pytest
 from returns.result import Failure, Success
 
 from backend.src.domain.value_objects.workout_exercise_id import (

@@ -8,7 +8,6 @@ from backend.src.domain.value_objects import (
     TrainingDayId,
     WorkoutExerciseId,
     WorkoutId,
-    WorkoutName,
 )
 
 

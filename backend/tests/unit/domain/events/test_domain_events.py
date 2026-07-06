@@ -4,7 +4,6 @@ from datetime import datetime
 
 import pytest
 
-from backend.src.domain.events.base import DomainEvent
 from backend.src.domain.events.training_day_events import (
     ExerciseAddedToDayEvent,
     ExerciseRemovedFromDayEvent,

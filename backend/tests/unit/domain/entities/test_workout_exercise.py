@@ -1,5 +1,4 @@
 """Tests for WorkoutExercise entity — RED phase."""
-import pytest
 
 from backend.src.domain.value_objects import DayOfWeek, WorkoutExerciseId, WorkoutId
 from backend.src.domain.entities.workout_exercise import WorkoutExercise

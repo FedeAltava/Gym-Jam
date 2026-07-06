@@ -3,11 +3,10 @@ from __future__ import annotations
 
 from datetime import UTC, datetime, timedelta
 
-import pytest
 
 from backend.src.domain.entities.workout_session import WorkoutSession
 from backend.src.domain.value_objects import TrainingDayId, WorkoutId, WorkoutSessionId
-from backend.src.infrastructure.persistence.models import TrainingDayModel, WorkoutModel, WorkoutSessionModel
+from backend.src.infrastructure.persistence.models import TrainingDayModel, WorkoutModel
 from backend.src.infrastructure.persistence.session_repository import SqlAlchemySessionRepository
 
 

@@ -14,7 +14,7 @@ from backend.src.application.use_cases.remove_exercise_from_workout import (
     RemoveExerciseFromWorkoutUseCase,
 )
 from backend.src.domain.aggregates.workout import Workout
-from backend.src.domain.value_objects import DayOfWeek, WorkoutId
+from backend.src.domain.value_objects import DayOfWeek
 from backend.tests.unit.application.use_cases.in_memory_workout_repository import (
     InMemoryWorkoutRepository,
 )

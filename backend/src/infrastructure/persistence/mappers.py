@@ -14,7 +14,6 @@ from backend.src.domain.value_objects import (
     ExerciseLogId,
     WorkoutSessionId,
 )
-from backend.src.domain.value_objects.training_day_id import TrainingDayId
 from backend.src.infrastructure.persistence.models import (
     WorkoutModel,
     WorkoutLogModel,

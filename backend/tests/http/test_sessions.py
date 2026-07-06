@@ -1,7 +1,6 @@
 """HTTP tests for session endpoints (T25)."""
 from __future__ import annotations
 
-import pytest
 
 
 # ── Helpers ──────────────────────────────────────────────────────────────────
