@@ -244,17 +244,17 @@ async def test_remove_training_day_cascades(session):
     assert DayOfWeek.SATURDAY not in days
 
 
-# ─── 14. no events after load ─────────────────────────────────────────────
+# ─── 14. training days load correctly ────────────────────────────────────
 
-async def test_workout_created_event_not_present_after_load(session):
+async def test_workout_training_days_load_correctly_after_save(session):
     repo = SqlAlchemyWorkoutRepository(session)
-    workout = _make_workout(name="Event Check")
+    workout = _make_workout(name="Load Check")
     await repo.save(workout)
 
     loaded = await repo.get_by_id(workout.id)
-    events = loaded.pull_events()
 
-    assert events == []
+    assert loaded is not None
+    assert loaded.id == workout.id
 
 
 # ─── 15. no N+1: eager loading works ─────────────────────────────────────

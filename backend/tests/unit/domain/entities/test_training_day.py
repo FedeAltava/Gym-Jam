@@ -14,10 +14,6 @@ from backend.src.domain.errors.workout_exercise_errors import (
     ExerciseNotFoundInDayError,
     ReorderMismatchError,
 )
-from backend.src.domain.events.training_day_events import (
-    ExerciseAddedToDayEvent,
-    ExerciseRemovedFromDayEvent,
-)
 
 
 # ---------------------------------------------------------------------------
@@ -83,19 +79,6 @@ class TestTrainingDayExercisesProperty:
 
 
 # ---------------------------------------------------------------------------
-# pull_events
-# ---------------------------------------------------------------------------
-
-class TestTrainingDayEvents:
-    def test_training_day_pull_events_clears_after_return(self) -> None:
-        td = _make_day()
-        td.add_exercise("ex-A")
-        events = td.pull_events()
-        assert len(events) == 1
-        assert td.pull_events() == []
-
-
-# ---------------------------------------------------------------------------
 # add_exercise
 # ---------------------------------------------------------------------------
 
@@ -115,24 +98,6 @@ class TestAddExercise:
         td = _make_day()
         result = td.add_exercise("ex-A")
         assert isinstance(result, WorkoutExercise)
-
-    def test_add_exercise_emits_exercise_added_event(self) -> None:
-        td = _make_day()
-        td.add_exercise("ex-A")
-        events = td.pull_events()
-        assert len(events) == 1
-        assert isinstance(events[0], ExerciseAddedToDayEvent)
-
-    def test_add_exercise_event_contains_correct_fields(self) -> None:
-        td = _make_day()
-        ex = td.add_exercise("ex-A")
-        events = td.pull_events()
-        evt = events[0]
-        assert isinstance(evt, ExerciseAddedToDayEvent)
-        assert evt.exercise_id == "ex-A"
-        assert evt.workout_exercise_id == str(ex.id.value)
-        assert evt.training_day_id == str(td.id.value)
-        assert evt.order == 1
 
     def test_add_exercise_raises_duplicate_error(self) -> None:
         td = _make_day()
@@ -154,30 +119,8 @@ class TestRemoveExercise:
     def test_remove_exercise_reduces_count(self) -> None:
         td = _make_day()
         ex = td.add_exercise("ex-A")
-        td.pull_events()  # clear
         td.remove_exercise(ex.id)
         assert len(td.exercises) == 0
-
-    def test_remove_exercise_emits_exercise_removed_event(self) -> None:
-        td = _make_day()
-        ex = td.add_exercise("ex-A")
-        td.pull_events()
-        td.remove_exercise(ex.id)
-        events = td.pull_events()
-        assert len(events) == 1
-        assert isinstance(events[0], ExerciseRemovedFromDayEvent)
-
-    def test_remove_exercise_event_contains_correct_fields(self) -> None:
-        td = _make_day()
-        ex = td.add_exercise("ex-A")
-        td.pull_events()
-        td.remove_exercise(ex.id)
-        events = td.pull_events()
-        evt = events[0]
-        assert isinstance(evt, ExerciseRemovedFromDayEvent)
-        assert evt.training_day_id == str(td.id.value)
-        assert evt.workout_exercise_id == str(ex.id.value)
-        assert evt.exercise_id == "ex-A"
 
     def test_remove_exercise_raises_not_found(self) -> None:
         td = _make_day()
@@ -188,7 +131,6 @@ class TestRemoveExercise:
         td = _make_day()
         ex_a = td.add_exercise("ex-A")
         td.add_exercise("ex-B")
-        td.pull_events()
         td.remove_exercise(ex_a.id)
         remaining = td.exercises
         assert len(remaining) == 1

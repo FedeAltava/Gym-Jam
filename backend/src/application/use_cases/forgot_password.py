@@ -10,16 +10,16 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from returns.result import Result, Success
 
 from backend.src.application.errors import ApplicationError
+from backend.src.domain.repositories.user_repository import UserRepository
 from backend.src.infrastructure.config import settings
 from backend.src.infrastructure.email.email_service import send_reset_email
 from backend.src.infrastructure.persistence.models import PasswordResetTokenModel
-from backend.src.infrastructure.persistence.user_repository import SqlAlchemyUserRepository
 
 logger = logging.getLogger(__name__)
 
 
 class ForgotPasswordUseCase:
-    def __init__(self, user_repo: SqlAlchemyUserRepository) -> None:
+    def __init__(self, user_repo: UserRepository) -> None:
         self._user_repo = user_repo
 
     async def execute(self, email: str, session: AsyncSession) -> Result[None, ApplicationError]:

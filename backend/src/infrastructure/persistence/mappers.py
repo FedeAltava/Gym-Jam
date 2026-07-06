@@ -60,7 +60,6 @@ class WorkoutMapper:
             is_active=model.is_active,
             created_at=model.created_at,
             _training_days=training_days,
-            _events=[],
         )
         return workout
 

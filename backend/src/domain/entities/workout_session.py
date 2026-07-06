@@ -84,6 +84,3 @@ class WorkoutSession:
     def complete(self) -> None:
         if self.completed_at is None:
             self.completed_at = datetime.now(UTC)
-
-    def pull_events(self) -> list:
-        return []

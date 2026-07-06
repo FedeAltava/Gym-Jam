@@ -1,10 +1,13 @@
 from __future__ import annotations
-from sqlalchemy.ext.asyncio import AsyncSession
+
 from sqlalchemy import select
+from sqlalchemy.ext.asyncio import AsyncSession
+
+from backend.src.domain.repositories.user_repository import UserRepository
 from backend.src.infrastructure.persistence.models import UserModel
 
 
-class SqlAlchemyUserRepository:
+class SqlAlchemyUserRepository(UserRepository):
     async def save(self, user: UserModel, session: AsyncSession) -> None:
         session.add(user)
         await session.flush()

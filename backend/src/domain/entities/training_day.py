@@ -9,11 +9,6 @@ from backend.src.domain.errors.workout_exercise_errors import (
     ExerciseNotFoundInDayError,
     ReorderMismatchError,
 )
-from backend.src.domain.events.base import DomainEvent
-from backend.src.domain.events.training_day_events import (
-    ExerciseAddedToDayEvent,
-    ExerciseRemovedFromDayEvent,
-)
 from backend.src.domain.value_objects import (
     DayOfWeek,
     TrainingDayId,
@@ -29,7 +24,6 @@ class TrainingDay:
     day: DayOfWeek
     order: int = 1
     _exercises: list[WorkoutExercise] = field(default_factory=list, repr=False)
-    _events: list[DomainEvent] = field(default_factory=list, repr=False)
 
     def __eq__(self, other: object) -> bool:
         if not isinstance(other, TrainingDay):
@@ -42,11 +36,6 @@ class TrainingDay:
     @property
     def exercises(self) -> list[WorkoutExercise]:
         return sorted(self._exercises, key=lambda e: e.order)
-
-    def pull_events(self) -> list[DomainEvent]:
-        events = list(self._events)
-        self._events.clear()
-        return events
 
     def add_exercise(
         self,
@@ -72,28 +61,12 @@ class TrainingDay:
             weight_kg=weight_kg,
         )
         self._exercises.append(exercise)
-        self._events.append(
-            ExerciseAddedToDayEvent(
-                training_day_id=str(self.id.value),
-                workout_exercise_id=str(ex_id.value),
-                exercise_id=exercise_id,
-                order=order,
-            )
-        )
         return exercise
 
     def remove_exercise(self, workout_exercise_id: WorkoutExerciseId) -> None:
         for i, ex in enumerate(self._exercises):
             if ex.id == workout_exercise_id:
-                exercise_id = ex.exercise_id
                 self._exercises.pop(i)
-                self._events.append(
-                    ExerciseRemovedFromDayEvent(
-                        training_day_id=str(self.id.value),
-                        workout_exercise_id=str(workout_exercise_id.value),
-                        exercise_id=exercise_id,
-                    )
-                )
                 return
         raise ExerciseNotFoundInDayError(workout_exercise_id=str(workout_exercise_id.value))
 

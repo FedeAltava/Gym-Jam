@@ -14,12 +14,6 @@ from backend.src.domain.errors.training_day_errors import (
     DayNotInWorkoutError,
 )
 from backend.src.domain.errors.workout_exercise_errors import ReorderMismatchError
-from backend.src.domain.events.base import DomainEvent
-from backend.src.domain.events.training_day_events import (
-    TrainingDayAddedEvent,
-    TrainingDayRemovedEvent,
-)
-from backend.src.domain.events.workout_events import WorkoutCreatedEvent
 from backend.src.domain.value_objects import (
     DayOfWeek,
     TrainingDayId,
@@ -39,7 +33,6 @@ class Workout:
     is_active: bool
     created_at: datetime
     _training_days: dict[DayOfWeek, TrainingDay] = field(default_factory=dict, repr=False)
-    _events: list[DomainEvent] = field(default_factory=list, repr=False)
 
     def __eq__(self, other: object) -> bool:
         if not isinstance(other, Workout):
@@ -83,15 +76,6 @@ class Workout:
             is_active=True,
             created_at=now,
             _training_days=td_dict,
-            _events=[],
-        )
-        workout._events.append(
-            WorkoutCreatedEvent(
-                workout_id=str(wid.value),
-                user_id=user_id,
-                name=name,
-                training_days=[d.value for d in days],
-            )
         )
         return Success(workout)
 
@@ -100,13 +84,6 @@ class Workout:
             raise DayAlreadyInWorkoutError(day=day.value, workout_id=str(self.id.value))
         td = TrainingDay(id=TrainingDayId.generate(), workout_id=self.id, day=day)
         self._training_days[day] = td
-        self._events.append(
-            TrainingDayAddedEvent(
-                training_day_id=str(td.id.value),
-                workout_id=str(self.id.value),
-                day=day.value,
-            )
-        )
 
     def remove_training_day(self, day: DayOfWeek) -> None:
         if day not in self._training_days:
@@ -115,13 +92,6 @@ class Workout:
         if td.exercises:
             raise CannotRemoveDayWithExercisesError(day=day.value, exercise_count=len(td.exercises))
         del self._training_days[day]
-        self._events.append(
-            TrainingDayRemovedEvent(
-                training_day_id=str(td.id.value),
-                workout_id=str(self.id.value),
-                day=day.value,
-            )
-        )
 
     def add_exercise_to_day(
         self,
@@ -184,9 +154,3 @@ class Workout:
     def get_training_days_list(self) -> list[DayOfWeek]:
         return list(self._training_days.keys())
 
-    def pull_events(self) -> list[DomainEvent]:
-        events: list[DomainEvent] = list(self._events)
-        self._events.clear()
-        for td in self._training_days.values():
-            events.extend(td.pull_events())
-        return events
