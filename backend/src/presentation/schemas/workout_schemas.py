@@ -74,7 +74,6 @@ class TrainingDayResponse(BaseModel):
 
 class WorkoutResponse(BaseModel):
     id: str
-    user_id: str
     name: str
     description: str | None
     is_active: bool
@@ -84,7 +83,6 @@ class WorkoutResponse(BaseModel):
     def from_dto(cls, dto: WorkoutWithDaysDTO) -> WorkoutResponse:
         return cls(
             id=dto.id,
-            user_id=dto.user_id,
             name=dto.name,
             description=dto.description,
             is_active=dto.is_active,

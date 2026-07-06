@@ -22,6 +22,7 @@ from backend.src.infrastructure.database import get_session
 from backend.src.infrastructure.persistence.models import UserModel
 from backend.src.infrastructure.persistence.user_repository import SqlAlchemyUserRepository
 from backend.src.infrastructure.rate_limiter import (
+    forgot_password_limiter,
     login_limiter,
     logout_limiter,
     refresh_limiter,
@@ -140,8 +141,10 @@ async def me(
 
 @router.post("/forgot-password", status_code=204)
 async def forgot_password(
+    request: Request,
     body: ForgotPasswordRequest,
     session: AsyncSession = Depends(get_session),
+    _rate: None = Depends(forgot_password_limiter.dependency),
 ) -> Response:
     uc = ForgotPasswordUseCase(_user_repo)
     await uc.execute(body.email, session)

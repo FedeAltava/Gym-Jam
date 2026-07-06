@@ -1,6 +1,7 @@
 """ForgotPasswordUseCase — request a password reset email."""
 from __future__ import annotations
 import hashlib
+import logging
 import secrets
 import uuid
 from datetime import UTC, datetime, timedelta
@@ -13,6 +14,8 @@ from backend.src.infrastructure.config import settings
 from backend.src.infrastructure.email.email_service import send_reset_email
 from backend.src.infrastructure.persistence.models import PasswordResetTokenModel
 from backend.src.infrastructure.persistence.user_repository import SqlAlchemyUserRepository
+
+logger = logging.getLogger(__name__)
 
 
 class ForgotPasswordUseCase:
@@ -36,6 +39,9 @@ class ForgotPasswordUseCase:
         session.add(record)
 
         reset_url = f"{settings.app_base_url}/reset-password?token={raw_token}"
-        await send_reset_email(user.email, reset_url)
+        try:
+            await send_reset_email(user.email, reset_url)
+        except Exception:
+            logger.exception("Failed to send password reset email to %s", user.email)
 
         return Success(None)
