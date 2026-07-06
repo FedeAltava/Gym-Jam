@@ -50,7 +50,7 @@ jobs:
       - name: Install Poetry
         run: pip install poetry
       - name: Install dependencies
-        run: poetry install --with dev
+        run: poetry install --no-root --with dev
       - name: pytest
         run: poetry run pytest --tb=short -q
 
