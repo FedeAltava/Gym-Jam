@@ -19,6 +19,7 @@ pyjwt = "^2.13.0"
 bcrypt = "^4.0"
 email-validator = "^2.3.0"
 aiosmtplib = "^5.1.2"
+redis = {extras = ["asyncio"], version = "^8.0.1"}
 
 [tool.poetry.group.dev.dependencies]
 pytest = ">=8"

@@ -26,6 +26,9 @@ class Settings(BaseSettings):
     refresh_token_reuse_grace_seconds: int = 60
     cors_origins: list[str] = ["http://localhost:3000", "http://localhost:5173"]
     environment: str = "development"
+    # Redis connection URL for the shared rate limiter. Empty means "not
+    # configured": the app falls back to the in-memory limiter (tests, dev).
+    redis_url: str = ""
     smtp_host: str = ""
     smtp_port: int = 587
     smtp_user: str = ""

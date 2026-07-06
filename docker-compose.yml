@@ -15,6 +15,17 @@ services:
     networks:
       - gymjam
 
+  redis:
+    image: redis:7-alpine
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+    networks:
+      - gymjam
+    restart: unless-stopped
+
   backend:
     build:
       context: .
@@ -24,8 +35,11 @@ services:
       SECRET_KEY: ${SECRET_KEY:?Set SECRET_KEY in .env (openssl rand -hex 32)}
       ENVIRONMENT: production
       CORS_ORIGINS: '["http://localhost"]'
+      REDIS_URL: redis://redis:6379
     depends_on:
       postgres:
+        condition: service_healthy
+      redis:
         condition: service_healthy
     networks:
       - gymjam
