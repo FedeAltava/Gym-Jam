@@ -55,7 +55,6 @@
     box-shadow: 0 0 0 3px rgba(0, 212, 255, 0.15) !important;
   }
 
-  button, a, [role="button"] { min-height: 44px; }
 
   /* Global focus-visible ring using accent token */
   button:focus-visible,

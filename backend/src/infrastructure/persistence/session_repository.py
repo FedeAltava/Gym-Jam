@@ -42,6 +42,20 @@ class SqlAlchemySessionRepository(SessionRepository):
             return None
         return WorkoutSessionMapper.to_domain(model)
 
+    async def delete(self, session_id: WorkoutSessionId) -> None:
+        stmt = select(WorkoutSessionModel).where(
+            WorkoutSessionModel.id == str(session_id.value)
+        )
+        result = await self._session.execute(stmt)
+        model = result.scalar_one_or_none()
+        if model is None:
+            return
+        # ORM delete so logs cascade via "all, delete-orphan" (DB-level
+        # ondelete="CASCADE" is the backstop). Do NOT reuse save()'s
+        # delete-then-merge path here.
+        await self._session.delete(model)
+        await self._session.flush()
+
     async def get_sessions_for_day(
         self,
         user_id: str,

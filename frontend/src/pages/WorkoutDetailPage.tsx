@@ -10,7 +10,11 @@ import {
   useAddExercise,
   useRemoveExercise,
 } from '../hooks/useExercises';
-import { useSessionsForDay } from '../hooks/useSessions';
+import {
+  useSessionsForDay,
+  useCompleteSession,
+  useDeleteSession,
+} from '../hooks/useSessions';
 import { Spinner } from '../components/Spinner';
 import { DAY_LABEL } from '../lib/days';
 import type { ExerciseResponse, TrainingDayResponse } from '../types/api';
@@ -35,6 +39,8 @@ function PastSessionsList({
 }) {
   const [expanded, setExpanded] = useState(false);
   const { data: sessions, isLoading, isError } = useSessionsForDay(workoutId, dayId);
+  const completeSession = useCompleteSession();
+  const deleteSession = useDeleteSession();
 
   if (isLoading) {
     return <p className="text-xs italic text-muted mt-3">Cargando sesiones…</p>;
@@ -91,6 +97,48 @@ function PastSessionsList({
               >
                 {s.status === 'completed' ? 'completada' : 'en progreso'}
               </span>
+              {s.status === 'in_progress' && (
+                <span className="inline-flex items-center gap-1.5">
+                  {s.logs.length > 0 && (
+                    <button
+                      onClick={() =>
+                        completeSession.mutate({ sessionId: s.id, workoutId, dayId })
+                      }
+                      disabled={completeSession.isPending || deleteSession.isPending}
+                      className="px-1.5 py-0.5 rounded-full text-xs font-semibold leading-4 disabled:opacity-60"
+                      style={{
+                        border: 'none',
+                        cursor: 'pointer',
+                        backgroundColor: 'var(--neon-green)',
+                        color: 'var(--bg)',
+                      }}
+                    >
+                      {completeSession.isPending &&
+                      completeSession.variables?.sessionId === s.id
+                        ? '…'
+                        : 'Completar'}
+                    </button>
+                  )}
+                  <button
+                    onClick={() =>
+                      deleteSession.mutate({ sessionId: s.id, workoutId, dayId })
+                    }
+                    disabled={completeSession.isPending || deleteSession.isPending}
+                    className="px-1.5 py-0.5 rounded-full text-xs font-semibold leading-4 disabled:opacity-60"
+                    style={{
+                      border: 'none',
+                      cursor: 'pointer',
+                      backgroundColor: '#ef4444',
+                      color: '#fff',
+                    }}
+                  >
+                    {deleteSession.isPending &&
+                    deleteSession.variables?.sessionId === s.id
+                      ? '…'
+                      : 'Eliminar'}
+                  </button>
+                </span>
+              )}
             </li>
           ))}
         </ul>

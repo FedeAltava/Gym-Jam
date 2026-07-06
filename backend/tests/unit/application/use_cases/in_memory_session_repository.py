@@ -17,6 +17,9 @@ class InMemorySessionRepository(SessionRepository):
     async def get_by_id(self, id: WorkoutSessionId) -> WorkoutSession | None:
         return self._store.get(str(id.value))
 
+    async def delete(self, session_id: WorkoutSessionId) -> None:
+        self._store.pop(str(session_id.value), None)
+
     async def get_sessions_for_day(
         self,
         user_id: str,

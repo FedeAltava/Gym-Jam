@@ -15,6 +15,9 @@ class SessionRepository(ABC):
     async def get_by_id(self, id: WorkoutSessionId) -> WorkoutSession | None: ...
 
     @abstractmethod
+    async def delete(self, session_id: WorkoutSessionId) -> None: ...
+
+    @abstractmethod
     async def get_sessions_for_day(
         self,
         user_id: str,
