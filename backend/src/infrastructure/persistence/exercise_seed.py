@@ -12,33 +12,35 @@ from datetime import UTC, datetime
 
 _SEED_CREATED_AT = datetime(2026, 1, 1, tzinfo=UTC)
 
-_CATALOG: list[dict[str, str]] = [
+# Every row carries is_bodyweight explicitly: conftest bulk-inserts this list
+# via a single executemany, which requires homogeneous keys across all rows.
+_CATALOG: list[dict[str, object]] = [
     # Pecho
-    {"id": "bench-press", "name": "Press de banca", "muscle_group": "Pecho"},
-    {"id": "incline-bench-press", "name": "Press inclinado", "muscle_group": "Pecho"},
-    {"id": "push-up", "name": "Flexiones", "muscle_group": "Pecho"},
+    {"id": "bench-press", "name": "Press de banca", "muscle_group": "Pecho", "is_bodyweight": False},
+    {"id": "incline-bench-press", "name": "Press inclinado", "muscle_group": "Pecho", "is_bodyweight": False},
+    {"id": "push-up", "name": "Flexiones", "muscle_group": "Pecho", "is_bodyweight": True},
     # Espalda
-    {"id": "pull-up", "name": "Dominadas", "muscle_group": "Espalda"},
-    {"id": "lat-pulldown", "name": "Jalón al pecho", "muscle_group": "Espalda"},
-    {"id": "barbell-row", "name": "Remo con barra", "muscle_group": "Espalda"},
-    {"id": "deadlift", "name": "Peso muerto", "muscle_group": "Espalda"},
+    {"id": "pull-up", "name": "Dominadas", "muscle_group": "Espalda", "is_bodyweight": True},
+    {"id": "lat-pulldown", "name": "Jalón al pecho", "muscle_group": "Espalda", "is_bodyweight": False},
+    {"id": "barbell-row", "name": "Remo con barra", "muscle_group": "Espalda", "is_bodyweight": False},
+    {"id": "deadlift", "name": "Peso muerto", "muscle_group": "Espalda", "is_bodyweight": False},
     # Piernas
-    {"id": "squat", "name": "Sentadilla", "muscle_group": "Piernas"},
-    {"id": "front-squat", "name": "Sentadilla frontal", "muscle_group": "Piernas"},
-    {"id": "leg-press", "name": "Prensa de piernas", "muscle_group": "Piernas"},
-    {"id": "lunge", "name": "Zancadas", "muscle_group": "Piernas"},
-    {"id": "leg-curl", "name": "Curl femoral", "muscle_group": "Piernas"},
-    {"id": "calf-raise", "name": "Elevación de gemelos", "muscle_group": "Piernas"},
+    {"id": "squat", "name": "Sentadilla", "muscle_group": "Piernas", "is_bodyweight": False},
+    {"id": "front-squat", "name": "Sentadilla frontal", "muscle_group": "Piernas", "is_bodyweight": False},
+    {"id": "leg-press", "name": "Prensa de piernas", "muscle_group": "Piernas", "is_bodyweight": False},
+    {"id": "lunge", "name": "Zancadas", "muscle_group": "Piernas", "is_bodyweight": False},
+    {"id": "leg-curl", "name": "Curl femoral", "muscle_group": "Piernas", "is_bodyweight": False},
+    {"id": "calf-raise", "name": "Elevación de gemelos", "muscle_group": "Piernas", "is_bodyweight": False},
     # Hombros
-    {"id": "overhead-press", "name": "Press militar", "muscle_group": "Hombros"},
-    {"id": "lateral-raise", "name": "Elevaciones laterales", "muscle_group": "Hombros"},
+    {"id": "overhead-press", "name": "Press militar", "muscle_group": "Hombros", "is_bodyweight": False},
+    {"id": "lateral-raise", "name": "Elevaciones laterales", "muscle_group": "Hombros", "is_bodyweight": False},
     # Brazos
-    {"id": "biceps-curl", "name": "Curl de bíceps", "muscle_group": "Brazos"},
-    {"id": "hammer-curl", "name": "Curl martillo", "muscle_group": "Brazos"},
-    {"id": "triceps-pushdown", "name": "Extensión de tríceps en polea", "muscle_group": "Brazos"},
+    {"id": "biceps-curl", "name": "Curl de bíceps", "muscle_group": "Brazos", "is_bodyweight": False},
+    {"id": "hammer-curl", "name": "Curl martillo", "muscle_group": "Brazos", "is_bodyweight": False},
+    {"id": "triceps-pushdown", "name": "Extensión de tríceps en polea", "muscle_group": "Brazos", "is_bodyweight": False},
     # Core
-    {"id": "plank", "name": "Plancha", "muscle_group": "Core"},
-    {"id": "crunch", "name": "Abdominales", "muscle_group": "Core"},
+    {"id": "plank", "name": "Plancha", "muscle_group": "Core", "is_bodyweight": True},
+    {"id": "crunch", "name": "Abdominales", "muscle_group": "Core", "is_bodyweight": True},
 ]
 
 EXERCISE_SEED: list[dict[str, object]] = [

@@ -15,10 +15,16 @@ class ExerciseDTO:
     id: str
     name: str
     muscle_group: str
+    is_bodyweight: bool
 
     @classmethod
     def from_entity(cls, exercise: Exercise) -> "ExerciseDTO":
-        return cls(id=exercise.id, name=exercise.name, muscle_group=exercise.muscle_group)
+        return cls(
+            id=exercise.id,
+            name=exercise.name,
+            muscle_group=exercise.muscle_group,
+            is_bodyweight=exercise.is_bodyweight,
+        )
 
 
 @dataclass(frozen=True)

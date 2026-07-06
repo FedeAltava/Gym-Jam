@@ -13,7 +13,8 @@ class LogSetRequest(BaseModel):
     workout_exercise_id: str
     set_number: int = Field(ge=1)
     reps_completed: int = Field(ge=1)
-    weight_kg: float = Field(ge=0.0)
+    # Optional: bodyweight exercises log sets without external weight.
+    weight_kg: float | None = Field(default=None, ge=0.0)
 
 
 class UpdateLogRequest(BaseModel):

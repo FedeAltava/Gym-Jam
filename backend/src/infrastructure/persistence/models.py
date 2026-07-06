@@ -35,6 +35,7 @@ class ExerciseModel(Base):
     id: Mapped[str] = mapped_column(String(100), primary_key=True)  # slug, e.g. "bench-press"
     name: Mapped[str] = mapped_column(String(100), nullable=False)
     muscle_group: Mapped[str] = mapped_column(String(50), nullable=False)
+    is_bodyweight: Mapped[bool] = mapped_column(Boolean, nullable=False, server_default="false")
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=lambda: datetime.now(UTC))
 
 

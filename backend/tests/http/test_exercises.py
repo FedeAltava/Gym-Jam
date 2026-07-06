@@ -20,7 +20,18 @@ async def test_list_exercises_items_have_expected_fields(client):
     r = await client.get("/exercises")
     assert r.status_code == 200
     first = r.json()[0]
-    assert set(first.keys()) == {"id", "name", "muscle_group"}
+    assert set(first.keys()) == {"id", "name", "muscle_group", "is_bodyweight"}
+
+
+# 2b. GET /exercises — bodyweight exercises are flagged in the catalog
+async def test_list_exercises_marks_bodyweight_exercises(client):
+    r = await client.get("/exercises")
+    assert r.status_code == 200
+    by_id = {item["id"]: item for item in r.json()}
+    for slug in ("push-up", "pull-up", "plank", "crunch"):
+        assert by_id[slug]["is_bodyweight"] is True, slug
+    assert by_id["bench-press"]["is_bodyweight"] is False
+    assert by_id["squat"]["is_bodyweight"] is False
 
 
 # 3. GET /exercises — ordered by muscle_group then name

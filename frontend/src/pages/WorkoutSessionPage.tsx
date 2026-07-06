@@ -29,6 +29,7 @@ interface SetRowProps {
   setNumber: number;
   suggestedReps: number;
   suggestedWeight: number | null;
+  isBodyweight: boolean;
   existingLog: ExerciseLogResponse | undefined;
   workoutId: string;
   dayId: string;
@@ -42,6 +43,7 @@ function SetRow({
   setNumber,
   suggestedReps,
   suggestedWeight,
+  isBodyweight,
   existingLog,
   workoutId,
   dayId,
@@ -67,13 +69,19 @@ function SetRow({
       setValidationError('Ingresa las repeticiones (mínimo 1).');
       return;
     }
-    // A number input reports '' for invalid content, so `weight` can be empty
-    // even when the placeholder makes it look filled. Never let NaN through:
-    // JSON.stringify(NaN) serializes to null and the API rejects it (422).
-    const weightVal = parseFloat(weight);
-    if (weight === '' || !Number.isFinite(weightVal) || weightVal < 0) {
-      setValidationError('Ingresa un peso válido en kg (0 o más).');
-      return;
+    // Bodyweight exercises have no weight input — log the set without weight.
+    let weightKg: number | null = null;
+    if (!isBodyweight) {
+      // A number input reports '' for invalid content, so `weight` can be empty
+      // even when the placeholder makes it look filled. Never let NaN through:
+      // JSON.stringify(NaN) serializes to null and would silently log a
+      // weighted exercise as bodyweight.
+      const weightVal = parseFloat(weight);
+      if (weight === '' || !Number.isFinite(weightVal) || weightVal < 0) {
+        setValidationError('Ingresa un peso válido en kg (0 o más).');
+        return;
+      }
+      weightKg = weightVal;
     }
     setValidationError(null);
     logSet.mutate(
@@ -82,7 +90,7 @@ function SetRow({
         workoutExerciseId: exercise.id,
         setNumber,
         repsCompleted: repsVal,
-        weightKg: weightVal,
+        weightKg,
         workoutId,
         dayId,
       },
@@ -97,7 +105,9 @@ function SetRow({
       setValidationError('Las repeticiones deben ser 1 o más.');
       return;
     }
-    const weightVal = weight !== '' ? parseFloat(weight) : undefined;
+    // Bodyweight exercises have no weight input — only reps can change.
+    const weightVal =
+      !isBodyweight && weight !== '' ? parseFloat(weight) : undefined;
     if (
       weightVal !== undefined &&
       (!Number.isFinite(weightVal) || weightVal < 0)
@@ -106,7 +116,11 @@ function SetRow({
       return;
     }
     if (repsVal === undefined && weightVal === undefined) {
-      setValidationError('Ingresa nuevas repeticiones o un nuevo peso.');
+      setValidationError(
+        isBodyweight
+          ? 'Ingresa nuevas repeticiones.'
+          : 'Ingresa nuevas repeticiones o un nuevo peso.',
+      );
       return;
     }
     setValidationError(null);
@@ -143,8 +157,8 @@ function SetRow({
   }
 
   const canSubmit = isLogged
-    ? reps !== '' || weight !== ''
-    : !!reps && weight !== '';
+    ? reps !== '' || (!isBodyweight && weight !== '')
+    : !!reps && (isBodyweight || weight !== '');
 
   return (
     <div className="flex items-center gap-2 py-1.5">
@@ -169,31 +183,47 @@ function SetRow({
           color: 'var(--text)',
         }}
       />
-      <input
-        type="number"
-        min={0}
-        step={0.5}
-        value={weight}
-        onChange={(e) => setWeight(e.target.value)}
-        placeholder={
-          log?.weight_kg != null
-            ? String(log.weight_kg)
-            : suggestedWeight != null
-              ? String(suggestedWeight)
-              : '0'
-        }
-        disabled={isDisabled}
-        aria-label={`Peso kg, serie ${setNumber}`}
-        className="w-20 text-sm disabled:opacity-50"
-        style={{
-          height: '36px',
-          borderRadius: '8px',
-          border: '1px solid var(--border)',
-          padding: '0 8px',
-          backgroundColor: 'var(--bg-elevated)',
-          color: 'var(--text)',
-        }}
-      />
+      {isBodyweight ? (
+        <span
+          aria-label={`Peso corporal, serie ${setNumber}`}
+          className="w-20 text-xs text-muted inline-flex items-center justify-center text-center"
+          style={{
+            height: '36px',
+            borderRadius: '8px',
+            border: '1px solid var(--border)',
+            padding: '0 8px',
+            backgroundColor: 'var(--bg-elevated)',
+          }}
+        >
+          Peso corporal
+        </span>
+      ) : (
+        <input
+          type="number"
+          min={0}
+          step={0.5}
+          value={weight}
+          onChange={(e) => setWeight(e.target.value)}
+          placeholder={
+            log?.weight_kg != null
+              ? String(log.weight_kg)
+              : suggestedWeight != null
+                ? String(suggestedWeight)
+                : '0'
+          }
+          disabled={isDisabled}
+          aria-label={`Peso kg, serie ${setNumber}`}
+          className="w-20 text-sm disabled:opacity-50"
+          style={{
+            height: '36px',
+            borderRadius: '8px',
+            border: '1px solid var(--border)',
+            padding: '0 8px',
+            backgroundColor: 'var(--bg-elevated)',
+            color: 'var(--text)',
+          }}
+        />
+      )}
       <button
         onClick={isLogged ? handleUpdate : handleLog}
         disabled={isDisabled || !canSubmit}
@@ -236,6 +266,7 @@ interface ExerciseBlockProps {
   sessionId: string;
   exercise: WorkoutExerciseResponse;
   exerciseName: string;
+  isBodyweight: boolean;
   logs: ExerciseLogResponse[];
   lastSessionLogs: Map<string, ExerciseLogResponse>;
   workoutId: string;
@@ -247,6 +278,7 @@ function ExerciseBlock({
   sessionId,
   exercise,
   exerciseName,
+  isBodyweight,
   logs,
   lastSessionLogs,
   workoutId,
@@ -279,6 +311,7 @@ function ExerciseBlock({
                 setNumber={setNum}
                 suggestedReps={lastLog?.reps_completed ?? exercise.reps_per_set}
                 suggestedWeight={lastLog?.weight_kg ?? exercise.weight_kg}
+                isBodyweight={isBodyweight}
                 existingLog={logsBySet.get(setNum)}
                 workoutId={workoutId}
                 dayId={dayId}
@@ -493,6 +526,7 @@ export function WorkoutSessionPage() {
                   sessionId={session.id}
                   exercise={exercise}
                   exerciseName={exerciseById.get(exercise.exercise_id)?.name ?? exercise.exercise_id}
+                  isBodyweight={exerciseById.get(exercise.exercise_id)?.is_bodyweight ?? false}
                   logs={exerciseLogs}
                   lastSessionLogs={lastSessionLogs}
                   workoutId={workoutId}

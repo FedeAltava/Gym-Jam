@@ -185,6 +185,42 @@ async def test_log_set_reps_zero_returns_422(client) -> None:
     assert r2.status_code == 422
 
 
+# ── 7b. Log set — weight_kg null (bodyweight exercise) → 201 ─────────────────
+
+async def test_log_set_null_weight_returns_201(client) -> None:
+    wid, day_id = await create_workout_with_day(client, "FRIDAY")
+    ex_id = await add_exercise_to_day(client, wid, "FRIDAY", "push-up")
+
+    r = await client.post(f"/workouts/{wid}/days/{day_id}/sessions", json={})
+    session_id = r.json()["id"]
+
+    r2 = await client.post(
+        f"/sessions/{session_id}/logs",
+        json={"workout_exercise_id": ex_id, "set_number": 1, "reps_completed": 12, "weight_kg": None},
+    )
+    assert r2.status_code == 201
+    data = r2.json()
+    assert data["reps_completed"] == 12
+    assert data["weight_kg"] is None
+
+
+# ── 7c. Log set — weight_kg omitted entirely → 201 (defaults to null) ────────
+
+async def test_log_set_omitted_weight_returns_201(client) -> None:
+    wid, day_id = await create_workout_with_day(client, "FRIDAY")
+    ex_id = await add_exercise_to_day(client, wid, "FRIDAY", "plank")
+
+    r = await client.post(f"/workouts/{wid}/days/{day_id}/sessions", json={})
+    session_id = r.json()["id"]
+
+    r2 = await client.post(
+        f"/sessions/{session_id}/logs",
+        json={"workout_exercise_id": ex_id, "set_number": 1, "reps_completed": 1},
+    )
+    assert r2.status_code == 201
+    assert r2.json()["weight_kg"] is None
+
+
 # ── 8. Log extra set beyond plan — now allowed ───────────────────────────────
 
 async def test_log_extra_set_beyond_plan_returns_201(client) -> None:

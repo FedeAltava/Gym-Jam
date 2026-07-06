@@ -7,3 +7,4 @@ class Exercise:
     id: str            # slug, e.g. "bench-press"
     name: str          # Spanish display name, e.g. "Press de banca"
     muscle_group: str  # Spanish muscle group, e.g. "Pecho"
+    is_bodyweight: bool = False  # no external weight, e.g. push-up, plank

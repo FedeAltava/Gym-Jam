@@ -48,7 +48,8 @@ interface LogSetPayload {
   workoutExerciseId: string;
   setNumber: number;
   repsCompleted: number;
-  weightKg: number;
+  // null = bodyweight exercise (no external weight)
+  weightKg: number | null;
   // context for cache invalidation
   workoutId: string;
   dayId: string;
@@ -65,9 +66,9 @@ export function useLogSet() {
       weightKg,
     }: LogSetPayload) => {
       // Last line of defense: JSON.stringify(NaN) serializes to null, which
-      // the API rejects with 422 (weight_kg is a required float). Fail loudly
-      // here instead of sending an invalid body.
-      if (!Number.isFinite(weightKg) || weightKg < 0) {
+      // would silently log a weighted exercise as bodyweight. Explicit null is
+      // valid (bodyweight set); NaN and negatives are not.
+      if (weightKg !== null && (!Number.isFinite(weightKg) || weightKg < 0)) {
         return Promise.reject(
           new Error('El peso debe ser un número válido de 0 o más kg.'),
         );

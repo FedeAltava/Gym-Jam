@@ -14,6 +14,7 @@ export interface ExerciseResponse {
   id: string;
   name: string;
   muscle_group: string;
+  is_bodyweight: boolean;
 }
 
 export interface WorkoutExerciseResponse {

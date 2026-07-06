@@ -9,7 +9,12 @@ from backend.src.infrastructure.persistence.models import ExerciseModel
 
 
 def _to_domain(model: ExerciseModel) -> Exercise:
-    return Exercise(id=model.id, name=model.name, muscle_group=model.muscle_group)
+    return Exercise(
+        id=model.id,
+        name=model.name,
+        muscle_group=model.muscle_group,
+        is_bodyweight=model.is_bodyweight,
+    )
 
 
 class SqlAlchemyExerciseRepository(ExerciseRepository):
