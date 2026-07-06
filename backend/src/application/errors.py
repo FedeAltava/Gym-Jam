@@ -158,3 +158,12 @@ class SetAlreadyLoggedError(ApplicationError):
         object.__setattr__(self, "workout_exercise_id", workout_exercise_id)
         object.__setattr__(self, "set_number", set_number)
         super().__init__(f"Set {set_number} for exercise '{workout_exercise_id}' has already been logged.")
+
+
+@dataclass
+class ExerciseInUseError(ApplicationError):
+    exercise_id: str
+
+    def __init__(self, exercise_id: str) -> None:
+        object.__setattr__(self, "exercise_id", exercise_id)
+        super().__init__(f"Exercise '{exercise_id}' is used in one or more workouts and cannot be deleted.")

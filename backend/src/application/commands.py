@@ -119,3 +119,17 @@ class GetSessionsForDayCommand:
     user_id: str
     workout_id: str
     training_day_id: str
+
+
+@dataclass(frozen=True)
+class CreateExerciseCommand:
+    user_id: str
+    name: str
+    muscle_group: str
+    is_bodyweight: bool = False
+
+
+@dataclass(frozen=True)
+class DeleteExerciseCommand:
+    user_id: str
+    exercise_id: str

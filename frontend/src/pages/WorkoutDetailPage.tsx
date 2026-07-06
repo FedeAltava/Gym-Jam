@@ -9,6 +9,8 @@ import {
   useExercises,
   useAddExercise,
   useRemoveExercise,
+  useCreateExercise,
+  useDeleteExercise,
 } from '../hooks/useExercises';
 import {
   useSessionsForDay,
@@ -159,8 +161,15 @@ function TrainingDayCard({
 }: TrainingDayCardProps) {
   const [pickerOpen, setPickerOpen] = useState(false);
   const [selectedMuscleGroup, setSelectedMuscleGroup] = useState<string | null>(null);
+  const [createFormOpen, setCreateFormOpen] = useState(false);
+  const [newName, setNewName] = useState('');
+  const [newMuscleGroup, setNewMuscleGroup] = useState('');
+  const [newIsBodyweight, setNewIsBodyweight] = useState(false);
+  const [createError, setCreateError] = useState<string | null>(null);
   const addMutation = useAddExercise(workoutId);
   const removeMutation = useRemoveExercise(workoutId);
+  const createExerciseMutation = useCreateExercise();
+  const deleteExerciseMutation = useDeleteExercise();
 
   const {
     data: filteredExercises,
@@ -230,6 +239,30 @@ function TrainingDayCard({
   function handleRemove(workoutExerciseId: string) {
     removeMutation.mutate({ day: day.day_of_week, workoutExerciseId });
   }
+
+  function handleCreateExercise() {
+    const name = newName.trim();
+    const muscle_group = newMuscleGroup.trim();
+    if (!name || !muscle_group) {
+      setCreateError('Nombre y grupo muscular son obligatorios.');
+      return;
+    }
+    setCreateError(null);
+    createExerciseMutation.mutate(
+      { name, muscle_group, is_bodyweight: newIsBodyweight },
+      {
+        onSuccess: () => {
+          setNewName('');
+          setNewMuscleGroup('');
+          setNewIsBodyweight(false);
+          setCreateFormOpen(false);
+        },
+        onError: () => setCreateError('No se pudo crear el ejercicio.'),
+      },
+    );
+  }
+
+  const customExercises = catalog.filter((e) => e.is_custom);
 
   return (
     <div className="rounded-card border border-border bg-surface p-4">
@@ -355,6 +388,93 @@ function TrainingDayCard({
                 </optgroup>
               ))}
             </select>
+          )}
+
+          {/* Create custom exercise */}
+          <div className="mt-3 border-t border-border pt-2">
+            <button
+              onClick={() => { setCreateFormOpen((v) => !v); setCreateError(null); }}
+              className="text-xs text-accent bg-transparent border-none cursor-pointer flex items-center gap-1"
+              style={{ padding: 0 }}
+            >
+              <Plus size={12} />
+              {createFormOpen ? 'Cancelar' : 'Crear ejercicio personalizado'}
+            </button>
+
+            {createFormOpen && (
+              <div className="mt-2 space-y-1.5">
+                <input
+                  type="text"
+                  placeholder="Nombre del ejercicio"
+                  value={newName}
+                  onChange={(e) => setNewName(e.target.value)}
+                  className="w-full text-sm rounded-input border border-border"
+                  style={{ height: '36px', padding: '0 10px' }}
+                />
+                <input
+                  type="text"
+                  placeholder="Grupo muscular"
+                  value={newMuscleGroup}
+                  onChange={(e) => setNewMuscleGroup(e.target.value)}
+                  className="w-full text-sm rounded-input border border-border"
+                  style={{ height: '36px', padding: '0 10px' }}
+                />
+                <label className="flex items-center gap-2 text-xs text-muted cursor-pointer">
+                  <input
+                    type="checkbox"
+                    checked={newIsBodyweight}
+                    onChange={(e) => setNewIsBodyweight(e.target.checked)}
+                  />
+                  Peso corporal
+                </label>
+                {createError && (
+                  <p className="text-xs text-danger">{createError}</p>
+                )}
+                <button
+                  onClick={handleCreateExercise}
+                  disabled={createExerciseMutation.isPending}
+                  className="text-xs font-semibold rounded-btn border"
+                  style={{
+                    height: '30px',
+                    padding: '0 12px',
+                    cursor: 'pointer',
+                    backgroundColor: 'var(--neon-green)',
+                    color: 'var(--bg)',
+                    borderColor: 'var(--neon-green)',
+                  }}
+                >
+                  {createExerciseMutation.isPending ? 'Creando…' : 'Crear'}
+                </button>
+              </div>
+            )}
+          </div>
+
+          {/* Manage custom exercises */}
+          {customExercises.length > 0 && (
+            <div className="mt-2 border-t border-border pt-2">
+              <p className="text-xs text-muted mb-1">Mis ejercicios</p>
+              <ul className="space-y-1">
+                {customExercises.map((ex) => (
+                  <li key={ex.id} className="flex items-center justify-between text-xs">
+                    <span className="text-text">{ex.name}</span>
+                    <button
+                      onClick={() => deleteExerciseMutation.mutate(ex.id)}
+                      disabled={deleteExerciseMutation.isPending}
+                      className="inline-flex items-center justify-center rounded text-danger bg-transparent border-none transition-colors hover:bg-danger hover:text-bg disabled:opacity-60"
+                      style={{ height: '22px', width: '22px', cursor: 'pointer' }}
+                      aria-label="Eliminar ejercicio"
+                    >
+                      <Trash2 size={11} />
+                    </button>
+                  </li>
+                ))}
+              </ul>
+              {deleteExerciseMutation.isError && (
+                <p className="text-xs text-danger mt-1">
+                  No se pudo eliminar. ¿Está siendo usado en un entrenamiento?
+                </p>
+              )}
+            </div>
           )}
         </div>
       )}

@@ -1,14 +1,7 @@
 """HTTP tests for session endpoints (T25)."""
 from __future__ import annotations
 
-from collections.abc import AsyncGenerator
-
 import pytest
-from httpx import ASGITransport, AsyncClient
-
-from backend.src.infrastructure.database import get_session
-from backend.src.main import create_app
-from backend.src.presentation.dependencies import get_current_user_id
 
 
 # ── Helpers ──────────────────────────────────────────────────────────────────
@@ -370,23 +363,6 @@ async def test_multiple_sessions_same_day(client) -> None:
 
 
 # ── 12. DELETE /sessions/{session_id} ─────────────────────────────────────────
-
-
-@pytest.fixture
-async def client_user2(session) -> AsyncGenerator[AsyncClient, None]:
-    """Client authenticated as a DIFFERENT user, sharing the same DB session."""
-    app = create_app()
-
-    async def override_get_session():
-        yield session
-
-    def override_get_current_user_id() -> str:
-        return "00000000-0000-0000-0000-000000000002"
-
-    app.dependency_overrides[get_session] = override_get_session
-    app.dependency_overrides[get_current_user_id] = override_get_current_user_id
-    async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as ac:
-        yield ac
 
 
 async def test_delete_session_returns_204_and_removes_it(client) -> None:

@@ -11,8 +11,34 @@ export function useExercises(muscleGroup?: string) {
         : '/exercises';
       return apiFetch<ExerciseResponse[]>(url);
     },
-    // The catalog is static — keep it fresh for a while to avoid refetches.
     staleTime: 1000 * 60 * 5,
+  });
+}
+
+interface CreateExercisePayload {
+  name: string;
+  muscle_group: string;
+  is_bodyweight?: boolean;
+}
+
+export function useCreateExercise() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (payload: CreateExercisePayload) =>
+      apiFetch<ExerciseResponse>('/exercises', {
+        method: 'POST',
+        body: JSON.stringify(payload),
+      }),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ['exercises'] }),
+  });
+}
+
+export function useDeleteExercise() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (exerciseId: string) =>
+      apiFetch<void>(`/exercises/${exerciseId}`, { method: 'DELETE' }),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ['exercises'] }),
   });
 }
 

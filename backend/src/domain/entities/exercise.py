@@ -1,10 +1,11 @@
-"""Exercise catalog entity — read-model, identified by slug."""
+"""Exercise catalog entity."""
 from dataclasses import dataclass
 
 
 @dataclass(frozen=True)
 class Exercise:
-    id: str            # slug, e.g. "bench-press"
-    name: str          # Spanish display name, e.g. "Press de banca"
-    muscle_group: str  # Spanish muscle group, e.g. "Pecho"
+    id: str                      # slug for global; UUID for custom
+    name: str
+    muscle_group: str
     is_bodyweight: bool = False  # no external weight, e.g. push-up, plank
+    owner_id: str | None = None  # None = global catalog; str = user-created

@@ -11,9 +11,9 @@ class ListExercisesUseCase:
         self._exercise_repo = exercise_repo
 
     async def execute(
-        self, muscle_group: str | None = None
+        self, muscle_group: str | None = None, user_id: str | None = None
     ) -> Result[list[ExerciseDTO], ApplicationError]:
-        exercises = await self._exercise_repo.get_all()
+        exercises = await self._exercise_repo.get_all(user_id=user_id)
         if muscle_group is not None:
             exercises = [
                 e for e in exercises if e.muscle_group.lower() == muscle_group.lower()

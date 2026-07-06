@@ -72,3 +72,20 @@ async def auth_client(session) -> AsyncGenerator[AsyncClient, None]:
     # Note: get_current_user_id is NOT overridden here
     async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as ac:
         yield ac
+
+
+@pytest.fixture
+async def client_user2(session) -> AsyncGenerator[AsyncClient, None]:
+    """Client authenticated as a different user, sharing the same DB session."""
+    app = create_app()
+
+    async def override_get_session():
+        yield session
+
+    def override_get_current_user_id() -> str:
+        return "00000000-0000-0000-0000-000000000002"
+
+    app.dependency_overrides[get_session] = override_get_session
+    app.dependency_overrides[get_current_user_id] = override_get_current_user_id
+    async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as ac:
+        yield ac
