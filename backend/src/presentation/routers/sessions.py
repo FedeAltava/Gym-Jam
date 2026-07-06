@@ -131,6 +131,10 @@ async def update_exercise_log(
         log_id=log_id,
         reps_completed=body.reps_completed,
         weight_kg=body.weight_kg,
+        # model_fields_set = fields explicitly present in the request body.
+        # Lets the use case distinguish "omitted" from "sent as null" so an
+        # explicit weight_kg: null clears the stored weight.
+        fields_set=frozenset(body.model_fields_set),
     )
     result = await uc.execute(cmd)
     if isinstance(result, Failure):

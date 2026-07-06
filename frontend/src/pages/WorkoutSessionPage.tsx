@@ -197,31 +197,69 @@ function SetRow({
           Peso corporal
         </span>
       ) : (
-        <input
-          type="number"
-          min={0}
-          step={0.5}
-          value={weight}
-          onChange={(e) => setWeight(e.target.value)}
-          placeholder={
-            log?.weight_kg != null
-              ? String(log.weight_kg)
-              : suggestedWeight != null
-                ? String(suggestedWeight)
-                : '0'
-          }
-          disabled={isDisabled}
-          aria-label={`Peso kg, serie ${setNumber}`}
-          className="w-20 text-sm disabled:opacity-50"
-          style={{
-            height: '36px',
-            borderRadius: '8px',
-            border: '1px solid var(--border)',
-            padding: '0 8px',
-            backgroundColor: 'var(--bg-elevated)',
-            color: 'var(--text)',
-          }}
-        />
+        <>
+          <input
+            type="number"
+            min={0}
+            step={0.5}
+            value={weight}
+            onChange={(e) => setWeight(e.target.value)}
+            placeholder={
+              log?.weight_kg != null
+                ? String(log.weight_kg)
+                : suggestedWeight != null
+                  ? String(suggestedWeight)
+                  : '0'
+            }
+            disabled={isDisabled}
+            aria-label={`Peso kg, serie ${setNumber}`}
+            className="w-20 text-sm disabled:opacity-50"
+            style={{
+              height: '36px',
+              borderRadius: '8px',
+              border: '1px solid var(--border)',
+              padding: '0 8px',
+              backgroundColor: 'var(--bg-elevated)',
+              color: 'var(--text)',
+            }}
+          />
+          {isLogged && log?.weight_kg != null && (
+            <button
+              type="button"
+              onClick={() => {
+                setValidationError(null);
+                updateLog.mutate(
+                  {
+                    sessionId,
+                    logId: log.id,
+                    repsCompleted: undefined,
+                    weightKg: null, // explicit null = clear the weight
+                    workoutId,
+                    dayId,
+                  },
+                  {
+                    onSuccess: (data) => {
+                      setLog(data);
+                      setWeight('');
+                    },
+                  },
+                );
+              }}
+              disabled={isDisabled}
+              title="Quitar peso"
+              aria-label={`Quitar peso, serie ${setNumber}`}
+              className="text-xs text-muted disabled:opacity-50"
+              style={{
+                background: 'none',
+                border: 'none',
+                cursor: 'pointer',
+                padding: '0 4px',
+              }}
+            >
+              ×
+            </button>
+          )}
+        </>
       )}
       <button
         onClick={isLogged ? handleUpdate : handleLog}

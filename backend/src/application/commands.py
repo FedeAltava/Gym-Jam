@@ -100,6 +100,9 @@ class UpdateExerciseLogCommand:
     log_id: str
     reps_completed: int | None = None
     weight_kg: float | None = None
+    # Fields explicitly present in the request body. Distinguishes "field
+    # omitted" from "field sent as null" (e.g. clearing weight_kg).
+    fields_set: frozenset[str] = frozenset()
 
 
 @dataclass(frozen=True)

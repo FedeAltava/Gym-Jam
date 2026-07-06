@@ -299,6 +299,57 @@ async def test_update_log_partial_only_weight(client) -> None:
     assert data["weight_kg"] == 42.5
 
 
+async def test_update_log_explicit_null_clears_weight(client) -> None:
+    wid, day_id = await create_workout_with_day(client, "THURSDAY")
+    ex_id = await add_exercise_to_day(client, wid, "THURSDAY", "pull-up")
+
+    r = await client.post(f"/workouts/{wid}/days/{day_id}/sessions", json={})
+    session_id = r.json()["id"]
+
+    r1 = await client.post(
+        f"/sessions/{session_id}/logs",
+        json={"workout_exercise_id": ex_id, "set_number": 1, "reps_completed": 8, "weight_kg": 10.0},
+    )
+    assert r1.status_code == 201
+    log_id = r1.json()["id"]
+
+    # Explicit null clears the weight (e.g. bodyweight exercise logged with
+    # weight by mistake).
+    r2 = await client.patch(
+        f"/sessions/{session_id}/logs/{log_id}",
+        json={"weight_kg": None},
+    )
+    assert r2.status_code == 200
+    data = r2.json()
+    assert data["weight_kg"] is None
+    assert data["reps_completed"] == 8  # unchanged
+
+
+async def test_update_log_omitted_weight_keeps_value(client) -> None:
+    wid, day_id = await create_workout_with_day(client, "FRIDAY")
+    ex_id = await add_exercise_to_day(client, wid, "FRIDAY", "barbell-row")
+
+    r = await client.post(f"/workouts/{wid}/days/{day_id}/sessions", json={})
+    session_id = r.json()["id"]
+
+    r1 = await client.post(
+        f"/sessions/{session_id}/logs",
+        json={"workout_exercise_id": ex_id, "set_number": 1, "reps_completed": 8, "weight_kg": 40.0},
+    )
+    assert r1.status_code == 201
+    log_id = r1.json()["id"]
+
+    # Omitted weight_kg must NOT be treated as a clear.
+    r2 = await client.patch(
+        f"/sessions/{session_id}/logs/{log_id}",
+        json={"reps_completed": 12},
+    )
+    assert r2.status_code == 200
+    data = r2.json()
+    assert data["reps_completed"] == 12
+    assert data["weight_kg"] == 40.0  # unchanged
+
+
 async def test_update_log_not_found_returns_404(client) -> None:
     wid, day_id = await create_workout_with_day(client, "WEDNESDAY")
 

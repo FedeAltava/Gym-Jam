@@ -96,7 +96,8 @@ export function useLogSet() {
 
 interface UpdateLogData {
   repsCompleted?: number;
-  weightKg?: number;
+  // undefined = do not change; null = explicit clear (bodyweight set)
+  weightKg?: number | null;
 }
 
 interface UpdateLogPayload extends UpdateLogData {
@@ -112,11 +113,13 @@ function updateLog(
   logId: string,
   data: UpdateLogData,
 ): Promise<ExerciseLogResponse> {
-  // NaN would serialize to null, which the PATCH schema treats as "field not
-  // provided" — the update would silently do nothing. Only include fields
-  // that hold real numbers, and require at least one of them.
+  // The PATCH schema distinguishes "field omitted" (no change) from an
+  // explicit `weight_kg: null` (clear the weight). NaN would serialize to
+  // null and clear a weight by accident, so only a real number or an
+  // intentional null passes; undefined omits the field entirely.
   const repsValid = Number.isInteger(data.repsCompleted);
-  const weightValid = Number.isFinite(data.weightKg);
+  const weightValid =
+    data.weightKg === null || Number.isFinite(data.weightKg);
   if (!repsValid && !weightValid) {
     return Promise.reject(
       new Error('Ingresa nuevas repeticiones o un nuevo peso para actualizar.'),

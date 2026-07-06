@@ -18,6 +18,9 @@ class LogSetRequest(BaseModel):
 
 
 class UpdateLogRequest(BaseModel):
+    # Omitted field = no change. Explicit `"weight_kg": null` = clear the
+    # weight (bodyweight set). The router forwards `model_fields_set` so the
+    # use case can tell both cases apart.
     reps_completed: int | None = Field(default=None, ge=1)
     weight_kg: float | None = Field(default=None, ge=0.0)
 
