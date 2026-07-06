@@ -289,7 +289,6 @@ function TrainingDayCard({
 export function WorkoutDetailPage() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
-  const qc = useQueryClient();
   const { data: workout, isLoading, isError, error } = useWorkout(id ?? '');
   const {
     data: exercises,

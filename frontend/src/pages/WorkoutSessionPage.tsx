@@ -381,7 +381,6 @@ export function WorkoutSessionPage() {
   // - "Iniciar sesión" (no history) calls handleStart() directly
   const session = newSession;
 
-  const hasInProgress = session !== null;
 
   if (workoutLoading) return <Spinner />;
   if (workoutError || !workout)
