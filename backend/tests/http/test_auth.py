@@ -6,8 +6,8 @@ from backend.src.infrastructure.rate_limiter import login_limiter, refresh_limit
 
 BASE = "/auth"
 
-# Default password satisfies the min_length=8 requirement.
-_DEFAULT_PASSWORD = "password123"
+# Default password satisfies min_length=8, uppercase, and digit requirements.
+_DEFAULT_PASSWORD = "Password1"
 
 
 @pytest.fixture(autouse=True)
@@ -49,7 +49,7 @@ async def test_register_duplicate_email_returns_409(auth_client):
 
 # 3. Register — invalid email
 async def test_register_invalid_email_returns_422(auth_client):
-    r = await auth_client.post(f"{BASE}/register", json={"email": "not-an-email", "password": "password123"})
+    r = await auth_client.post(f"{BASE}/register", json={"email": "not-an-email", "password": "Password1"})
     assert r.status_code == 422
 
 
@@ -84,7 +84,7 @@ async def test_login_wrong_email_returns_401(auth_client):
 
 # 8. Login — wrong password
 async def test_login_wrong_password_returns_401(auth_client):
-    await register(auth_client, "wrongpw@example.com", "correct-password")
+    await register(auth_client, "wrongpw@example.com", "Correct-Password1")
     r = await auth_client.post(f"{BASE}/login", json={"email": "wrongpw@example.com", "password": "wrong"})
     assert r.status_code == 401
 
@@ -146,7 +146,7 @@ async def test_token_payload_has_sub_and_exp(auth_client):
 # 15. Password stored hashed
 async def test_password_stored_hashed(auth_client, session):
     import sqlalchemy
-    await register(auth_client, "hash@example.com", "myplainpassword")
+    await register(auth_client, "hash@example.com", "MyPlainPassword1")
     result = await session.execute(
         sqlalchemy.text("SELECT hashed_password FROM users WHERE email = 'hash@example.com'")
     )
@@ -162,9 +162,9 @@ async def test_register_short_password_returns_422(auth_client):
     assert r.status_code == 422
 
 
-# 17. Register — password exactly at min length (8 chars) is accepted
+# 17. Register — password exactly at min length (8 chars) with complexity is accepted
 async def test_register_password_min_length_accepted(auth_client):
-    r = await auth_client.post(f"{BASE}/register", json={"email": "minpw@example.com", "password": "12345678"})
+    r = await auth_client.post(f"{BASE}/register", json={"email": "minpw@example.com", "password": "Abcde12!"})
     assert r.status_code == 201
 
 
@@ -172,7 +172,7 @@ async def test_register_password_min_length_accepted(auth_client):
 async def test_register_password_max_length_accepted(auth_client):
     r = await auth_client.post(
         f"{BASE}/register",
-        json={"email": "maxpw@example.com", "password": "a" * 72},
+        json={"email": "maxpw@example.com", "password": "A1" + "a" * 70},
     )
     assert r.status_code == 201
 
@@ -213,11 +213,11 @@ async def test_register_rate_limit_returns_429(auth_client):
     for i in range(10):
         await auth_client.post(
             f"{BASE}/register",
-            json={"email": f"ratelimit{i}@example.com", "password": "password123"},
+            json={"email": f"ratelimit{i}@example.com", "password": "Password1"},
         )
     r = await auth_client.post(
         f"{BASE}/register",
-        json={"email": "ratelimit_over@example.com", "password": "password123"},
+        json={"email": "ratelimit_over@example.com", "password": "Password1"},
     )
     assert r.status_code == 429
 
@@ -282,7 +282,7 @@ async def test_forgot_password_with_unknown_email_returns_204(auth_client):
 async def test_reset_password_with_invalid_token_returns_400(auth_client):
     r = await auth_client.post(
         f"{BASE}/reset-password",
-        json={"token": "totally-fake-token", "new_password": "newpassword1"},
+        json={"token": "totally-fake-token", "new_password": "NewPassword1"},
     )
     assert r.status_code == 400
 
@@ -291,7 +291,7 @@ async def test_reset_password_with_invalid_token_returns_400(auth_client):
 async def test_change_password_without_auth_returns_401(auth_client):
     r = await auth_client.patch(
         f"{BASE}/password",
-        json={"current_password": "password123", "new_password": "newpassword1"},
+        json={"current_password": "Password1", "new_password": "NewPassword1"},
     )
     assert r.status_code == 401
 
@@ -303,7 +303,7 @@ async def test_change_password_wrong_current_password_returns_400(auth_client):
     token = token_r.json()["access_token"]
     r = await auth_client.patch(
         f"{BASE}/password",
-        json={"current_password": "wrong-password", "new_password": "newpassword1"},
+        json={"current_password": "wrong-password", "new_password": "NewPassword1"},
         headers={"Authorization": f"Bearer {token}"},
     )
     assert r.status_code == 400

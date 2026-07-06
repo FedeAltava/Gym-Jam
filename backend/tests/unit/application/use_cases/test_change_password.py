@@ -77,7 +77,7 @@ async def test_change_password_wrong_current_password(session: AsyncSession) -> 
 
     assert isinstance(result, Failure)
     assert isinstance(result.failure(), DomainViolationError)
-    assert "incorrect" in result.failure().message
+    assert result.failure().message == "Invalid credentials"
 
 
 async def test_change_password_user_not_found(session: AsyncSession) -> None:

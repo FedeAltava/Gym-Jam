@@ -6,8 +6,11 @@ class InMemoryExerciseRepository(ExerciseRepository):
     def __init__(self, exercises: list[Exercise] | None = None) -> None:
         self._store: dict[str, Exercise] = {e.id: e for e in (exercises or [])}
 
-    async def get_all(self) -> list[Exercise]:
-        return list(self._store.values())
+    async def get_all(self, muscle_group: str | None = None) -> list[Exercise]:
+        exercises = list(self._store.values())
+        if muscle_group is not None:
+            exercises = [e for e in exercises if e.muscle_group.lower() == muscle_group.lower()]
+        return exercises
 
     async def get_by_id(self, exercise_id: str) -> Exercise | None:
         return self._store.get(exercise_id)

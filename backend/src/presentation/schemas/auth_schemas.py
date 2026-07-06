@@ -7,6 +7,24 @@ from pydantic import BaseModel, EmailStr, Field, field_validator
 _BCRYPT_MAX_BYTES = 72
 
 
+def _validate_password_complexity(value: str) -> str:
+    """Shared validator: enforces complexity + bcrypt byte limit."""
+    if not any(c.isupper() for c in value):
+        raise ValueError(
+            "Password must contain at least one uppercase letter and one digit"
+        )
+    if not any(c.isdigit() for c in value):
+        raise ValueError(
+            "Password must contain at least one uppercase letter and one digit"
+        )
+    if len(value.encode("utf-8")) > _BCRYPT_MAX_BYTES:
+        raise ValueError(
+            f"Password must be at most {_BCRYPT_MAX_BYTES} bytes when UTF-8 encoded "
+            "(bcrypt limit); note that non-ASCII characters use multiple bytes."
+        )
+    return value
+
+
 class RegisterRequest(BaseModel):
     email: EmailStr
     # bcrypt silently truncates at 72 BYTES (not characters) — enforce the
@@ -15,13 +33,8 @@ class RegisterRequest(BaseModel):
 
     @field_validator("password")
     @classmethod
-    def password_within_bcrypt_byte_limit(cls, value: str) -> str:
-        if len(value.encode("utf-8")) > _BCRYPT_MAX_BYTES:
-            raise ValueError(
-                f"Password must be at most {_BCRYPT_MAX_BYTES} bytes when UTF-8 encoded "
-                "(bcrypt limit); note that non-ASCII characters use multiple bytes."
-            )
-        return value
+    def password_complexity(cls, value: str) -> str:
+        return _validate_password_complexity(value)
 
 
 class LoginRequest(BaseModel):
@@ -57,7 +70,17 @@ class ResetPasswordRequest(BaseModel):
     token: str
     new_password: str = Field(min_length=8)
 
+    @field_validator("new_password")
+    @classmethod
+    def new_password_complexity(cls, value: str) -> str:
+        return _validate_password_complexity(value)
+
 
 class ChangePasswordRequest(BaseModel):
     current_password: str
     new_password: str = Field(min_length=8)
+
+    @field_validator("new_password")
+    @classmethod
+    def new_password_complexity(cls, value: str) -> str:
+        return _validate_password_complexity(value)

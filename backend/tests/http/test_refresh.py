@@ -12,7 +12,7 @@ from backend.src.infrastructure.rate_limiter import login_limiter, refresh_limit
 
 BASE = "/auth"
 
-_DEFAULT_PASSWORD = "password123"
+_DEFAULT_PASSWORD = "Password1"
 
 
 @pytest.fixture(autouse=True)

@@ -29,7 +29,7 @@ class ChangePasswordUseCase:
         if not verify_password(current_password, user.hashed_password):
             return Failure(DomainViolationError(
                 domain_error=ValueError("Current password is incorrect"),
-                message="Current password is incorrect",
+                message="Invalid credentials",
             ))
 
         user.hashed_password = hash_password(new_password)

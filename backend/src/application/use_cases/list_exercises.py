@@ -13,10 +13,6 @@ class ListExercisesUseCase:
     async def execute(
         self, muscle_group: str | None = None
     ) -> Result[list[ExerciseDTO], ApplicationError]:
-        exercises = await self._exercise_repo.get_all()
-        if muscle_group is not None:
-            exercises = [
-                e for e in exercises if e.muscle_group.lower() == muscle_group.lower()
-            ]
+        exercises = await self._exercise_repo.get_all(muscle_group=muscle_group)
         ordered = sorted(exercises, key=lambda e: (e.muscle_group, e.name))
         return Success([ExerciseDTO.from_entity(e) for e in ordered])

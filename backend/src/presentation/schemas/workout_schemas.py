@@ -33,7 +33,7 @@ class ReorderTrainingDaysRequest(BaseModel):
 
 
 class RenameWorkoutRequest(BaseModel):
-    name: str
+    name: str = Field(min_length=1, max_length=100)
 
 
 # ── Response schemas ─────────────────────────────────────────────────────────

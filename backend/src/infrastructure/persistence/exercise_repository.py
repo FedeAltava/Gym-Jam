@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from sqlalchemy import select
+from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from backend.src.domain.entities.exercise import Exercise
@@ -21,8 +21,11 @@ class SqlAlchemyExerciseRepository(ExerciseRepository):
     def __init__(self, session: AsyncSession) -> None:
         self._session = session
 
-    async def get_all(self) -> list[Exercise]:
-        result = await self._session.execute(select(ExerciseModel))
+    async def get_all(self, muscle_group: str | None = None) -> list[Exercise]:
+        query = select(ExerciseModel)
+        if muscle_group is not None:
+            query = query.where(func.lower(ExerciseModel.muscle_group) == muscle_group.lower())
+        result = await self._session.execute(query)
         return [_to_domain(m) for m in result.scalars().all()]
 
     async def get_by_id(self, exercise_id: str) -> Exercise | None:
