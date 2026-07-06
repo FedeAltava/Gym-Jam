@@ -1,7 +1,7 @@
 """SqlAlchemySessionRepository — infrastructure layer."""
 from __future__ import annotations
 
-from sqlalchemy import delete, select
+from sqlalchemy import delete, select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
@@ -18,15 +18,49 @@ class SqlAlchemySessionRepository(SessionRepository):
         self._session = session
 
     async def save(self, session: WorkoutSession) -> None:
+        # Selective diff + upsert instead of DELETE-then-INSERT: wholesale
+        # deletion is racy under concurrent saves (a second save's DELETE
+        # wipes rows the first save just inserted before either commits).
+        # Consistent with SqlAlchemyWorkoutRepository's exercise handling.
         session_id_str = str(session.id.value)
-        # Delete-then-merge: remove all existing logs for this session, then
-        # re-insert them alongside the session model. Consistent with
-        # SqlAlchemyWorkoutRepository's exercise handling strategy.
-        await self._session.execute(
-            delete(WorkoutLogModel).where(WorkoutLogModel.session_id == session_id_str)
-        )
-        await self._session.flush()
         model = WorkoutSessionMapper.to_model(session)
+
+        new_set_numbers = {log.id: log.set_number for log in model.logs}
+        result = await self._session.execute(
+            select(WorkoutLogModel.id, WorkoutLogModel.set_number).where(
+                WorkoutLogModel.session_id == session_id_str
+            )
+        )
+        existing_set_numbers = dict(result.all())
+
+        stale_ids = existing_set_numbers.keys() - new_set_numbers.keys()
+        if stale_ids:
+            # Delete only rows actually removed from the aggregate. This also
+            # frees their (session_id, workout_exercise_id, set_number) slots
+            # before the merge below inserts new rows.
+            await self._session.execute(
+                delete(WorkoutLogModel).where(WorkoutLogModel.id.in_(stale_ids))
+            )
+
+        renumbered_ids = {
+            log_id
+            for log_id in existing_set_numbers.keys() & new_set_numbers.keys()
+            if existing_set_numbers[log_id] != new_set_numbers[log_id]
+        }
+        if renumbered_ids:
+            # Park renumbered rows on temporary negative slots so set-number
+            # shuffles never trip the per-row UNIQUE
+            # (session_id, workout_exercise_id, set_number) constraint while
+            # the merge rewrites final values. Set numbers are >= 1, so
+            # -set_number - 1 is always negative and collision-free.
+            await self._session.execute(
+                update(WorkoutLogModel)
+                .where(WorkoutLogModel.id.in_(renumbered_ids))
+                .values(set_number=-WorkoutLogModel.set_number - 1)
+                .execution_options(synchronize_session="fetch")
+            )
+
+        # ORM-level upsert: INSERT new rows, UPDATE surviving ones.
         await self._session.merge(model)
         await self._session.flush()
 

@@ -303,3 +303,72 @@ async def test_workout_is_active_default_true(session):
 
     assert loaded is not None
     assert loaded.is_active is True
+
+
+# ─── 18. re-save preserves unchanged exercise rows (selective upsert) ──────
+
+async def test_resave_preserves_unchanged_exercise_rows(session):
+    """save() must NOT delete-and-reinsert rows that are still in the aggregate.
+
+    Wholesale DELETE-then-INSERT is racy under concurrent saves (a second
+    save's DELETE wipes rows the first save just inserted). Row survival is
+    observable through created_at: a re-inserted row gets a fresh timestamp,
+    an upserted row keeps the original one.
+    """
+    from datetime import UTC, datetime
+
+    from sqlalchemy import select, update
+
+    from backend.src.infrastructure.persistence.models import WorkoutExerciseModel
+
+    repo = SqlAlchemyWorkoutRepository(session)
+    workout = _make_workout(name="Upsert Check")
+    workout.add_training_day(DayOfWeek.MONDAY)
+    ex = workout.add_exercise_to_day(DayOfWeek.MONDAY, "ex-keep")
+    await repo.save(workout)
+
+    sentinel = datetime(2020, 1, 1, tzinfo=UTC)
+    await session.execute(
+        update(WorkoutExerciseModel)
+        .where(WorkoutExerciseModel.id == str(ex.id.value))
+        .values(created_at=sentinel)
+    )
+
+    workout.rename(WorkoutName.create("Upsert Check Renamed").unwrap())
+    await repo.save(workout)
+
+    result = await session.execute(
+        select(WorkoutExerciseModel.created_at).where(
+            WorkoutExerciseModel.id == str(ex.id.value)
+        )
+    )
+    created_at = result.scalar_one()
+    assert created_at.replace(tzinfo=None) == datetime(2020, 1, 1)
+
+    loaded = await repo.get_by_id(workout.id)
+    exercises = loaded.get_exercises_for_day(DayOfWeek.MONDAY)
+    assert len(exercises) == 1
+    assert exercises[0].exercise_id == "ex-keep"
+
+
+# ─── 19. re-save persists reordered exercises (approval: no UNIQUE error) ──
+
+async def test_resave_reordered_exercises_persists_new_order(session):
+    """Reordering rotates every order_in_day value; the save must survive the
+    per-row UNIQUE (training_day_id, order_in_day) constraint and persist the
+    final order."""
+    repo = SqlAlchemyWorkoutRepository(session)
+    workout = _make_workout(name="Reorder Persist")
+    workout.add_training_day(DayOfWeek.MONDAY)
+    ex1 = workout.add_exercise_to_day(DayOfWeek.MONDAY, "ex-a")
+    ex2 = workout.add_exercise_to_day(DayOfWeek.MONDAY, "ex-b")
+    ex3 = workout.add_exercise_to_day(DayOfWeek.MONDAY, "ex-c")
+    await repo.save(workout)
+
+    workout.reorder_exercises_in_day(DayOfWeek.MONDAY, [ex3.id, ex1.id, ex2.id])
+    await repo.save(workout)
+
+    loaded = await repo.get_by_id(workout.id)
+    exercises = loaded.get_exercises_for_day(DayOfWeek.MONDAY)
+    assert [e.exercise_id for e in exercises] == ["ex-c", "ex-a", "ex-b"]
+    assert [e.order for e in exercises] == [1, 2, 3]

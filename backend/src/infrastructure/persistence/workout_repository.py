@@ -1,6 +1,6 @@
 from __future__ import annotations
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy import select, delete
+from sqlalchemy import select, delete, update
 from sqlalchemy.orm import selectinload
 from backend.src.domain.aggregates.workout import Workout
 from backend.src.domain.repositories.workout_repository import WorkoutRepository
@@ -14,15 +14,54 @@ class SqlAlchemyWorkoutRepository(WorkoutRepository):
         self._session = session
 
     async def save(self, workout: Workout) -> None:
+        # Selective diff + upsert instead of DELETE-then-INSERT: wholesale
+        # deletion is racy under concurrent saves (a second save's DELETE
+        # wipes rows the first save just inserted before either commits).
         workout_id_str = str(workout.id.value)
-        # Delete all exercises for this workout before re-inserting to avoid
-        # UNIQUE constraint violations on (training_day_id, order_in_day)
-        # when exercises are reordered (SQLite enforces constraint per-row).
-        await self._session.execute(
-            delete(WorkoutExerciseModel).where(WorkoutExerciseModel.workout_id == workout_id_str)
-        )
-        await self._session.flush()
         model = WorkoutMapper.to_model(workout)
+
+        new_orders = {
+            exercise.id: exercise.order_in_day
+            for day in model.training_days
+            for exercise in day.exercises
+        }
+        result = await self._session.execute(
+            select(WorkoutExerciseModel.id, WorkoutExerciseModel.order_in_day).where(
+                WorkoutExerciseModel.workout_id == workout_id_str
+            )
+        )
+        existing_orders = dict(result.all())
+
+        stale_ids = existing_orders.keys() - new_orders.keys()
+        if stale_ids:
+            # Delete only rows actually removed from the aggregate. This also
+            # frees their (training_day_id, order_in_day) slots before the
+            # merge below inserts new rows.
+            await self._session.execute(
+                delete(WorkoutExerciseModel).where(WorkoutExerciseModel.id.in_(stale_ids))
+            )
+
+        reordered_ids = {
+            exercise_id
+            for exercise_id in existing_orders.keys() & new_orders.keys()
+            if existing_orders[exercise_id] != new_orders[exercise_id]
+        }
+        if reordered_ids:
+            # Park reordered rows on temporary negative slots so in-flight
+            # reorders never trip the per-row UNIQUE
+            # (training_day_id, order_in_day) constraint while the merge
+            # rewrites final positions. Orders are >= 1, so -order - 1 is
+            # always negative and the mapping is collision-free.
+            # synchronize_session="fetch" keeps identity-map instances in
+            # sync so the merge detects the change back to the final value.
+            await self._session.execute(
+                update(WorkoutExerciseModel)
+                .where(WorkoutExerciseModel.id.in_(reordered_ids))
+                .values(order_in_day=-WorkoutExerciseModel.order_in_day - 1)
+                .execution_options(synchronize_session="fetch")
+            )
+
+        # ORM-level upsert: INSERT new rows, UPDATE surviving ones.
         await self._session.merge(model)
         await self._session.flush()
 

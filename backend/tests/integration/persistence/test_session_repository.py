@@ -249,3 +249,131 @@ async def test_completed_at_round_trips(session) -> None:
     assert loaded is not None
     assert loaded.completed_at is not None
     assert loaded.status == "completed"
+
+
+# ─── 9. re-save preserves unchanged log rows (selective upsert) ─────────────
+
+async def test_resave_preserves_unchanged_log_rows(session) -> None:
+    """save() must NOT delete-and-reinsert logs still present in the aggregate.
+
+    Wholesale DELETE-then-INSERT is racy under concurrent saves. Row survival
+    is observable through created_at: a re-inserted row gets a fresh
+    timestamp, an upserted row keeps the original one.
+    """
+    from sqlalchemy import select, update
+
+    from backend.src.domain.entities.workout_exercise import WorkoutExercise
+    from backend.src.domain.value_objects import DayOfWeek, WorkoutExerciseId
+    from backend.src.infrastructure.persistence.models import (
+        WorkoutExerciseModel,
+        WorkoutLogModel,
+    )
+
+    repo = SqlAlchemySessionRepository(session)
+    wid, td_id = await _insert_workout_and_day(session)
+
+    ex_id = WorkoutExerciseId.generate()
+    session.add(
+        WorkoutExerciseModel(
+            id=str(ex_id.value),
+            workout_id=str(wid.value),
+            training_day_id=str(td_id.value),
+            exercise_id="deadlift",
+            order_in_day=1,
+            sets=3,
+            reps_per_set=10,
+            weight_kg=None,
+        )
+    )
+    await session.flush()
+
+    s = _make_session(workout_id=wid, training_day_id=td_id)
+    exercise = WorkoutExercise(
+        id=ex_id,
+        workout_id=wid,
+        day=DayOfWeek.MONDAY,
+        exercise_id="deadlift",
+        order=1,
+        sets=3,
+    )
+    first_log = s.log_set(exercise, set_number=1, reps_completed=8, weight_kg=100.0)
+    await repo.save(s)
+
+    sentinel = datetime(2020, 1, 1, tzinfo=UTC)
+    await session.execute(
+        update(WorkoutLogModel)
+        .where(WorkoutLogModel.id == str(first_log.id.value))
+        .values(created_at=sentinel)
+    )
+
+    s.log_set(exercise, set_number=2, reps_completed=7, weight_kg=100.0)
+    await repo.save(s)
+
+    result = await session.execute(
+        select(WorkoutLogModel.created_at).where(
+            WorkoutLogModel.id == str(first_log.id.value)
+        )
+    )
+    created_at = result.scalar_one()
+    assert created_at.replace(tzinfo=None) == datetime(2020, 1, 1)
+
+    loaded = await repo.get_by_id(s.id)
+    assert loaded is not None
+    assert len(loaded.logs) == 2
+
+
+# ─── 10. re-save removes logs absent from the aggregate (approval) ──────────
+
+async def test_resave_removes_logs_absent_from_aggregate(session) -> None:
+    """Rows dropped from the aggregate must be deleted on save — the selective
+    diff must not turn save() into append-only."""
+    from backend.src.domain.entities.workout_exercise import WorkoutExercise
+    from backend.src.domain.value_objects import DayOfWeek, WorkoutExerciseId
+    from backend.src.infrastructure.persistence.models import WorkoutExerciseModel
+
+    repo = SqlAlchemySessionRepository(session)
+    wid, td_id = await _insert_workout_and_day(session)
+
+    ex_id = WorkoutExerciseId.generate()
+    session.add(
+        WorkoutExerciseModel(
+            id=str(ex_id.value),
+            workout_id=str(wid.value),
+            training_day_id=str(td_id.value),
+            exercise_id="row",
+            order_in_day=1,
+            sets=3,
+            reps_per_set=10,
+            weight_kg=None,
+        )
+    )
+    await session.flush()
+
+    s = _make_session(workout_id=wid, training_day_id=td_id)
+    exercise = WorkoutExercise(
+        id=ex_id,
+        workout_id=wid,
+        day=DayOfWeek.MONDAY,
+        exercise_id="row",
+        order=1,
+        sets=3,
+    )
+    first_log = s.log_set(exercise, set_number=1, reps_completed=10, weight_kg=None)
+    s.log_set(exercise, set_number=2, reps_completed=9, weight_kg=None)
+    await repo.save(s)
+
+    # Rebuild the aggregate keeping only the first log (e.g., a set was undone).
+    rebuilt = WorkoutSession(
+        id=s.id,
+        user_id=s.user_id,
+        workout_id=wid,
+        training_day_id=td_id,
+        started_at=s.started_at,
+        _logs=[first_log],
+    )
+    await repo.save(rebuilt)
+
+    loaded = await repo.get_by_id(s.id)
+    assert loaded is not None
+    assert len(loaded.logs) == 1
+    assert loaded.logs[0].set_number == 1
