@@ -1,4 +1,5 @@
 from dataclasses import dataclass
+from datetime import date
 
 
 @dataclass(frozen=True)
@@ -122,5 +123,17 @@ class GetSessionsForDayCommand:
     user_id: str
     workout_id: str
     training_day_id: str
+
+
+@dataclass(frozen=True)
+class GetSessionHistoryQuery:
+    user_id: str
+    workout_id: str | None = None
+    day_id: str | None = None
+    status: str | None = None  # "completed" | "in_progress" | None (no filter)
+    date_from: date | None = None
+    date_to: date | None = None
+    limit: int = 20
+    offset: int = 0
 
 

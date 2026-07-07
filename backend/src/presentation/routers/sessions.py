@@ -1,13 +1,17 @@
 """Sessions router — application layer entry point for workout session endpoints."""
 from __future__ import annotations
 
-from fastapi import APIRouter, Depends
+from datetime import date
+from typing import Literal
+
+from fastapi import APIRouter, Depends, Query
 from returns.result import Failure
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from backend.src.application.commands import (
     CompleteWorkoutSessionCommand,
     DeleteWorkoutSessionCommand,
+    GetSessionHistoryQuery,
     GetSessionsForDayCommand,
     LogExerciseSetCommand,
     StartWorkoutSessionCommand,
@@ -15,6 +19,7 @@ from backend.src.application.commands import (
 )
 from backend.src.application.use_cases.complete_workout_session import CompleteWorkoutSessionUseCase
 from backend.src.application.use_cases.delete_workout_session import DeleteWorkoutSessionUseCase
+from backend.src.application.use_cases.get_session_history import GetSessionHistoryUseCase
 from backend.src.application.use_cases.get_sessions_for_day import GetSessionsForDayUseCase
 from backend.src.application.use_cases.log_exercise_set import LogExerciseSetUseCase
 from backend.src.application.use_cases.start_workout_session import StartWorkoutSessionUseCase
@@ -26,12 +31,14 @@ from backend.src.presentation.dependencies import (
     get_delete_session_uc,
     get_get_sessions_for_day_uc,
     get_log_exercise_set_uc,
+    get_session_history_uc,
     get_start_session_uc,
     get_update_log_uc,
 )
 from backend.src.presentation.schemas.session_schemas import (
     ExerciseLogResponse,
     LogSetRequest,
+    SessionHistoryItemResponse,
     UpdateLogRequest,
     WorkoutSessionResponse,
 )
@@ -83,6 +90,39 @@ async def get_sessions_for_day(
     if isinstance(result, Failure):
         raise result.failure()
     return [WorkoutSessionResponse.from_dto(dto) for dto in result.unwrap()]
+
+
+# Router is mounted with prefix="" (see main.py), so this is GET /sessions.
+@router.get(
+    "/sessions",
+    status_code=200,
+    response_model=list[SessionHistoryItemResponse],
+)
+async def get_session_history(
+    workout_id: str | None = None,
+    day_id: str | None = None,
+    status: Literal["completed", "in_progress"] | None = None,
+    date_from: date | None = None,
+    date_to: date | None = None,
+    limit: int = Query(default=20, ge=1, le=100),
+    offset: int = Query(default=0, ge=0),
+    uc: GetSessionHistoryUseCase = Depends(get_session_history_uc),
+    user_id: str = Depends(get_current_user_id),
+) -> list[SessionHistoryItemResponse]:
+    query = GetSessionHistoryQuery(
+        user_id=user_id,
+        workout_id=workout_id,
+        day_id=day_id,
+        status=status,
+        date_from=date_from,
+        date_to=date_to,
+        limit=limit,
+        offset=offset,
+    )
+    result = await uc.execute(query)
+    if isinstance(result, Failure):
+        raise result.failure()
+    return [SessionHistoryItemResponse.from_dto(dto) for dto in result.unwrap()]
 
 
 @router.post(

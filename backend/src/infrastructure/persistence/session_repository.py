@@ -1,16 +1,26 @@
 """SqlAlchemySessionRepository — infrastructure layer."""
 from __future__ import annotations
 
+from datetime import UTC, date, datetime, time, timedelta
+
 from sqlalchemy import delete, select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
+from backend.src.application.dtos import SessionHistoryItemDTO, SessionHistoryLogDTO
 from backend.src.domain.entities.workout_session import WorkoutSession
 from backend.src.domain.repositories.session_repository import SessionRepository
 from backend.src.domain.value_objects import TrainingDayId, WorkoutId
 from backend.src.domain.value_objects.workout_session_id import WorkoutSessionId
 from backend.src.infrastructure.persistence.mappers import WorkoutSessionMapper
-from backend.src.infrastructure.persistence.models import WorkoutLogModel, WorkoutSessionModel
+from backend.src.infrastructure.persistence.models import (
+    ExerciseModel,
+    TrainingDayModel,
+    WorkoutExerciseModel,
+    WorkoutLogModel,
+    WorkoutModel,
+    WorkoutSessionModel,
+)
 
 
 class SqlAlchemySessionRepository(SessionRepository):
@@ -109,3 +119,130 @@ class SqlAlchemySessionRepository(SessionRepository):
         result = await self._session.execute(stmt)
         models = result.scalars().all()
         return [WorkoutSessionMapper.to_domain(m) for m in models]
+
+    async def list_history_for_user(
+        self,
+        user_id: str,
+        workout_id: str | None,
+        day_id: str | None,
+        status: str | None,
+        date_from: date | None,
+        date_to: date | None,
+        limit: int,
+        offset: int,
+    ) -> list[SessionHistoryItemDTO]:
+        # Exactly two queries, zero N+1.
+        #
+        # Query 1 — page of sessions with workout name + day-of-week.
+        # Column-only select ON PURPOSE: loading WorkoutSessionModel entities
+        # would auto-fire the logs relationship (lazy="selectin") — a third
+        # query that cannot carry the exercise-name join.
+        stmt = (
+            select(
+                WorkoutSessionModel.id,
+                WorkoutSessionModel.workout_id,
+                WorkoutSessionModel.training_day_id,
+                WorkoutSessionModel.started_at,
+                WorkoutSessionModel.completed_at,
+                WorkoutModel.name.label("workout_name"),
+                TrainingDayModel.day_of_week,
+            )
+            .join(WorkoutModel, WorkoutSessionModel.workout_id == WorkoutModel.id)
+            .join(
+                TrainingDayModel,
+                WorkoutSessionModel.training_day_id == TrainingDayModel.id,
+            )
+            .where(WorkoutSessionModel.user_id == user_id)
+            .order_by(WorkoutSessionModel.started_at.desc())
+            .limit(limit)
+            .offset(offset)
+        )
+        if workout_id is not None:
+            stmt = stmt.where(WorkoutSessionModel.workout_id == workout_id)
+        if day_id is not None:
+            stmt = stmt.where(WorkoutSessionModel.training_day_id == day_id)
+        # "status" is derived — there is no status column. in_progress means
+        # the session was never completed.
+        if status == "in_progress":
+            stmt = stmt.where(WorkoutSessionModel.completed_at.is_(None))
+        elif status == "completed":
+            stmt = stmt.where(WorkoutSessionModel.completed_at.is_not(None))
+        # Date bounds are UTC day boundaries; upper bound is exclusive of the
+        # day AFTER date_to so the full date_to day is included.
+        if date_from is not None:
+            stmt = stmt.where(
+                WorkoutSessionModel.started_at
+                >= datetime.combine(date_from, time.min, tzinfo=UTC)
+            )
+        if date_to is not None:
+            stmt = stmt.where(
+                WorkoutSessionModel.started_at
+                < datetime.combine(date_to + timedelta(days=1), time.min, tzinfo=UTC)
+            )
+        rows = (await self._session.execute(stmt)).all()
+
+        # Query 2 — all logs for the page's sessions with exercise names,
+        # one IN query. Outer join to the catalog: workout_exercises.exercise_id
+        # is a soft reference (see models.py) — legacy rows can hold free-text
+        # ids with no catalog row, and those logs must not be dropped.
+        session_ids = [row.id for row in rows]
+        logs_by_session: dict[str, list[SessionHistoryLogDTO]] = {
+            sid: [] for sid in session_ids
+        }
+        if session_ids:
+            logs_stmt = (
+                select(
+                    WorkoutLogModel.id,
+                    WorkoutLogModel.session_id,
+                    WorkoutLogModel.workout_exercise_id,
+                    WorkoutLogModel.set_number,
+                    WorkoutLogModel.reps_completed,
+                    WorkoutLogModel.weight_kg,
+                    WorkoutExerciseModel.exercise_id,
+                    ExerciseModel.name.label("exercise_name"),
+                )
+                .join(
+                    WorkoutExerciseModel,
+                    WorkoutLogModel.workout_exercise_id == WorkoutExerciseModel.id,
+                )
+                .outerjoin(
+                    ExerciseModel,
+                    WorkoutExerciseModel.exercise_id == ExerciseModel.id,
+                )
+                .where(WorkoutLogModel.session_id.in_(session_ids))
+                .order_by(WorkoutLogModel.set_number)
+            )
+            for log_row in (await self._session.execute(logs_stmt)).all():
+                logs_by_session[log_row.session_id].append(
+                    SessionHistoryLogDTO(
+                        id=log_row.id,
+                        workout_exercise_id=log_row.workout_exercise_id,
+                        # Fallback to the raw exercise_id for legacy free-text
+                        # references without a catalog row.
+                        exercise_name=(
+                            log_row.exercise_name
+                            if log_row.exercise_name is not None
+                            else log_row.exercise_id
+                        ),
+                        set_number=log_row.set_number,
+                        reps_completed=log_row.reps_completed,
+                        weight_kg=log_row.weight_kg,
+                    )
+                )
+
+        return [
+            SessionHistoryItemDTO(
+                id=row.id,
+                workout_id=row.workout_id,
+                training_day_id=row.training_day_id,
+                workout_name=row.workout_name,
+                day_of_week=row.day_of_week,
+                started_at=row.started_at.isoformat(),
+                completed_at=(
+                    row.completed_at.isoformat() if row.completed_at is not None else None
+                ),
+                status="completed" if row.completed_at is not None else "in_progress",
+                logs=tuple(logs_by_session[row.id]),
+            )
+            for row in rows
+        ]

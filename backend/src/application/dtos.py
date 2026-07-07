@@ -137,6 +137,29 @@ class ExerciseLogDTO:
 
 
 @dataclass(frozen=True)
+class SessionHistoryLogDTO:
+    id: str
+    workout_exercise_id: str
+    exercise_name: str
+    set_number: int
+    reps_completed: int
+    weight_kg: float | None
+
+
+@dataclass(frozen=True)
+class SessionHistoryItemDTO:
+    id: str
+    workout_id: str
+    training_day_id: str
+    workout_name: str
+    day_of_week: str
+    started_at: str
+    completed_at: str | None
+    status: str
+    logs: tuple[SessionHistoryLogDTO, ...]
+
+
+@dataclass(frozen=True)
 class WorkoutSessionDTO:
     id: str
     user_id: str

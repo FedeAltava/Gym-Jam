@@ -96,6 +96,9 @@ class WorkoutSessionModel(Base):
         Index("ix_workout_sessions_user_id", "user_id"),
         Index("ix_workout_sessions_workout_id", "workout_id"),
         Index("ix_workout_sessions_training_day_id", "training_day_id"),
+        # Serves GET /sessions history: filter by user + ORDER BY started_at.
+        # Kept in sync with migration 009.
+        Index("ix_workout_sessions_user_started", "user_id", "started_at"),
     )
     id: Mapped[str] = mapped_column(String(36), primary_key=True)
     user_id: Mapped[str] = mapped_column(String(36), ForeignKey("users.id"), nullable=False)

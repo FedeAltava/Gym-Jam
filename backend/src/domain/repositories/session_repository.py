@@ -1,6 +1,8 @@
 """SessionRepository ABC — port for workout session persistence."""
 from abc import ABC, abstractmethod
+from datetime import date
 
+from backend.src.application.dtos import SessionHistoryItemDTO
 from backend.src.domain.entities.workout_session import WorkoutSession
 from backend.src.domain.value_objects.training_day_id import TrainingDayId
 from backend.src.domain.value_objects.workout_id import WorkoutId
@@ -24,3 +26,16 @@ class SessionRepository(ABC):
         workout_id: WorkoutId,
         training_day_id: TrainingDayId,
     ) -> list[WorkoutSession]: ...
+
+    @abstractmethod
+    async def list_history_for_user(
+        self,
+        user_id: str,
+        workout_id: str | None,
+        day_id: str | None,
+        status: str | None,
+        date_from: date | None,
+        date_to: date | None,
+        limit: int,
+        offset: int,
+    ) -> list[SessionHistoryItemDTO]: ...

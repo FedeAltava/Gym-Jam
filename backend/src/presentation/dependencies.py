@@ -40,6 +40,7 @@ from backend.src.application.use_cases.update_exercise_log import UpdateExercise
 from backend.src.application.use_cases.complete_workout_session import CompleteWorkoutSessionUseCase
 from backend.src.application.use_cases.delete_workout_session import DeleteWorkoutSessionUseCase
 from backend.src.application.use_cases.get_sessions_for_day import GetSessionsForDayUseCase
+from backend.src.application.use_cases.get_session_history import GetSessionHistoryUseCase
 from backend.src.infrastructure.persistence.session_repository import SqlAlchemySessionRepository
 from backend.src.domain.repositories.session_repository import SessionRepository
 
@@ -222,3 +223,9 @@ def get_get_sessions_for_day_uc(
     workout_repo: WorkoutRepository = Depends(get_workout_repository),
 ) -> GetSessionsForDayUseCase:
     return GetSessionsForDayUseCase(session_repo, workout_repo)
+
+
+def get_session_history_uc(
+    session_repo: SessionRepository = Depends(get_session_repository),
+) -> GetSessionHistoryUseCase:
+    return GetSessionHistoryUseCase(session_repo)

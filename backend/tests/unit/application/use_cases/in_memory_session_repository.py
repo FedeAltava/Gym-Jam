@@ -1,6 +1,9 @@
 """In-memory implementation of SessionRepository for use case unit tests."""
 from __future__ import annotations
 
+from datetime import date
+
+from backend.src.application.dtos import SessionHistoryItemDTO
 from backend.src.domain.entities.workout_session import WorkoutSession
 from backend.src.domain.repositories.session_repository import SessionRepository
 from backend.src.domain.value_objects import TrainingDayId, WorkoutId
@@ -10,6 +13,10 @@ from backend.src.domain.value_objects.workout_session_id import WorkoutSessionId
 class InMemorySessionRepository(SessionRepository):
     def __init__(self) -> None:
         self._store: dict[str, WorkoutSession] = {}
+        self._history_items: list[SessionHistoryItemDTO] = []
+        # Last kwargs received by list_history_for_user — lets use case tests
+        # assert filter forwarding without a real query engine.
+        self.last_history_call: dict[str, object] | None = None
 
     async def save(self, session: WorkoutSession) -> None:
         self._store[str(session.id.value)] = session
@@ -37,3 +44,30 @@ class InMemorySessionRepository(SessionRepository):
         ]
         # Return newest first (consistent with SQL repo)
         return sorted(results, key=lambda s: s.started_at, reverse=True)
+
+    def seed_history(self, items: list[SessionHistoryItemDTO]) -> None:
+        """Seed pre-built history read models (already ordered newest-first)."""
+        self._history_items = list(items)
+
+    async def list_history_for_user(
+        self,
+        user_id: str,
+        workout_id: str | None,
+        day_id: str | None,
+        status: str | None,
+        date_from: date | None,
+        date_to: date | None,
+        limit: int,
+        offset: int,
+    ) -> list[SessionHistoryItemDTO]:
+        self.last_history_call = {
+            "user_id": user_id,
+            "workout_id": workout_id,
+            "day_id": day_id,
+            "status": status,
+            "date_from": date_from,
+            "date_to": date_to,
+            "limit": limit,
+            "offset": offset,
+        }
+        return self._history_items[offset : offset + limit]
