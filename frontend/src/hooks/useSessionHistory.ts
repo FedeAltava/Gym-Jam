@@ -5,13 +5,11 @@ import type { SessionHistoryItemResponse } from '../types/api';
 const PAGE_SIZE = 20;
 
 interface SessionHistoryFilters {
-  workoutId?: string;
   status?: string;
 }
 
 function buildQueryString(filters: SessionHistoryFilters): string {
   const params = new URLSearchParams();
-  if (filters.workoutId) params.set('workout_id', filters.workoutId);
   if (filters.status) params.set('status', filters.status);
   return params.toString() ? '?' + params.toString() : '';
 }

@@ -2,7 +2,6 @@ import { useState } from 'react';
 import { Link, useSearchParams } from 'react-router-dom';
 import { Spinner } from '../components/Spinner';
 import { useSessionHistory } from '../hooks/useSessionHistory';
-import { useWorkouts } from '../hooks/useWorkouts';
 import { DAY_LABEL } from '../lib/days';
 import type { DayKey } from '../lib/days';
 import type { SessionHistoryItemResponse } from '../types/api';
@@ -147,10 +146,9 @@ const STATUS_OPTIONS = [
 export function HistoryPage() {
   const [searchParams, setSearchParams] = useSearchParams();
 
-  const workoutId = searchParams.get('workout') ?? '';
   const status = searchParams.get('status') ?? '';
 
-  const filtersActive = Boolean(workoutId || status);
+  const filtersActive = Boolean(status);
 
   const {
     data,
@@ -161,13 +159,8 @@ export function HistoryPage() {
     isFetchingNextPage,
     fetchNextPage,
   } = useSessionHistory({
-    workoutId: workoutId || undefined,
     status: status || undefined,
   });
-
-  // First page of workouts for the filter dropdown
-  const { data: workoutsData } = useWorkouts();
-  const allWorkouts = workoutsData?.pages[0] ?? [];
 
   // Deduplicate sessions across pages (same as DashboardPage pattern)
   const sessions = data
@@ -175,16 +168,6 @@ export function HistoryPage() {
         new Map(data.pages.flat().map((s) => [s.id, s])).values(),
       )
     : undefined;
-
-  function handleWorkoutChange(e: React.ChangeEvent<HTMLSelectElement>) {
-    const next = new URLSearchParams(searchParams);
-    if (e.target.value) {
-      next.set('workout', e.target.value);
-    } else {
-      next.delete('workout');
-    }
-    setSearchParams(next);
-  }
 
   function handleStatusChange(value: string) {
     const next = new URLSearchParams(searchParams);
@@ -210,44 +193,26 @@ export function HistoryPage() {
         </p>
       </div>
 
-      {/* Filter bar — column on mobile so the native select never overlaps chips */}
-      <div className="flex flex-col gap-2 sm:flex-row sm:flex-wrap sm:items-center mb-5">
-        {/* Workout dropdown */}
-        <select
-          value={workoutId}
-          onChange={handleWorkoutChange}
-          className="w-full sm:w-auto text-sm rounded-btn border border-border bg-surface text-text px-3"
-          style={{ height: '36px', cursor: 'pointer', colorScheme: 'dark' }}
-        >
-          <option value="">Todos los planes</option>
-          {allWorkouts.map((w) => (
-            <option key={w.id} value={w.id}>
-              {w.name}
-            </option>
-          ))}
-        </select>
-
-        {/* Status chips */}
-        <div className="flex gap-1.5">
-          {STATUS_OPTIONS.map(({ value, label }) => {
-            const active = status === value;
-            return (
-              <button
-                key={value}
-                onClick={() => handleStatusChange(value)}
-                className={[
-                  'text-xs font-semibold px-3 rounded-full border transition-colors',
-                  active
-                    ? 'bg-accent text-bg border-accent'
-                    : 'bg-transparent text-muted border-border hover:text-text',
-                ].join(' ')}
-                style={{ height: '28px', cursor: 'pointer' }}
-              >
-                {label}
-              </button>
-            );
-          })}
-        </div>
+      {/* Filter bar */}
+      <div className="flex gap-1.5 mb-5">
+        {STATUS_OPTIONS.map(({ value, label }) => {
+          const active = status === value;
+          return (
+            <button
+              key={value}
+              onClick={() => handleStatusChange(value)}
+              className={[
+                'text-xs font-semibold px-3 rounded-full border transition-colors',
+                active
+                  ? 'bg-accent text-bg border-accent'
+                  : 'bg-transparent text-muted border-border hover:text-text',
+              ].join(' ')}
+              style={{ height: '28px', cursor: 'pointer' }}
+            >
+              {label}
+            </button>
+          );
+        })}
       </div>
 
       {/* Loading state */}

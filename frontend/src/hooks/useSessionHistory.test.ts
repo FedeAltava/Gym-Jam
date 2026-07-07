@@ -54,21 +54,6 @@ describe('useSessionHistory', () => {
     );
   });
 
-  it('includes workout_id query param when workoutId filter is set', async () => {
-    vi.mocked(apiFetch).mockResolvedValue([]);
-    const { wrapper } = createWrapper();
-    const { result } = renderHook(
-      () => useSessionHistory({ workoutId: 'wk-42' }),
-      { wrapper },
-    );
-
-    await waitFor(() => expect(result.current.isSuccess).toBe(true));
-
-    expect(vi.mocked(apiFetch)).toHaveBeenCalledWith(
-      '/sessions?workout_id=wk-42&limit=20&offset=0',
-    );
-  });
-
   it('includes status query param when status filter is set', async () => {
     vi.mocked(apiFetch).mockResolvedValue([]);
     const { wrapper } = createWrapper();
@@ -81,21 +66,6 @@ describe('useSessionHistory', () => {
 
     expect(vi.mocked(apiFetch)).toHaveBeenCalledWith(
       '/sessions?status=completed&limit=20&offset=0',
-    );
-  });
-
-  it('includes both workout_id and status when both filters are set', async () => {
-    vi.mocked(apiFetch).mockResolvedValue([]);
-    const { wrapper } = createWrapper();
-    const { result } = renderHook(
-      () => useSessionHistory({ workoutId: 'wk-7', status: 'in_progress' }),
-      { wrapper },
-    );
-
-    await waitFor(() => expect(result.current.isSuccess).toBe(true));
-
-    expect(vi.mocked(apiFetch)).toHaveBeenCalledWith(
-      '/sessions?workout_id=wk-7&status=in_progress&limit=20&offset=0',
     );
   });
 
