@@ -1,17 +1,27 @@
 import { useState, useRef, useEffect } from 'react';
 import type { KeyboardEvent } from 'react';
 import { useParams, Link, useNavigate } from 'react-router-dom';
-import { ArrowLeft, Plus, X, Play, ChevronDown, ChevronUp, Pencil, Trash2 } from 'lucide-react';
+import { ArrowLeft, Plus, X, Play, ChevronDown, ChevronUp, Pencil, Trash2, GripVertical } from 'lucide-react';
 import { useWorkout, useDeleteWorkout, useReorderTrainingDays, useRenameWorkout, useSetWorkoutActive, useAddTrainingDay, useRemoveTrainingDay } from '../hooks/useWorkouts';
-import { useExercises, useRemoveExercise } from '../hooks/useExercises';
+import { useExercises, useRemoveExercise, useReorderExercises } from '../hooks/useExercises';
 import {
   useSessionsForDay,
   useCompleteSession,
   useDeleteSession,
 } from '../hooks/useSessions';
+import {
+  DndContext, closestCenter, PointerSensor, KeyboardSensor,
+  useSensor, useSensors,
+} from '@dnd-kit/core';
+import type { DragEndEvent } from '@dnd-kit/core';
+import {
+  SortableContext, verticalListSortingStrategy,
+  useSortable, arrayMove, sortableKeyboardCoordinates,
+} from '@dnd-kit/sortable';
+import { CSS } from '@dnd-kit/utilities';
 import { Spinner } from '../components/Spinner';
 import { DAY_LABEL, DAYS } from '../lib/days';
-import type { ExerciseResponse, TrainingDayResponse } from '../types/api';
+import type { ExerciseResponse, TrainingDayResponse, WorkoutExerciseResponse } from '../types/api';
 
 interface TrainingDayCardProps {
   workoutId: string;
@@ -142,6 +152,78 @@ function PastSessionsList({
   );
 }
 
+interface SortableExerciseItemProps {
+  ex: WorkoutExerciseResponse;
+  exercise: ExerciseResponse | undefined;
+  onRemove: (workoutExerciseId: string) => void;
+  removePending: boolean;
+}
+
+function SortableExerciseItem({ ex, exercise, onRemove, removePending }: SortableExerciseItemProps) {
+  const {
+    attributes,
+    listeners,
+    setNodeRef,
+    setActivatorNodeRef,
+    transform,
+    transition,
+    isDragging,
+  } = useSortable({ id: ex.id });
+
+  const style = {
+    transform: CSS.Transform.toString(transform),
+    transition,
+  };
+
+  return (
+    <li
+      ref={setNodeRef}
+      style={style}
+      className={`flex items-center gap-2 text-sm${isDragging ? ' opacity-50' : ''}`}
+    >
+      <button
+        ref={setActivatorNodeRef}
+        {...attributes}
+        {...listeners}
+        aria-label="Reordenar ejercicio"
+        className="shrink-0 inline-flex items-center justify-center text-muted bg-transparent border-none"
+        style={{ minHeight: '28px', height: '28px', width: '28px', cursor: 'grab', touchAction: 'none' }}
+      >
+        <GripVertical size={14} />
+      </button>
+      <span className="font-bold w-5 text-right shrink-0 text-accent">
+        {ex.order}.
+      </span>
+      {exercise ? (
+        <span className="flex-1 min-w-0">
+          <span className="text-text">{exercise.name}</span>
+          <span className="ml-2 text-xs text-muted">
+            {exercise.muscle_group}
+          </span>
+        </span>
+      ) : (
+        <span className="flex-1 min-w-0 font-mono text-xs text-muted truncate">
+          {ex.exercise_id}
+        </span>
+      )}
+      <button
+        onClick={() => onRemove(ex.id)}
+        disabled={removePending}
+        className="shrink-0 inline-flex items-center justify-center rounded text-danger bg-transparent border-none transition-colors hover:bg-danger hover:text-bg disabled:opacity-60"
+        style={{
+          minHeight: '28px',
+          height: '28px',
+          width: '28px',
+          cursor: 'pointer',
+        }}
+        aria-label="Quitar ejercicio"
+      >
+        <X size={14} />
+      </button>
+    </li>
+  );
+}
+
 function TrainingDayCard({
   workoutId,
   day,
@@ -152,6 +234,7 @@ function TrainingDayCard({
   onDelete,
 }: TrainingDayCardProps) {
   const removeMutation = useRemoveExercise(workoutId);
+  const reorderExercises = useReorderExercises(workoutId, day.day_of_week);
   const [confirmingDelete, setConfirmingDelete] = useState(false);
 
   const sortedDays = [...allDays].sort((a, b) => a.order - b.order);
@@ -183,6 +266,23 @@ function TrainingDayCard({
 
   function handleRemove(workoutExerciseId: string) {
     removeMutation.mutate({ day: day.day_of_week, workoutExerciseId });
+  }
+
+  const sortedExercises = [...day.exercises].sort((a, b) => a.order - b.order);
+
+  const sensors = useSensors(
+    useSensor(PointerSensor, { activationConstraint: { distance: 5 } }),
+    useSensor(KeyboardSensor, { coordinateGetter: sortableKeyboardCoordinates }),
+  );
+
+  function handleDragEnd(event: DragEndEvent) {
+    const { active, over } = event;
+    if (!over || active.id === over.id) return;
+    const ids = sortedExercises.map((e) => e.id);
+    const oldIndex = ids.indexOf(String(active.id));
+    const newIndex = ids.indexOf(String(over.id));
+    if (oldIndex === -1 || newIndex === -1) return;
+    reorderExercises.mutate({ orderedExerciseIds: arrayMove(ids, oldIndex, newIndex) });
   }
 
   return (
@@ -275,44 +375,27 @@ function TrainingDayCard({
       {day.exercises.length === 0 ? (
         <p className="text-sm italic text-muted">Sin ejercicios</p>
       ) : (
-        <ol className="space-y-2">
-          {day.exercises.map((ex) => {
-            const exercise = exerciseById.get(ex.exercise_id);
-            return (
-              <li key={ex.id} className="flex items-center gap-2 text-sm">
-                <span className="font-bold w-5 text-right shrink-0 text-accent">
-                  {ex.order}.
-                </span>
-                {exercise ? (
-                  <span className="flex-1 min-w-0">
-                    <span className="text-text">{exercise.name}</span>
-                    <span className="ml-2 text-xs text-muted">
-                      {exercise.muscle_group}
-                    </span>
-                  </span>
-                ) : (
-                  <span className="flex-1 min-w-0 font-mono text-xs text-muted truncate">
-                    {ex.exercise_id}
-                  </span>
-                )}
-                <button
-                  onClick={() => handleRemove(ex.id)}
-                  disabled={removeMutation.isPending}
-                  className="shrink-0 inline-flex items-center justify-center rounded text-danger bg-transparent border-none transition-colors hover:bg-danger hover:text-bg disabled:opacity-60"
-                  style={{
-                    minHeight: '28px',
-                    height: '28px',
-                    width: '28px',
-                    cursor: 'pointer',
-                  }}
-                  aria-label="Quitar ejercicio"
-                >
-                  <X size={14} />
-                </button>
-              </li>
-            );
-          })}
-        </ol>
+        <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleDragEnd}>
+          <SortableContext items={sortedExercises.map((e) => e.id)} strategy={verticalListSortingStrategy}>
+            <ol className="space-y-2">
+              {sortedExercises.map((ex) => (
+                <SortableExerciseItem
+                  key={ex.id}
+                  ex={ex}
+                  exercise={exerciseById.get(ex.exercise_id)}
+                  onRemove={handleRemove}
+                  removePending={removeMutation.isPending}
+                />
+              ))}
+            </ol>
+          </SortableContext>
+        </DndContext>
+      )}
+
+      {reorderExercises.isError && (
+        <p className="mt-2 text-xs text-danger">
+          No se pudo reordenar los ejercicios. Inténtalo de nuevo.
+        </p>
       )}
 
       {day.id && (
