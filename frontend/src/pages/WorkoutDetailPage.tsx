@@ -219,16 +219,17 @@ function TrainingDayCard({
               aria-label="Iniciar sesión"
             >
               <Play size={13} />
-              Iniciar
+              <span className="sm:hidden">Iniciar</span>
             </Link>
           )}
           <Link
             to={`/workouts/${workoutId}/days/${day.day_of_week}/add-exercises`}
             className="inline-flex items-center gap-1 text-xs font-semibold text-accent no-underline bg-transparent"
             style={{ minHeight: '28px', padding: '0 4px' }}
+            aria-label="Añadir ejercicios"
           >
             <Plus size={14} />
-            Añadir
+            <span className="sm:hidden">Añadir</span>
           </Link>
           <button
             onClick={() => setConfirmingDelete(true)}
