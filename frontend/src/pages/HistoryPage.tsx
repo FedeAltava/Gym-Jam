@@ -210,14 +210,14 @@ export function HistoryPage() {
         </p>
       </div>
 
-      {/* Filter bar */}
-      <div className="flex flex-wrap items-center gap-3 mb-5">
+      {/* Filter bar — column on mobile so the native select never overlaps chips */}
+      <div className="flex flex-col gap-2 sm:flex-row sm:flex-wrap sm:items-center mb-5">
         {/* Workout dropdown */}
         <select
           value={workoutId}
           onChange={handleWorkoutChange}
-          className="text-sm rounded-btn border border-border bg-surface text-text px-3"
-          style={{ height: '36px', cursor: 'pointer' }}
+          className="w-full sm:w-auto text-sm rounded-btn border border-border bg-surface text-text px-3"
+          style={{ height: '36px', cursor: 'pointer', colorScheme: 'dark' }}
         >
           <option value="">Todos los planes</option>
           {allWorkouts.map((w) => (
