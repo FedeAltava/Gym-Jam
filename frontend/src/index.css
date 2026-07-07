@@ -1,18 +1,19 @@
-@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&display=swap');
-
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
 
 @layer base {
   :root {
-    --bg: #0F0F0F;
-    --bg-surface: #1A1A1A;
-    --bg-elevated: #242424;
-    --border: #2A2A2A;
-    --text: #F1F5F9;
-    --text-muted: #64748B;
-    --neon-green: #00FF87;
+    --bg: #090B09;
+    --bg-surface: #111511;
+    --bg-elevated: #151a15;
+    --card-bg: #0f130f;
+    --border: rgba(255, 255, 255, 0.07);
+    --border-accent: rgba(43, 229, 129, 0.25);
+    --text: #EAF0EA;
+    --text-muted: #7E8A7E;
+    --neon-green: #2BE581;
+    --accent-soft: rgba(43, 229, 129, 0.1);
     --neon-blue: #00D4FF;
     --danger: #FF453A;
   }
@@ -24,7 +25,7 @@
   body {
     background-color: var(--bg);
     color: var(--text);
-    font-family: 'Inter', sans-serif;
+    font-family: 'Barlow', sans-serif;
     font-size: 14px;
     line-height: 1.5;
     -webkit-font-smoothing: antialiased;
@@ -32,7 +33,7 @@
   }
 
   h1, h2, h3, h4, h5, h6 {
-    font-family: 'Inter', sans-serif;
+    font-family: 'Barlow', sans-serif;
     color: var(--text);
   }
 
@@ -40,7 +41,7 @@
     background-color: var(--bg-elevated) !important;
     color: var(--text) !important;
     border-color: var(--border) !important;
-    font-family: 'Inter', sans-serif;
+    font-family: 'Barlow', sans-serif;
     font-size: 16px;
   }
 
@@ -75,5 +76,11 @@
     border-radius: 50%;
     animation: spin 0.7s linear infinite;
     display: inline-block;
+  }
+}
+
+@layer components {
+  .neon-glow {
+    box-shadow: 0 0 14px rgba(43, 229, 129, 0.5);
   }
 }

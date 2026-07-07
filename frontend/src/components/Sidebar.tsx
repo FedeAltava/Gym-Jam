@@ -37,11 +37,10 @@ export function Sidebar() {
               to={to}
               className={[
                 'flex items-center gap-3 px-3 py-2.5 rounded-btn text-sm font-semibold transition-colors no-underline',
-                active ? 'text-accent' : 'text-muted hover:text-text',
+                active
+                  ? 'bg-[var(--accent-soft)] text-accent'
+                  : 'bg-transparent text-muted hover:text-text',
               ].join(' ')}
-              style={{
-                backgroundColor: active ? 'rgba(0, 255, 135, 0.1)' : 'transparent',
-              }}
             >
               <Icon size={18} />
               {label}
