@@ -13,6 +13,10 @@ class UserModel(Base):
     id: Mapped[str] = mapped_column(String(36), primary_key=True)
     email: Mapped[str] = mapped_column(String(255), unique=True, nullable=False)
     hashed_password: Mapped[str] = mapped_column(String(255), nullable=False)
+    # Python-side default fills ORM instances pre-commit; server_default covers
+    # rows inserted without the column (e.g. metadata.create_all test seeds).
+    rest_seconds: Mapped[int] = mapped_column(Integer, nullable=False, default=90, server_default="90")
+    units: Mapped[str] = mapped_column(String(2), nullable=False, default="kg", server_default="kg")
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=lambda: datetime.now(UTC))
 
 

@@ -70,7 +70,13 @@ async def register(
     )
     await _user_repo.save(user, session)
     await session.commit()
-    return UserResponse(id=user.id, email=user.email, created_at=user.created_at)
+    return UserResponse(
+        id=user.id,
+        email=user.email,
+        created_at=user.created_at,
+        rest_seconds=user.rest_seconds,
+        units=user.units,
+    )
 
 
 @router.post("/login", response_model=TokenResponse, status_code=200)
@@ -136,7 +142,13 @@ async def logout(
 async def me(
     user: UserModel = Depends(get_current_user),
 ) -> UserResponse:
-    return UserResponse(id=user.id, email=user.email, created_at=user.created_at)
+    return UserResponse(
+        id=user.id,
+        email=user.email,
+        created_at=user.created_at,
+        rest_seconds=user.rest_seconds,
+        units=user.units,
+    )
 
 
 @router.post("/forgot-password", status_code=204)

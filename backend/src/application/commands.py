@@ -126,6 +126,14 @@ class GetSessionsForDayCommand:
 
 
 @dataclass(frozen=True)
+class UpdateUserPreferencesCommand:
+    user_id: str
+    # None = leave the field unchanged (partial update).
+    rest_seconds: int | None = None
+    units: str | None = None
+
+
+@dataclass(frozen=True)
 class GetSessionHistoryQuery:
     user_id: str
     workout_id: str | None = None
