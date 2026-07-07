@@ -102,3 +102,30 @@ export function useSetWorkoutActive(workoutId: string) {
     },
   });
 }
+
+export function useAddTrainingDay(workoutId: string) {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (day_of_week: string) =>
+      apiFetch<WorkoutResponse>(
+        `/workouts/${workoutId}/training-days`,
+        {
+          method: 'POST',
+          body: JSON.stringify({ day_of_week }),
+        },
+      ),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ['workouts', workoutId] }),
+  });
+}
+
+export function useRemoveTrainingDay(workoutId: string) {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (day: string) =>
+      apiFetch<void>(
+        `/workouts/${workoutId}/training-days/${day}`,
+        { method: 'DELETE' },
+      ),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ['workouts', workoutId] }),
+  });
+}

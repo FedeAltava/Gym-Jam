@@ -2,7 +2,7 @@ import { useState, useRef, useEffect } from 'react';
 import type { KeyboardEvent } from 'react';
 import { useParams, Link, useNavigate } from 'react-router-dom';
 import { ArrowLeft, Plus, X, Play, ChevronDown, ChevronUp, Pencil, Trash2 } from 'lucide-react';
-import { useWorkout, useDeleteWorkout, useReorderTrainingDays, useRenameWorkout, useSetWorkoutActive } from '../hooks/useWorkouts';
+import { useWorkout, useDeleteWorkout, useReorderTrainingDays, useRenameWorkout, useSetWorkoutActive, useAddTrainingDay, useRemoveTrainingDay } from '../hooks/useWorkouts';
 import { useExercises, useRemoveExercise } from '../hooks/useExercises';
 import {
   useSessionsForDay,
@@ -10,7 +10,7 @@ import {
   useDeleteSession,
 } from '../hooks/useSessions';
 import { Spinner } from '../components/Spinner';
-import { DAY_LABEL } from '../lib/days';
+import { DAY_LABEL, DAYS } from '../lib/days';
 import type { ExerciseResponse, TrainingDayResponse } from '../types/api';
 
 interface TrainingDayCardProps {
@@ -22,6 +22,7 @@ interface TrainingDayCardProps {
   catalogError: boolean;
   onReorder: (orderedIds: string[]) => void;
   reorderPending: boolean;
+  onDelete: (dayOfWeek: string) => void;
 }
 
 function PastSessionsList({
@@ -148,8 +149,10 @@ function TrainingDayCard({
   catalog,
   onReorder,
   reorderPending,
+  onDelete,
 }: TrainingDayCardProps) {
   const removeMutation = useRemoveExercise(workoutId);
+  const [confirmingDelete, setConfirmingDelete] = useState(false);
 
   const sortedDays = [...allDays].sort((a, b) => a.order - b.order);
   const currentIndex = sortedDays.findIndex((d) => d.id === day.id);
@@ -227,8 +230,40 @@ function TrainingDayCard({
             <Plus size={14} />
             Añadir
           </Link>
+          <button
+            onClick={() => setConfirmingDelete(true)}
+            className="inline-flex items-center justify-center rounded text-danger bg-transparent border-none transition-colors hover:bg-danger hover:text-bg"
+            style={{ minHeight: '28px', height: '28px', width: '28px', cursor: 'pointer' }}
+            aria-label="Eliminar día"
+          >
+            <Trash2 size={14} />
+          </button>
         </div>
       </div>
+
+      {confirmingDelete && (
+        <div className="mb-3 p-3 rounded border border-danger text-sm">
+          <p className="text-text mb-2">
+            ¿Eliminar este día? Se perderán todas las sesiones registradas permanentemente.
+          </p>
+          <div className="flex items-center gap-2">
+            <button
+              onClick={() => onDelete(day.day_of_week)}
+              className="text-xs font-semibold rounded-btn bg-danger text-bg"
+              style={{ height: '28px', padding: '0 10px', border: 'none', cursor: 'pointer' }}
+            >
+              Sí, eliminar
+            </button>
+            <button
+              onClick={() => setConfirmingDelete(false)}
+              className="text-xs font-semibold rounded-btn border border-border text-muted"
+              style={{ height: '28px', padding: '0 10px', backgroundColor: 'transparent', cursor: 'pointer' }}
+            >
+              Cancelar
+            </button>
+          </div>
+        </div>
+      )}
 
       {removeMutation.isError && (
         <p className="mb-2 text-xs text-danger">
@@ -299,7 +334,10 @@ export function WorkoutDetailPage() {
   const reorderDaysMutation = useReorderTrainingDays(id ?? '');
   const renameMutation = useRenameWorkout(id ?? '');
   const setActiveMutation = useSetWorkoutActive(id ?? '');
+  const addDayMutation = useAddTrainingDay(id ?? '');
+  const removeDayMutation = useRemoveTrainingDay(id ?? '');
   const [confirmDelete, setConfirmDelete] = useState(false);
+  const [showDayPicker, setShowDayPicker] = useState(false);
 
   // Rename state
   const [isRenaming, setIsRenaming] = useState(false);
@@ -351,11 +389,25 @@ export function WorkoutDetailPage() {
     );
   if (!workout) return null;
 
+  const availableDays = DAYS
+    .filter((d) => !workout.training_days.some((td) => td.day_of_week === d))
+    .map((d) => ({ value: d, label: DAY_LABEL[d] }));
+
   function handleDelete() {
     if (!id) return;
     deleteMutation.mutate(id, {
       onSuccess: () => navigate('/dashboard'),
     });
+  }
+
+  function handleAddDay(dayValue: string) {
+    addDayMutation.mutate(dayValue, {
+      onSuccess: () => setShowDayPicker(false),
+    });
+  }
+
+  function handleRemoveDay(dayOfWeek: string) {
+    removeDayMutation.mutate(dayOfWeek);
   }
 
   return (
@@ -484,10 +536,30 @@ export function WorkoutDetailPage() {
       )}
 
       {workout.training_days.length === 0 ? (
-        <div className="text-center py-16 rounded-card border-2 border-dashed border-border">
-          <p className="text-sm italic text-muted">
+        <div className="py-16 rounded-card border-2 border-dashed border-border px-4">
+          <p className="text-sm italic text-muted text-center mb-4">
             Sin días de entrenamiento configurados.
           </p>
+          {availableDays.length > 0 && (
+            <div className="flex flex-wrap gap-2 justify-center">
+              {availableDays.map((d) => (
+                <button
+                  key={d.value}
+                  onClick={() => handleAddDay(d.value)}
+                  disabled={addDayMutation.isPending}
+                  className="text-xs font-semibold rounded-full border border-border text-muted transition-colors hover:border-accent hover:text-accent disabled:opacity-60"
+                  style={{ height: '28px', padding: '0 12px', backgroundColor: 'transparent', cursor: 'pointer' }}
+                >
+                  {d.label}
+                </button>
+              ))}
+            </div>
+          )}
+          {addDayMutation.isError && (
+            <p className="mt-2 text-xs text-danger text-center">
+              {(addDayMutation.error as Error).message}
+            </p>
+          )}
         </div>
       ) : (
         <div className="grid gap-3 sm:grid-cols-2">
@@ -502,8 +574,59 @@ export function WorkoutDetailPage() {
               catalogError={exercisesError}
               onReorder={(orderedIds) => reorderDaysMutation.mutate({ orderedDayIds: orderedIds })}
               reorderPending={reorderDaysMutation.isPending}
+              onDelete={handleRemoveDay}
             />
           ))}
+        </div>
+      )}
+
+      {removeDayMutation.isError && (
+        <p className="mt-3 text-xs text-danger">
+          {(removeDayMutation.error as Error).message.includes('exercise')
+            ? 'Elimina todos los ejercicios de este día antes de eliminarlo.'
+            : (removeDayMutation.error as Error).message}
+        </p>
+      )}
+
+      {workout.training_days.length > 0 && availableDays.length > 0 && (
+        <div className="mt-4">
+          {!showDayPicker ? (
+            <button
+              onClick={() => setShowDayPicker(true)}
+              className="text-sm font-semibold text-muted bg-transparent border-none transition-colors hover:text-accent"
+              style={{ cursor: 'pointer', padding: '4px 0' }}
+            >
+              + Agregar día
+            </button>
+          ) : (
+            <div>
+              <div className="flex flex-wrap gap-2 items-center">
+                {availableDays.map((d) => (
+                  <button
+                    key={d.value}
+                    onClick={() => handleAddDay(d.value)}
+                    disabled={addDayMutation.isPending}
+                    className="text-xs font-semibold rounded-full border border-border text-muted transition-colors hover:border-accent hover:text-accent disabled:opacity-60"
+                    style={{ height: '28px', padding: '0 12px', backgroundColor: 'transparent', cursor: 'pointer' }}
+                  >
+                    {d.label}
+                  </button>
+                ))}
+                <button
+                  onClick={() => setShowDayPicker(false)}
+                  className="text-xs font-semibold text-muted bg-transparent border-none transition-colors hover:text-text"
+                  style={{ cursor: 'pointer', padding: '4px 6px' }}
+                >
+                  Cancelar
+                </button>
+              </div>
+              {addDayMutation.isError && (
+                <p className="mt-2 text-xs text-danger">
+                  {(addDayMutation.error as Error).message}
+                </p>
+              )}
+            </div>
+          )}
         </div>
       )}
     </div>
