@@ -1,11 +1,12 @@
 import { Link, useLocation } from 'react-router-dom';
 import { useAuthStore } from '../store/authStore';
 import { useNavigate } from 'react-router-dom';
-import { LayoutDashboard, PlusCircle, LogOut, User } from 'lucide-react';
+import { LayoutDashboard, PlusCircle, History, LogOut, User } from 'lucide-react';
 
 const NAV = [
   { to: '/dashboard', label: 'Home', icon: LayoutDashboard },
   { to: '/workouts/new', label: 'Entrenamientos', icon: PlusCircle },
+  { to: '/history', label: 'Historial', icon: History },
   { to: '/profile', label: 'Perfil', icon: User },
 ];
 

@@ -90,6 +90,7 @@ export function useLogSet() {
     },
     onSuccess: (_data, { workoutId, dayId }) => {
       qc.invalidateQueries({ queryKey: ['sessions', workoutId, dayId] });
+      qc.invalidateQueries({ queryKey: ['sessions', 'history'] });
     },
   });
 }
@@ -141,6 +142,7 @@ export function useUpdateLog() {
       updateLog(sessionId, logId, { repsCompleted, weightKg }),
     onSuccess: (_data, { workoutId, dayId }) => {
       qc.invalidateQueries({ queryKey: ['sessions', workoutId, dayId] });
+      qc.invalidateQueries({ queryKey: ['sessions', 'history'] });
     },
   });
 }
@@ -161,6 +163,7 @@ export function useCompleteSession() {
       }),
     onSuccess: (_data, { workoutId, dayId }) => {
       qc.invalidateQueries({ queryKey: ['sessions', workoutId, dayId] });
+      qc.invalidateQueries({ queryKey: ['sessions', 'history'] });
     },
   });
 }
@@ -179,6 +182,7 @@ export function useDeleteSession() {
       apiFetch<void>(`/sessions/${sessionId}`, { method: 'DELETE' }),
     onSuccess: (_data, { workoutId, dayId }) => {
       qc.invalidateQueries({ queryKey: ['sessions', workoutId, dayId] });
+      qc.invalidateQueries({ queryKey: ['sessions', 'history'] });
     },
   });
 }

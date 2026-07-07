@@ -63,3 +63,24 @@ export interface WorkoutResponse {
 export interface ApiError {
   detail: string;
 }
+
+export interface SessionHistoryLogResponse {
+  id: string;
+  workout_exercise_id: string;
+  exercise_name: string;
+  set_number: number;
+  reps_completed: number;
+  weight_kg: number | null;
+}
+
+export interface SessionHistoryItemResponse {
+  id: string;
+  workout_id: string;
+  training_day_id: string;
+  workout_name: string;
+  day_of_week: string;
+  started_at: string;
+  completed_at: string | null;
+  status: 'completed' | 'in_progress';
+  logs: SessionHistoryLogResponse[];
+}
