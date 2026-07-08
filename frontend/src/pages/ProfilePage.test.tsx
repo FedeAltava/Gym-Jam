@@ -43,6 +43,9 @@ function mockApi(overrides: {
     if (path === '/users/me/preferences') {
       return Promise.resolve(overrides.prefs ?? PREFS_FIXTURE);
     }
+    if (path.startsWith('/workouts')) {
+      return Promise.resolve([]);
+    }
     return Promise.resolve(undefined);
   });
 }
@@ -76,8 +79,8 @@ describe('ProfilePage', () => {
     mockApi();
     renderWithProviders(<ProfilePage />);
 
-    // The rest button shows "{rest_seconds}s"
-    expect(await screen.findByText('90s')).toBeInTheDocument();
+    // The rest button shows "M:SS (Ns)" format — e.g. "1:30 (90s)"
+    expect(await screen.findByText(/90s/)).toBeInTheDocument();
   });
 
   it('shows the active unit highlighted via aria-pressed', async () => {

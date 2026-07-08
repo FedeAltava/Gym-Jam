@@ -41,35 +41,93 @@ interface StepperProps {
   onChange: (v: number) => void;
   disabled?: boolean;
   'aria-label'?: string;
+  /** When true the pill stretches (flex:1) and the value span also stretches */
+  flex1?: boolean;
+  /** Label suffix appended after the numeric value (e.g. " kg") */
+  suffix?: string;
 }
 
-function Stepper({ value, step, min, onChange, disabled, 'aria-label': ariaLabel }: StepperProps) {
+function Stepper({ value, step, min, onChange, disabled, 'aria-label': ariaLabel, flex1, suffix }: StepperProps) {
   function decrement() {
     onChange(Math.max(min, +(value - step).toFixed(4)));
   }
   function increment() {
     onChange(+(value + step).toFixed(4));
   }
+
+  const displayValue = Number.isInteger(value) ? value : value.toFixed(1);
+
   return (
-    <div className="flex items-center gap-1" role="group" aria-label={ariaLabel}>
+    <div
+      role="group"
+      aria-label={ariaLabel}
+      style={{
+        display: 'flex',
+        alignItems: 'center',
+        gap: '4px',
+        background: 'rgba(255,255,255,0.05)',
+        borderRadius: '10px',
+        padding: '3px',
+        ...(flex1 ? { flex: 1 } : {}),
+      }}
+    >
       <button
         type="button"
         onClick={decrement}
         disabled={disabled || value <= min}
         aria-label="Reducir"
-        className="w-8 h-8 flex items-center justify-center rounded-btn bg-elevated border border-border text-text disabled:opacity-40 text-base font-bold leading-none"
+        style={{
+          width: '26px',
+          height: '26px',
+          border: 'none',
+          borderRadius: '8px',
+          background: 'transparent',
+          color: 'var(--text-muted)',
+          fontSize: '18px',
+          fontWeight: 700,
+          cursor: 'pointer',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          opacity: disabled || value <= min ? 0.4 : 1,
+          flexShrink: 0,
+        }}
       >
         −
       </button>
-      <span className="w-10 text-center text-sm font-semibold text-text tabular-nums">
-        {Number.isInteger(value) ? value : value.toFixed(1)}
+      <span
+        className="w-10 tabular-nums"
+        style={{
+          textAlign: 'center',
+          fontSize: flex1 ? '14px' : '15px',
+          fontWeight: 700,
+          color: 'var(--text)',
+          ...(flex1 ? { flex: 1 } : { minWidth: '34px' }),
+        }}
+      >
+        {displayValue}{suffix ?? ''}
       </span>
       <button
         type="button"
         onClick={increment}
         disabled={disabled}
         aria-label="Aumentar"
-        className="w-8 h-8 flex items-center justify-center rounded-btn bg-elevated border border-border text-text disabled:opacity-40 text-base font-bold leading-none"
+        style={{
+          width: '26px',
+          height: '26px',
+          border: 'none',
+          borderRadius: '8px',
+          background: 'transparent',
+          color: 'var(--neon-green)',
+          fontSize: '18px',
+          fontWeight: 700,
+          cursor: 'pointer',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          opacity: disabled ? 0.4 : 1,
+          flexShrink: 0,
+        }}
       >
         +
       </button>
@@ -142,8 +200,26 @@ function SetRow({
   // Read-only summary once the session is completed.
   if (sessionCompleted && log) {
     return (
-      <div className="flex items-center gap-3 py-2 px-3 rounded-btn bg-accent/10">
-        <span className="text-xs font-bold text-muted w-12 shrink-0">
+      <div
+        style={{
+          display: 'flex',
+          alignItems: 'center',
+          gap: '8px',
+          padding: '8px 10px',
+          borderRadius: '14px',
+          background: 'rgba(43,229,129,0.08)',
+          border: '1px solid rgba(43,229,129,0.2)',
+        }}
+      >
+        <span
+          style={{
+            fontSize: '12px',
+            fontWeight: 700,
+            color: 'var(--text-muted)',
+            width: '52px',
+            flexShrink: 0,
+          }}
+        >
           Serie {setNumber}
         </span>
         <span className="text-sm text-text flex-1">
@@ -237,18 +313,33 @@ function SetRow({
     }
   }
 
-  const doneClass = isLogged
-    ? 'opacity-60 border-border-accent bg-card'
-    : 'bg-card';
-
   return (
     <div
-      className={`flex items-center gap-1.5 py-2 px-3 rounded-btn border border-border transition-colors ${doneClass}`}
+      style={{
+        display: 'flex',
+        alignItems: 'center',
+        gap: '8px',
+        padding: '8px 10px',
+        borderRadius: '14px',
+        background: 'rgba(255,255,255,0.03)',
+        border: '1px solid rgba(255,255,255,0.06)',
+        transition: 'opacity 0.2s',
+        opacity: isLogged ? 0.75 : 1,
+      }}
     >
-      <span className="text-xs font-bold text-muted w-12 shrink-0">
+      <span
+        style={{
+          fontSize: '12px',
+          fontWeight: 700,
+          color: 'var(--text-muted)',
+          width: '52px',
+          flexShrink: 0,
+        }}
+      >
         Serie {setNumber}
       </span>
 
+      {/* Reps stepper — fixed size */}
       <Stepper
         value={reps}
         step={1}
@@ -258,6 +349,7 @@ function SetRow({
         aria-label={`Repeticiones, serie ${setNumber}`}
       />
 
+      {/* Weight stepper — expands to fill remaining space */}
       {!isBodyweight && (
         <Stepper
           value={stepperDisplayWeight}
@@ -266,10 +358,12 @@ function SetRow({
           onChange={handleWeightChange}
           disabled={isDisabled}
           aria-label={`Peso ${units}, serie ${setNumber}`}
+          flex1
+          suffix={` ${units}`}
         />
       )}
       {isBodyweight && (
-        <span className="text-xs text-muted px-2">Peso corporal</span>
+        <span className="text-xs text-muted px-2 flex-1">Peso corporal</span>
       )}
 
       {/* Done toggle */}
@@ -279,11 +373,23 @@ function SetRow({
         disabled={isDisabled}
         aria-label={isLogged ? `Desmarcar serie ${setNumber}` : `Marcar serie ${setNumber} como hecha`}
         aria-pressed={isLogged}
-        className={`ml-auto w-8 h-8 shrink-0 flex items-center justify-center rounded-btn border transition-colors disabled:opacity-40 ${
-          isLogged
-            ? 'bg-accent border-accent text-bg'
-            : 'bg-elevated border-border text-muted'
-        }`}
+        style={{
+          width: '36px',
+          height: '36px',
+          flexShrink: 0,
+          borderRadius: '11px',
+          background: isLogged ? 'var(--neon-green)' : 'transparent',
+          border: isLogged
+            ? '1.5px solid var(--neon-green)'
+            : '1.5px solid rgba(43,229,129,0.4)',
+          color: isLogged ? 'var(--bg)' : 'var(--neon-green)',
+          cursor: isDisabled ? 'not-allowed' : 'pointer',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          opacity: isDisabled ? 0.4 : 1,
+          transition: 'background 0.15s, color 0.15s',
+        }}
       >
         <CheckCircle2 size={18} />
       </button>

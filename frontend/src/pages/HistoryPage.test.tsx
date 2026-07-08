@@ -95,7 +95,8 @@ describe('HistoryPage', () => {
     mockApiFetch.mockResolvedValue([makeSession('s1')]);
     renderWithProviders(<HistoryPage />);
 
-    expect(await screen.findByText('Press banca')).toBeInTheDocument();
+    // Chips now show "ExerciseName Nsets×reps" format
+    expect(await screen.findByText(/Press banca/)).toBeInTheDocument();
   });
 
   it('renders formatted duration when duration_seconds is provided', async () => {

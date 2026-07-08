@@ -1,7 +1,7 @@
 import { Link } from 'react-router-dom';
 import { Spinner } from '../components/Spinner';
 import { useSessionHistory } from '../hooks/useSessionHistory';
-import { DAY_LABEL } from '../lib/days';
+import { DAY_SHORT } from '../lib/days';
 import type { DayKey } from '../lib/days';
 import type { SessionHistoryItemResponse } from '../types/api';
 import { useState } from 'react';
@@ -10,14 +10,17 @@ import { useState } from 'react';
 // Helpers
 // ---------------------------------------------------------------------------
 
-const dateFormatter = new Intl.DateTimeFormat('es-ES', { dateStyle: 'medium' });
+const shortDateFormatter = new Intl.DateTimeFormat('es-ES', {
+  day: 'numeric',
+  month: 'short',
+});
 
-function formatDate(iso: string): string {
-  return dateFormatter.format(new Date(iso));
+function formatShortDate(iso: string): string {
+  return shortDateFormatter.format(new Date(iso));
 }
 
-function toDayLabel(day: string): string {
-  return DAY_LABEL[day as DayKey] ?? day;
+function toDayShort(day: string): string {
+  return DAY_SHORT[day as DayKey] ?? day;
 }
 
 function formatDuration(seconds: number | null): string | null {
@@ -29,68 +32,175 @@ function formatDuration(seconds: number | null): string | null {
   return `${seconds}s`;
 }
 
+/** Compute total volume (kg) from session logs. */
+function computeVolume(logs: SessionHistoryItemResponse['logs']): number {
+  return logs.reduce((sum, l) => sum + (l.weight_kg ?? 0) * l.reps_completed, 0);
+}
+
+/** Group logs by exercise_name and build "Name Nsets×reps" chips (max 3). */
+function buildExerciseChips(logs: SessionHistoryItemResponse['logs']): {
+  chips: string[];
+  remainder: number;
+} {
+  // Group by exercise_name — track set count and last reps value
+  const groupMap = new Map<string, { sets: number; reps: number }>();
+  for (const log of logs) {
+    const entry = groupMap.get(log.exercise_name);
+    if (entry) {
+      entry.sets += 1;
+      entry.reps = log.reps_completed;
+    } else {
+      groupMap.set(log.exercise_name, { sets: 1, reps: log.reps_completed });
+    }
+  }
+
+  const allChips = Array.from(groupMap.entries()).map(
+    ([name, { sets, reps }]) => `${name} ${sets}×${reps}`,
+  );
+
+  const chips = allChips.slice(0, 3);
+  const remainder = allChips.length - chips.length;
+  return { chips, remainder };
+}
+
 // ---------------------------------------------------------------------------
-// Flat SessionCard
+// SessionCard
 // ---------------------------------------------------------------------------
 
 interface SessionCardProps {
   session: SessionHistoryItemResponse;
+  isFirst: boolean;
 }
 
-function SessionCard({ session }: SessionCardProps) {
+function SessionCard({ session, isFirst }: SessionCardProps) {
+  const volume = computeVolume(session.logs);
+  const { chips, remainder } = buildExerciseChips(session.logs);
+
+  const dayShort = toDayShort(session.day_of_week);
+  const dateShort = formatShortDate(session.started_at);
+  const exerciseCount = new Set(session.logs.map((l) => l.exercise_name)).size;
   const duration = formatDuration(session.duration_seconds);
 
-  // Collect unique exercise names from logs (preserve insertion order)
-  const exerciseNames: string[] = [];
-  const seen = new Set<string>();
-  for (const log of session.logs) {
-    if (!seen.has(log.exercise_name)) {
-      seen.add(log.exercise_name);
-      exerciseNames.push(log.exercise_name);
-    }
-  }
-  const visibleExercises = exerciseNames.slice(0, 3);
-  const remainder = exerciseNames.length - visibleExercises.length;
+  // Subtitle: "Lun · 7 jul · 4 ejercicios [· duration]"
+  const subtitle = [
+    `${dayShort} · ${dateShort}`,
+    `${exerciseCount} ejercicio${exerciseCount !== 1 ? 's' : ''}`,
+    ...(duration ? [duration] : []),
+  ].join(' · ');
 
   return (
-    <div className="rounded-card border border-border bg-card px-4 py-3 space-y-2">
+    <div
+      style={{
+        borderRadius: '20px',
+        padding: '18px',
+        background: 'var(--card-bg)',
+        border: '1px solid rgba(255,255,255,0.07)',
+      }}
+    >
       {/* Header row */}
-      <div className="flex items-start justify-between gap-2">
-        <div className="flex-1 min-w-0">
-          <p className="font-semibold text-sm text-text leading-tight truncate">
+      <div
+        style={{
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'space-between',
+          marginBottom: chips.length > 0 ? '12px' : 0,
+        }}
+      >
+        <div style={{ flex: 1, minWidth: 0 }}>
+          <div
+            style={{
+              fontSize: '16px',
+              fontWeight: 700,
+              color: 'var(--text)',
+              fontFamily: "'Barlow Semi Condensed', sans-serif",
+              overflow: 'hidden',
+              textOverflow: 'ellipsis',
+              whiteSpace: 'nowrap',
+            }}
+          >
             {session.workout_name}
-          </p>
-          <p className="text-xs text-muted mt-0.5">
-            {toDayLabel(session.day_of_week)} · {formatDate(session.started_at)}
-            {duration && <> · {duration}</>}
-          </p>
+          </div>
+          <div
+            style={{
+              fontSize: '12px',
+              color: 'var(--text-muted)',
+              fontWeight: 500,
+              marginTop: '2px',
+            }}
+          >
+            {subtitle}
+          </div>
         </div>
 
-        {/* PR badge */}
-        {session.pr_count > 0 && (
-          <span
-            className="shrink-0 text-xs font-bold px-2 py-0.5 rounded-full border border-accent text-accent neon-glow"
-            aria-label={`${session.pr_count} récord${session.pr_count > 1 ? 's' : ''} personal`}
-          >
-            PR
-          </span>
-        )}
+        {/* Volume or PR badge */}
+        <div style={{ textAlign: 'right', flexShrink: 0, marginLeft: '12px' }}>
+          {session.pr_count > 0 ? (
+            <div>
+              <div
+                style={{
+                  fontSize: '18px',
+                  fontWeight: 800,
+                  color: isFirst ? 'var(--neon-green)' : 'var(--text)',
+                  fontFamily: "'Barlow Semi Condensed', sans-serif",
+                }}
+                aria-label={`${session.pr_count} récord${session.pr_count > 1 ? 's' : ''} personal`}
+              >
+                PR
+              </div>
+              <div style={{ fontSize: '11px', color: 'var(--text-muted)', fontWeight: 600 }}>
+                {session.pr_count}×
+              </div>
+            </div>
+          ) : volume > 0 ? (
+            <div>
+              <div
+                style={{
+                  fontSize: '18px',
+                  fontWeight: 800,
+                  color: isFirst ? 'var(--neon-green)' : 'var(--text)',
+                  fontFamily: "'Barlow Semi Condensed', sans-serif",
+                }}
+              >
+                {Math.round(volume).toLocaleString('es-ES')}
+              </div>
+              <div style={{ fontSize: '11px', color: 'var(--text-muted)', fontWeight: 600 }}>
+                kg
+              </div>
+            </div>
+          ) : null}
+        </div>
       </div>
 
       {/* Exercise chips */}
-      {visibleExercises.length > 0 && (
-        <div className="flex flex-wrap gap-1.5">
-          {visibleExercises.map((name) => (
+      {chips.length > 0 && (
+        <div style={{ display: 'flex', gap: '6px', flexWrap: 'wrap' }}>
+          {chips.map((chip) => (
             <span
-              key={name}
-              className="text-xs px-2 py-0.5 rounded-full bg-elevated text-muted border border-border"
+              key={chip}
+              style={{
+                fontSize: '12px',
+                color: 'rgb(159,176,162)',
+                fontWeight: 600,
+                background: 'rgba(255,255,255,0.05)',
+                padding: '5px 10px',
+                borderRadius: '10px',
+              }}
             >
-              {name}
+              {chip}
             </span>
           ))}
           {remainder > 0 && (
-            <span className="text-xs px-2 py-0.5 rounded-full bg-elevated text-muted border border-border">
-              +{remainder}
+            <span
+              style={{
+                fontSize: '12px',
+                color: 'rgb(159,176,162)',
+                fontWeight: 600,
+                background: 'rgba(255,255,255,0.05)',
+                padding: '5px 10px',
+                borderRadius: '10px',
+              }}
+            >
+              +{remainder} más
             </span>
           )}
         </div>
@@ -103,11 +213,17 @@ function SessionCard({ session }: SessionCardProps) {
 // Period filter options
 // ---------------------------------------------------------------------------
 
-type PeriodValue = '' | 'this_week';
+type PeriodValue = '' | 'this_week' | 'pr';
 
-const PERIOD_OPTIONS: { value: PeriodValue; label: string }[] = [
+interface PeriodOption {
+  value: PeriodValue;
+  label: string;
+}
+
+const PERIOD_OPTIONS: PeriodOption[] = [
   { value: '', label: 'Todas' },
   { value: 'this_week', label: 'Esta semana' },
+  { value: 'pr', label: 'PRs' },
 ];
 
 // ---------------------------------------------------------------------------
@@ -130,11 +246,17 @@ export function HistoryPage() {
   });
 
   // Deduplicate sessions across pages
-  const sessions = data
+  const allSessions = data
     ? Array.from(
         new Map(data.pages.flat().map((s) => [s.id, s])).values(),
       )
     : undefined;
+
+  // Client-side filter for PRs
+  const sessions =
+    period === 'pr'
+      ? allSessions?.filter((s) => s.pr_count > 0)
+      : allSessions;
 
   const filtersActive = period !== '';
 
@@ -153,20 +275,23 @@ export function HistoryPage() {
       </div>
 
       {/* Filter chips */}
-      <div className="flex gap-1.5 mb-5">
+      <div style={{ display: 'flex', gap: '8px', marginBottom: '20px', flexWrap: 'wrap' }}>
         {PERIOD_OPTIONS.map(({ value, label }) => {
           const active = period === value;
           return (
             <button
               key={value}
               onClick={() => setPeriod(value)}
-              className={[
-                'text-xs font-semibold px-3 rounded-full border transition-colors',
-                active
-                  ? 'bg-accent text-bg border-accent'
-                  : 'bg-transparent text-muted border-border hover:text-text',
-              ].join(' ')}
-              style={{ height: '28px', cursor: 'pointer' }}
+              style={{
+                fontSize: '13px',
+                fontWeight: active ? 700 : 600,
+                color: active ? 'rgb(6,33,15)' : 'rgb(159,176,162)',
+                background: active ? 'var(--neon-green)' : 'rgba(255,255,255,0.05)',
+                padding: '8px 16px',
+                borderRadius: '20px',
+                border: 'none',
+                cursor: 'pointer',
+              }}
             >
               {label}
             </button>
@@ -186,9 +311,9 @@ export function HistoryPage() {
 
       {/* Session list */}
       {sessions && sessions.length > 0 && (
-        <div className="space-y-3">
-          {sessions.map((session) => (
-            <SessionCard key={session.id} session={session} />
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+          {sessions.map((session, index) => (
+            <SessionCard key={session.id} session={session} isFirst={index === 0} />
           ))}
         </div>
       )}
@@ -217,7 +342,7 @@ export function HistoryPage() {
         <div className="text-center py-16 rounded-card border-2 border-dashed border-border">
           <p className="text-3xl mb-3">🔍</p>
           <p className="font-semibold mb-1 text-text">
-            No hay sesiones esta semana
+            No hay sesiones en este filtro
           </p>
           <button
             onClick={clearFilters}

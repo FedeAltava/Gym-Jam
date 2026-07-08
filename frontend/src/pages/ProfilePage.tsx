@@ -1,11 +1,32 @@
 import { useState, useCallback, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { LogOut, User } from 'lucide-react';
+import { LogOut, Calendar, Clock, Globe } from 'lucide-react';
 import { apiFetch } from '../lib/api';
 import { useAuthStore } from '../store/authStore';
 import { useUserStats } from '../hooks/useStats';
 import { useUserPreferences, useUpdatePreferences } from '../hooks/useUserPreferences';
+import { useActiveWorkout } from '../hooks/useActiveWorkout';
 import { Spinner } from '../components/Spinner';
+import { DAY_SHORT } from '../lib/days';
+import type { DayKey } from '../lib/days';
+
+// ---------------------------------------------------------------------------
+// Helpers
+// ---------------------------------------------------------------------------
+
+/** Format rest_seconds as "M:SS" (e.g. 90 → "1:30") */
+function formatRestTime(seconds: number): string {
+  const m = Math.floor(seconds / 60);
+  const s = seconds % 60;
+  return `${m}:${String(s).padStart(2, '0')}`;
+}
+
+/** Format ISO date as "Month YYYY" in Spanish (e.g. "julio 2026") */
+function formatMemberSince(isoDate: string): string {
+  return new Intl.DateTimeFormat('es-ES', { month: 'long', year: 'numeric' }).format(
+    new Date(isoDate),
+  );
+}
 
 // ---------------------------------------------------------------------------
 // StatTile
@@ -18,11 +39,39 @@ interface StatTileProps {
 
 function StatTile({ value, label }: StatTileProps) {
   return (
-    <div className="flex-1 flex flex-col items-center py-4 px-2">
-      <span className="font-condensed font-bold text-3xl text-text leading-none">
+    <div
+      style={{
+        flex: 1,
+        padding: '16px',
+        borderRadius: '18px',
+        background: 'var(--card-bg)',
+        border: '1px solid rgba(255,255,255,0.07)',
+        textAlign: 'center',
+      }}
+    >
+      <div
+        style={{
+          fontSize: '24px',
+          fontWeight: 800,
+          color: 'var(--neon-green)',
+          fontFamily: "'Barlow Semi Condensed', sans-serif",
+          lineHeight: 1,
+        }}
+      >
         {value ?? '—'}
-      </span>
-      <span className="text-xs text-muted mt-1 text-center">{label}</span>
+      </div>
+      <div
+        style={{
+          fontSize: '11px',
+          color: 'var(--text-muted)',
+          fontWeight: 600,
+          textTransform: 'uppercase',
+          letterSpacing: '0.5px',
+          marginTop: '4px',
+        }}
+      >
+        {label}
+      </div>
     </div>
   );
 }
@@ -38,11 +87,24 @@ export function ProfilePage() {
   const { data: stats, isLoading: statsLoading } = useUserStats();
   const { data: prefs, isLoading: prefsLoading } = useUserPreferences();
   const updatePrefs = useUpdatePreferences();
+  const { activeWorkout } = useActiveWorkout();
 
-  // Derive display name from email (before the @)
+  // Derive display name from email (before the @), capitalize words
   const displayName = user?.email
-    ? user.email.split('@')[0].replace(/[._-]/g, ' ')
+    ? user.email
+        .split('@')[0]
+        .replace(/[._-]/g, ' ')
+        .replace(/\b\w/g, (c) => c.toUpperCase())
     : '';
+
+  const avatarLetter = displayName ? displayName[0].toUpperCase() : '?';
+
+  // Training days from active workout
+  const trainingDaysLabel = activeWorkout?.training_days
+    ? activeWorkout.training_days
+        .map((d) => DAY_SHORT[d.day_of_week as DayKey] ?? d.day_of_week)
+        .join(', ')
+    : null;
 
   // ------------- Rest timer edit state -------------
   const [editingRest, setEditingRest] = useState(false);
@@ -131,39 +193,152 @@ export function ProfilePage() {
   }
 
   return (
-    <div className="max-w-sm space-y-6">
-      {/* Page title */}
-      <h1 className="font-bold text-2xl text-text">Mi Perfil</h1>
+    <div style={{ maxWidth: '420px' }}>
+
+      {/* ─── Profile card ─── */}
+      <div
+        style={{
+          display: 'flex',
+          alignItems: 'center',
+          gap: '16px',
+          padding: '20px',
+          borderRadius: '22px',
+          background: 'linear-gradient(135deg, rgb(18,48,33), rgb(12,26,18))',
+          border: '1px solid rgba(43,229,129,0.2)',
+          marginBottom: '16px',
+        }}
+      >
+        {/* Avatar */}
+        <div
+          style={{
+            width: '64px',
+            height: '64px',
+            borderRadius: '20px',
+            background: 'linear-gradient(135deg, rgb(43,229,129), rgb(31,189,106))',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            fontSize: '26px',
+            fontWeight: 800,
+            color: 'rgb(6,33,15)',
+            fontFamily: "'Barlow Semi Condensed', sans-serif",
+            flexShrink: 0,
+          }}
+        >
+          {avatarLetter}
+        </div>
+        <div>
+          <div
+            style={{
+              fontSize: '19px',
+              fontWeight: 700,
+              color: 'var(--text)',
+              fontFamily: "'Barlow Semi Condensed', sans-serif",
+            }}
+          >
+            {displayName || user?.email}
+          </div>
+          {user?.created_at && (
+            <div
+              style={{
+                fontSize: '13px',
+                color: 'rgb(159,176,162)',
+                fontWeight: 500,
+                marginTop: '2px',
+              }}
+            >
+              Miembro desde {formatMemberSince(user.created_at)}
+            </div>
+          )}
+        </div>
+      </div>
 
       {/* ─── Stats bar ─── */}
-      <div className="rounded-card border border-border bg-card">
+      <div
+        style={{
+          display: 'flex',
+          gap: '10px',
+          marginBottom: '16px',
+        }}
+      >
         {statsLoading ? (
-          <div className="flex justify-center py-6">
+          <div style={{ flex: 1, display: 'flex', justifyContent: 'center', padding: '24px 0' }}>
             <Spinner />
           </div>
         ) : (
-          <div className="flex divide-x divide-border">
+          <>
             <StatTile value={stats?.total_sessions} label="Sesiones" />
             <StatTile value={stats?.streak} label="Racha" />
             <StatTile value={stats?.total_prs} label="PRs" />
-          </div>
+          </>
         )}
       </div>
 
-      {/* ─── Preferences ─── */}
-      <div className="rounded-card border border-border bg-surface p-5 space-y-5">
-        <h2 className="font-bold text-base text-text">Preferencias</h2>
-
+      {/* ─── Settings list ─── */}
+      <div
+        style={{
+          borderRadius: '20px',
+          background: 'rgb(15,19,15)',
+          border: '1px solid rgba(255,255,255,0.06)',
+          overflow: 'hidden',
+          marginBottom: '16px',
+        }}
+      >
         {prefsLoading ? (
-          <Spinner />
+          <div style={{ display: 'flex', justifyContent: 'center', padding: '24px 0' }}>
+            <Spinner />
+          </div>
         ) : (
           <>
-            {/* Rest timer */}
-            <div className="flex items-center justify-between gap-4">
-              <div>
-                <p className="text-sm font-semibold text-text">Descanso entre series</p>
-                <p className="text-xs text-muted mt-0.5">Tiempo de descanso por defecto</p>
+            {/* Training days row */}
+            {trainingDaysLabel !== null && (
+              <div
+                style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '14px',
+                  padding: '16px',
+                  borderBottom: '1px solid rgba(255,255,255,0.05)',
+                }}
+              >
+                <Calendar size={18} style={{ color: 'var(--text-muted)', flexShrink: 0 }} />
+                <span
+                  style={{
+                    flex: 1,
+                    fontSize: '15px',
+                    fontWeight: 600,
+                    color: 'var(--text)',
+                  }}
+                >
+                  Días de entrenamiento
+                </span>
+                <span style={{ fontSize: '13px', color: 'var(--text-muted)' }}>
+                  {trainingDaysLabel}
+                </span>
               </div>
+            )}
+
+            {/* Rest timer row */}
+            <div
+              style={{
+                display: 'flex',
+                alignItems: 'center',
+                gap: '14px',
+                padding: '16px',
+                borderBottom: '1px solid rgba(255,255,255,0.05)',
+              }}
+            >
+              <Clock size={18} style={{ color: 'var(--text-muted)', flexShrink: 0 }} />
+              <span
+                style={{
+                  flex: 1,
+                  fontSize: '15px',
+                  fontWeight: 600,
+                  color: 'var(--text)',
+                }}
+              >
+                Descanso entre series
+              </span>
 
               {editingRest ? (
                 <input
@@ -176,43 +351,76 @@ export function ProfilePage() {
                   onBlur={commitRestEdit}
                   onKeyDown={handleRestKeyDown}
                   aria-label="Segundos de descanso"
-                  className="w-20 text-center text-sm font-semibold rounded-input border border-border text-text"
-                  style={{ height: '36px' }}
+                  style={{
+                    width: '64px',
+                    textAlign: 'center',
+                    fontSize: '13px',
+                    fontWeight: 600,
+                    height: '32px',
+                    borderRadius: '8px',
+                    border: '1px solid var(--border)',
+                    color: 'var(--text)',
+                  }}
                 />
               ) : (
                 <button
                   onClick={startEditRest}
-                  className="text-sm font-semibold text-accent border border-accent rounded-btn px-3 hover:bg-accent hover:text-bg transition-colors"
-                  style={{ height: '36px', cursor: 'pointer', backgroundColor: 'transparent' }}
                   aria-label="Editar tiempo de descanso"
+                  style={{
+                    fontSize: '13px',
+                    color: 'var(--text-muted)',
+                    background: 'transparent',
+                    border: 'none',
+                    cursor: 'pointer',
+                    padding: 0,
+                  }}
                 >
-                  {prefs?.rest_seconds ?? 90}s
+                  {prefs?.rest_seconds != null
+                    ? `${formatRestTime(prefs.rest_seconds)} (${prefs.rest_seconds}s)`
+                    : '90s'}
                 </button>
               )}
             </div>
 
-            {/* Units toggle */}
-            <div className="flex items-center justify-between gap-4">
-              <div>
-                <p className="text-sm font-semibold text-text">Unidades de peso</p>
-                <p className="text-xs text-muted mt-0.5">Para series y estadísticas</p>
-              </div>
-
-              <div className="flex rounded-btn overflow-hidden border border-border" role="group" aria-label="Unidades de peso">
+            {/* Units row */}
+            <div
+              style={{
+                display: 'flex',
+                alignItems: 'center',
+                gap: '14px',
+                padding: '16px',
+              }}
+            >
+              <Globe size={18} style={{ color: 'var(--text-muted)', flexShrink: 0 }} />
+              <span
+                style={{
+                  flex: 1,
+                  fontSize: '15px',
+                  fontWeight: 600,
+                  color: 'var(--text)',
+                }}
+              >
+                Unidades
+              </span>
+              <div role="group" aria-label="Unidades de peso" style={{ display: 'flex' }}>
                 {(['kg', 'lb'] as const).map((unit) => {
                   const active = prefs?.units === unit;
                   return (
                     <button
                       key={unit}
                       onClick={() => handleUnitsToggle(unit)}
-                      className={[
-                        'text-xs font-bold px-4 transition-colors',
-                        active
-                          ? 'bg-accent text-bg'
-                          : 'bg-transparent text-muted hover:text-text',
-                      ].join(' ')}
-                      style={{ height: '36px', cursor: 'pointer', border: 'none' }}
                       aria-pressed={active}
+                      style={{
+                        fontSize: '12px',
+                        fontWeight: 700,
+                        padding: '4px 12px',
+                        border: 'none',
+                        cursor: 'pointer',
+                        background: active ? 'var(--neon-green)' : 'transparent',
+                        color: active ? 'rgb(6,33,15)' : 'var(--text-muted)',
+                        borderRadius: active ? '8px' : 0,
+                        transition: 'background 0.15s, color 0.15s',
+                      }}
                     >
                       {unit}
                     </button>
@@ -224,116 +432,126 @@ export function ProfilePage() {
         )}
       </div>
 
-      {/* ─── Account info ─── */}
-      <div className="rounded-card border border-border bg-surface p-5 space-y-4">
-        <h2 className="font-bold text-base text-text">Cuenta</h2>
-
-        {/* Avatar + email */}
-        <div className="flex items-center gap-4">
-          <div className="w-12 h-12 rounded-full bg-elevated flex items-center justify-center shrink-0">
-            <User size={24} className="text-muted" />
+      {/* ─── Account info / Change password ─── */}
+      <div
+        style={{
+          borderRadius: '20px',
+          background: 'rgb(15,19,15)',
+          border: '1px solid rgba(255,255,255,0.06)',
+          overflow: 'hidden',
+          marginBottom: '16px',
+          padding: '16px',
+        }}
+      >
+        <h2
+          style={{
+            fontSize: '15px',
+            fontWeight: 700,
+            color: 'var(--text)',
+            marginBottom: '12px',
+          }}
+        >
+          Cambiar contraseña
+        </h2>
+        <form onSubmit={handleChangePassword} style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+          <div>
+            <label htmlFor="current-password" className="block text-xs font-semibold mb-1 text-muted">
+              Contraseña actual
+            </label>
+            <input
+              id="current-password"
+              type="password"
+              value={currentPassword}
+              onChange={(e) => setCurrentPassword(e.target.value)}
+              placeholder="••••••••"
+              required
+              className="w-full"
+              style={{
+                height: '40px',
+                borderRadius: '10px',
+                border: '1px solid var(--border)',
+                padding: '0 12px',
+                fontSize: '14px',
+              }}
+            />
           </div>
-          <div className="min-w-0">
-            {displayName && (
-              <p className="font-semibold text-sm text-text truncate capitalize">
-                {displayName}
-              </p>
-            )}
-            <p className="text-xs text-muted truncate">{user?.email}</p>
+          <div>
+            <label htmlFor="new-password" className="block text-xs font-semibold mb-1 text-muted">
+              Nueva contraseña
+            </label>
+            <input
+              id="new-password"
+              type="password"
+              value={newPassword}
+              onChange={(e) => setNewPassword(e.target.value)}
+              placeholder="••••••••"
+              required
+              minLength={8}
+              className="w-full"
+              style={{
+                height: '40px',
+                borderRadius: '10px',
+                border: '1px solid var(--border)',
+                padding: '0 12px',
+                fontSize: '14px',
+              }}
+            />
           </div>
-        </div>
+          <div>
+            <label htmlFor="confirm-new-password" className="block text-xs font-semibold mb-1 text-muted">
+              Confirmar nueva contraseña
+            </label>
+            <input
+              id="confirm-new-password"
+              type="password"
+              value={confirmNewPassword}
+              onChange={(e) => setConfirmNewPassword(e.target.value)}
+              placeholder="••••••••"
+              required
+              className="w-full"
+              style={{
+                height: '40px',
+                borderRadius: '10px',
+                border: '1px solid var(--border)',
+                padding: '0 12px',
+                fontSize: '14px',
+              }}
+            />
+          </div>
 
-        <hr className="border-border" />
+          {pwSuccess && <p className="text-xs text-accent">{pwSuccess}</p>}
+          {pwError && <p className="text-xs text-danger">{pwError}</p>}
 
-        {/* Change password */}
-        <div>
-          <h3 className="font-semibold text-sm text-text mb-3">Cambiar contraseña</h3>
-          <form onSubmit={handleChangePassword} className="space-y-3">
-            <div>
-              <label htmlFor="current-password" className="block text-xs font-semibold mb-1 text-muted">
-                Contraseña actual
-              </label>
-              <input
-                id="current-password"
-                type="password"
-                value={currentPassword}
-                onChange={(e) => setCurrentPassword(e.target.value)}
-                placeholder="••••••••"
-                required
-                className="w-full"
-                style={{
-                  height: '40px',
-                  borderRadius: '10px',
-                  border: '1px solid var(--border)',
-                  padding: '0 12px',
-                  fontSize: '14px',
-                }}
-              />
-            </div>
-            <div>
-              <label htmlFor="new-password" className="block text-xs font-semibold mb-1 text-muted">
-                Nueva contraseña
-              </label>
-              <input
-                id="new-password"
-                type="password"
-                value={newPassword}
-                onChange={(e) => setNewPassword(e.target.value)}
-                placeholder="••••••••"
-                required
-                minLength={8}
-                className="w-full"
-                style={{
-                  height: '40px',
-                  borderRadius: '10px',
-                  border: '1px solid var(--border)',
-                  padding: '0 12px',
-                  fontSize: '14px',
-                }}
-              />
-            </div>
-            <div>
-              <label htmlFor="confirm-new-password" className="block text-xs font-semibold mb-1 text-muted">
-                Confirmar nueva contraseña
-              </label>
-              <input
-                id="confirm-new-password"
-                type="password"
-                value={confirmNewPassword}
-                onChange={(e) => setConfirmNewPassword(e.target.value)}
-                placeholder="••••••••"
-                required
-                className="w-full"
-                style={{
-                  height: '40px',
-                  borderRadius: '10px',
-                  border: '1px solid var(--border)',
-                  padding: '0 12px',
-                  fontSize: '14px',
-                }}
-              />
-            </div>
-
-            {pwSuccess && <p className="text-xs text-accent">{pwSuccess}</p>}
-            {pwError && <p className="text-xs text-danger">{pwError}</p>}
-
-            <button
-              type="submit"
-              disabled={pwLoading}
-              className="w-full font-semibold transition-all duration-200 disabled:opacity-60 rounded-btn bg-accent text-bg"
-              style={{ height: '44px', fontSize: '14px', border: 'none', cursor: 'pointer' }}
-            >
-              {pwLoading ? 'Guardando…' : 'Actualizar contraseña'}
-            </button>
-          </form>
-        </div>
+          <button
+            type="submit"
+            disabled={pwLoading}
+            className="w-full font-semibold transition-all duration-200 disabled:opacity-60 rounded-btn bg-accent text-bg"
+            style={{ height: '44px', fontSize: '14px', border: 'none', cursor: 'pointer' }}
+          >
+            {pwLoading ? 'Guardando…' : 'Actualizar contraseña'}
+          </button>
+        </form>
       </div>
 
       {/* ─── Logout ─── */}
       <button
         onClick={handleLogout}
-        className="w-full flex items-center justify-center gap-2 font-semibold rounded-btn border border-border text-muted transition-colors hover:text-danger hover:border-danger"
-        style={{ height: '48px', backgroundColor: 'transparent', cursor: 'pointer' }}
+        style={{
+          width: '100%',
+          height: '52px',
+          border: '1px solid rgba(255,91,91,0.3)',
+          borderRadius: '16px',
+          background: 'rgba(255,91,91,0.08)',
+          color: 'rgb(255,123,123)',
+          fontSize: '15px',
+          fontWeight: 700,
+          fontFamily: 'Barlow, sans-serif',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          gap: '8px',
+          cursor: 'pointer',
+        }}
       >
         <LogOut size={18} />
         Cerrar sesión
