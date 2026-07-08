@@ -15,18 +15,6 @@ function firstNameFromEmail(email: string): string {
   return prefix.charAt(0).toUpperCase() + prefix.slice(1);
 }
 
-function greetingForHour(hour: number): string {
-  if (hour < 12) return 'Buenos días';
-  if (hour < 20) return 'Buenas tardes';
-  return 'Buenas noches';
-}
-
-const subtitleFormat = new Intl.DateTimeFormat('es-ES', {
-  weekday: 'long',
-  day: 'numeric',
-  month: 'long',
-});
-
 /** Start of the current week: Monday 00:00 local time. */
 function currentWeekStart(now: Date): Date {
   const start = new Date(now);
@@ -53,6 +41,7 @@ export function DashboardPage() {
   const now = new Date();
   const todayIdx = mondayFirstIndex(now);
   const firstName = user ? firstNameFromEmail(user.email) : '';
+  const avatarLetter = firstName ? firstName[0].toUpperCase() : '?';
 
   // Offset pagination can repeat items between pages — dedupe by id.
   const completedSessions = historyData
@@ -84,12 +73,15 @@ export function DashboardPage() {
 
   return (
     <div>
-      <header className="mb-6">
-        <h1 className="font-condensed font-bold text-2xl text-text">
-          {greetingForHour(now.getHours())}, {firstName}
-        </h1>
-        <p className="text-sm mt-0.5 text-muted">Hoy, {subtitleFormat.format(now)}</p>
-      </header>
+      <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', marginBottom: '22px' }}>
+        <div>
+          <div style={{ fontSize: '14px', color: '#7E8A7E', fontWeight: 500 }}>Buenas, {firstName}</div>
+          <div style={{ fontSize: '27px', fontWeight: 700, color: '#EAF0EA', fontFamily: "'Barlow Semi Condensed', sans-serif", letterSpacing: '-0.3px' }}>¿Listo para romperla?</div>
+        </div>
+        <div style={{ width: '42px', height: '42px', borderRadius: '14px', background: '#151A15', border: '1px solid rgba(255,255,255,0.08)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#EAF0EA', fontWeight: 700 }}>
+          {avatarLetter}
+        </div>
+      </div>
 
       {isLoading ? (
         <Spinner />
@@ -104,7 +96,7 @@ export function DashboardPage() {
             planDays={planDays}
             completedDays={completedDays}
           />
-          <WeeklyChart volumes={volumes} todayIndex={todayIdx} />
+          <WeeklyChart volumes={volumes} todayIndex={todayIdx} sessionsThisWeek={thisWeekSessions.length} planDaysCount={planDays.size} />
           <NextWorkoutCard workout={activeWorkout} />
           <RecentActivityList sessions={recentSessions} />
         </div>

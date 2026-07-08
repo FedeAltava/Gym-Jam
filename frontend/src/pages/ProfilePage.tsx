@@ -194,6 +194,9 @@ export function ProfilePage() {
 
   return (
     <div style={{ maxWidth: '420px' }}>
+      <div style={{ fontSize: '27px', fontWeight: 700, color: '#EAF0EA', fontFamily: "'Barlow Semi Condensed', sans-serif", marginBottom: '18px' }}>
+        Mi Perfil
+      </div>
 
       {/* ─── Profile card ─── */}
       <div

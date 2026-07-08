@@ -23,51 +23,125 @@ function RoutineCard({
     ? workout.training_days.find((d) => d.day_of_week === todayKey)
     : undefined;
 
+  const isActive = workout.is_active;
+  const allDays = workout.training_days;
+  const visibleDays = allDays.slice(0, 3);
+  const extraDays = allDays.length - visibleDays.length;
+
   return (
-    <article className="relative rounded-card border border-border bg-card p-4 transition-colors hover:border-border-accent">
-      <div className="flex items-start justify-between gap-2">
-        {/* Stretched link: the whole card navigates to the detail page. */}
+    <article
+      style={{
+        borderRadius: '22px',
+        padding: '20px',
+        background: isActive ? '#111511' : '#0f130f',
+        border: isActive ? '1px solid rgba(43,229,129,0.25)' : '1px solid rgba(255,255,255,0.07)',
+        marginBottom: '14px',
+        position: 'relative',
+      }}
+    >
+      {/* Header row: name + active badge */}
+      <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: '8px' }}>
         <Link
           to={`/workouts/${workout.id}`}
-          className="no-underline flex-1 min-w-0 after:absolute after:inset-0 after:content-['']"
+          style={{ textDecoration: 'none', flex: 1, minWidth: 0 }}
         >
-          <h3 className="font-condensed font-bold text-lg text-text truncate">
+          <h3
+            style={{
+              fontSize: '19px',
+              fontFamily: "'Barlow Semi Condensed', sans-serif",
+              fontWeight: 700,
+              color: 'var(--text)',
+              overflow: 'hidden',
+              textOverflow: 'ellipsis',
+              whiteSpace: 'nowrap',
+              margin: 0,
+            }}
+          >
             {workout.name}
           </h3>
         </Link>
-        {workout.is_active && (
-          <span className="shrink-0 text-xs font-semibold px-2 py-0.5 rounded-full bg-[var(--accent-soft)] border border-border-accent text-accent">
+        {isActive && (
+          <span
+            style={{
+              flexShrink: 0,
+              fontSize: '11px',
+              fontWeight: 700,
+              color: '#2BE581',
+              background: 'rgba(43,229,129,0.12)',
+              padding: '3px 10px',
+              borderRadius: '20px',
+            }}
+          >
             Activo
           </span>
         )}
       </div>
 
-      {workout.description && (
-        <p className="text-sm mt-1 line-clamp-2 text-muted">{workout.description}</p>
-      )}
+      {/* Meta line */}
+      <p
+        style={{
+          fontSize: '13px',
+          color: 'var(--text-muted)',
+          fontWeight: 500,
+          margin: '4px 0 14px',
+        }}
+      >
+        {workout.training_days.length} día{workout.training_days.length !== 1 ? 's' : ''} · {count} ejercicio{count !== 1 ? 's' : ''}
+      </p>
 
-      <div className="flex flex-wrap items-center gap-1.5 mt-3">
-        <span className="text-xs font-semibold px-2 py-0.5 rounded-full border border-border text-muted">
-          {count} ejercicio{count !== 1 ? 's' : ''}
-        </span>
-        {workout.training_days.length === 0 ? (
-          <span className="text-xs italic text-muted">Sin días asignados</span>
-        ) : (
-          workout.training_days.map((d) => (
+      {/* Day chips */}
+      {allDays.length > 0 && (
+        <div style={{ display: 'flex', gap: '8px', marginBottom: '16px', flexWrap: 'wrap' }}>
+          {visibleDays.map((d) => (
             <span
               key={d.id}
-              className="text-xs font-semibold px-2 py-0.5 rounded-full border border-border text-muted"
+              style={{
+                fontSize: '12px',
+                fontWeight: 600,
+                color: 'var(--text)',
+                background: 'rgba(255,255,255,0.06)',
+                padding: '6px 12px',
+                borderRadius: '12px',
+              }}
             >
               {DAY_SHORT[d.day_of_week as DayKey] ?? d.day_of_week}
             </span>
-          ))
-        )}
-      </div>
+          ))}
+          {extraDays > 0 && (
+            <span
+              style={{
+                fontSize: '12px',
+                fontWeight: 600,
+                color: 'var(--text-muted)',
+                background: 'rgba(255,255,255,0.04)',
+                padding: '6px 12px',
+                borderRadius: '12px',
+              }}
+            >
+              +{extraDays}
+            </span>
+          )}
+        </div>
+      )}
 
+      {/* CTA: start today's session */}
       {todayPlanDay && (
         <Link
           to={`/workouts/${workout.id}/session/${todayPlanDay.id}`}
-          className="relative z-10 mt-4 inline-flex items-center gap-1.5 h-10 px-4 font-semibold no-underline rounded-btn bg-accent text-bg text-sm neon-glow"
+          style={{
+            display: 'inline-flex',
+            alignItems: 'center',
+            gap: '8px',
+            height: '48px',
+            padding: '0 20px',
+            textDecoration: 'none',
+            border: 'none',
+            borderRadius: '14px',
+            background: 'linear-gradient(135deg,#2BE581,#1fbd6a)',
+            color: 'rgb(6,33,15)',
+            fontSize: '15px',
+            fontWeight: 700,
+          }}
         >
           <Play size={16} />
           Empezar hoy · {DAY_LABEL[todayKey]}
@@ -105,37 +179,60 @@ export function WorkoutsPage() {
 
   return (
     <div>
-      <header className="flex items-center justify-between mb-6">
-        <div>
-          <h1 className="font-condensed font-bold text-2xl text-text">Rutinas</h1>
-          <p className="text-sm mt-0.5 text-muted">Tus planes de entrenamiento</p>
-        </div>
-        <button
-          type="button"
-          onClick={() => setShowModal(true)}
-          className="inline-flex items-center gap-1.5 h-10 px-4 font-semibold rounded-btn bg-accent text-bg text-sm neon-glow"
-          style={{ border: 'none', cursor: 'pointer' }}
+      {/* Header — no top-right button */}
+      <div style={{ marginBottom: '20px' }}>
+        <div
+          style={{
+            fontSize: '27px',
+            fontWeight: 700,
+            color: 'var(--text)',
+            fontFamily: "'Barlow Semi Condensed', sans-serif",
+          }}
         >
-          <Plus size={16} />
-          Nueva rutina
-        </button>
-      </header>
+          Rutinas
+        </div>
+        <div style={{ fontSize: '14px', color: '#7E8A7E', fontWeight: 500 }}>
+          Tus planes de entrenamiento
+        </div>
+      </div>
 
       {isLoading ? (
         <Spinner />
       ) : isError ? (
         <p className="text-sm text-danger">Error: {(error as Error).message}</p>
       ) : workouts.length === 0 ? (
-        <div className="rounded-card border border-dashed border-border bg-card p-8 text-center">
-          <p className="font-semibold text-text mb-1">Sin rutinas todavía</p>
-          <p className="text-sm text-muted mb-4">
+        <div
+          style={{
+            borderRadius: '18px',
+            border: '1.5px dashed rgba(43,229,129,0.35)',
+            background: 'transparent',
+            padding: '32px',
+            textAlign: 'center',
+          }}
+        >
+          <p style={{ fontSize: '15px', fontWeight: 600, color: 'var(--text)', marginBottom: '4px' }}>
+            Sin rutinas todavía
+          </p>
+          <p style={{ fontSize: '13px', color: 'var(--text-muted)', marginBottom: '16px' }}>
             Crea tu primera rutina para planificar tus entrenamientos
           </p>
           <button
             type="button"
             onClick={() => setShowModal(true)}
-            className="inline-flex items-center gap-1.5 h-10 px-4 font-semibold rounded-btn bg-accent text-bg text-sm neon-glow"
-            style={{ border: 'none', cursor: 'pointer' }}
+            style={{
+              display: 'inline-flex',
+              alignItems: 'center',
+              gap: '6px',
+              height: '48px',
+              padding: '0 20px',
+              border: 'none',
+              borderRadius: '14px',
+              background: 'linear-gradient(135deg,#2BE581,#1fbd6a)',
+              color: 'rgb(6,33,15)',
+              fontSize: '15px',
+              fontWeight: 700,
+              cursor: 'pointer',
+            }}
           >
             <Plus size={16} />
             Crear rutina
@@ -143,29 +240,59 @@ export function WorkoutsPage() {
         </div>
       ) : (
         <>
-          <div className="grid gap-3 sm:grid-cols-2">
+          <div>
             {workouts.map((w) => (
               <RoutineCard key={w.id} workout={w} todayKey={todayKey} />
             ))}
           </div>
+
           {hasNextPage && (
-            <div className="mt-4 text-center">
+            <div style={{ marginTop: '8px', textAlign: 'center' }}>
               <button
                 type="button"
                 onClick={() => fetchNextPage()}
                 disabled={isFetchingNextPage}
-                className="text-sm font-semibold rounded-btn border border-border text-muted transition-colors hover:text-text disabled:opacity-60"
                 style={{
                   height: '36px',
                   padding: '0 16px',
                   backgroundColor: 'transparent',
                   cursor: 'pointer',
+                  fontSize: '13px',
+                  fontWeight: 600,
+                  borderRadius: '12px',
+                  border: '1px solid rgba(255,255,255,0.12)',
+                  color: 'var(--text-muted)',
                 }}
               >
                 {isFetchingNextPage ? 'Cargando…' : 'Cargar más'}
               </button>
             </div>
           )}
+
+          {/* New routine dashed button at bottom */}
+          <button
+            type="button"
+            onClick={() => setShowModal(true)}
+            style={{
+              width: '100%',
+              height: '54px',
+              border: '1.5px dashed rgba(43,229,129,0.35)',
+              borderRadius: '18px',
+              background: 'transparent',
+              color: '#2BE581',
+              fontSize: '15px',
+              fontWeight: 700,
+              cursor: 'pointer',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              gap: '8px',
+              marginTop: '8px',
+            }}
+          >
+            <Plus size={18} />
+            Nueva rutina
+          </button>
         </>
       )}
 

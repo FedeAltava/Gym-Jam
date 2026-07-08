@@ -5,26 +5,92 @@ interface WeeklyChartProps {
   volumes: readonly number[];
   /** Monday-first index of today (0–6). */
   todayIndex: number;
+  /** Number of sessions completed this week. */
+  sessionsThisWeek: number;
+  /** Number of plan days in the active workout. */
+  planDaysCount: number;
 }
 
-export function WeeklyChart({ volumes, todayIndex }: WeeklyChartProps) {
+export function WeeklyChart({ volumes, todayIndex, sessionsThisWeek, planDaysCount }: WeeklyChartProps) {
   const max = Math.max(...volumes, 1);
 
   return (
-    <section className="bg-card rounded-card border border-border p-5">
-      <p className="text-sm text-muted mb-4">Esta semana</p>
-      <div className="flex items-end justify-between gap-2 h-24">
+    <section
+      style={{
+        borderRadius: '22px',
+        padding: '20px',
+        background: '#111511',
+        border: '1px solid rgba(255,255,255,0.07)',
+      }}
+    >
+      {/* Header */}
+      <div
+        style={{
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'space-between',
+          marginBottom: '16px',
+        }}
+      >
+        <span style={{ fontSize: '15px', fontWeight: 700, color: '#EAF0EA' }}>Esta semana</span>
+        <span style={{ fontSize: '13px', color: '#7E8A7E', fontWeight: 600 }}>
+          {sessionsThisWeek} de {planDaysCount} sesiones
+        </span>
+      </div>
+
+      {/* Bars */}
+      <div
+        style={{
+          display: 'flex',
+          alignItems: 'flex-end',
+          justifyContent: 'space-between',
+          height: '90px',
+          gap: '8px',
+        }}
+      >
         {DAY_LETTERS.map((letter, i) => {
-          const heightPct = volumes[i] > 0 ? Math.max((volumes[i] / max) * 100, 8) : 4;
+          const isToday = i === todayIndex;
+          const heightPct = volumes[i] > 0 ? Math.max((volumes[i] / max) * 100, 8) : 20;
+
+          let barBackground: string;
+          if (isToday) {
+            barBackground = 'linear-gradient(180deg,#C6F24E,#2BE581)';
+          } else if (volumes[i] > 0) {
+            barBackground = '#2BE581';
+          } else {
+            barBackground = 'rgba(255,255,255,0.12)';
+          }
+
           return (
-            <div key={letter} className="flex flex-col items-center gap-1.5 flex-1 h-full justify-end">
+            <div
+              key={letter}
+              style={{
+                flex: 1,
+                display: 'flex',
+                flexDirection: 'column',
+                alignItems: 'center',
+                gap: '8px',
+                height: '100%',
+                justifyContent: 'flex-end',
+              }}
+            >
               <div
-                className={`w-full max-w-[14px] rounded-full ${
-                  i === todayIndex ? 'bg-accent' : 'bg-muted'
-                }`}
-                style={{ height: `${heightPct}%` }}
+                style={{
+                  width: '100%',
+                  maxWidth: '26px',
+                  height: `${heightPct}%`,
+                  borderRadius: '7px',
+                  background: barBackground,
+                  ...(isToday ? { boxShadow: '0 0 14px rgba(43,229,129,0.5)' } : {}),
+                }}
               />
-              <span className={`text-[10px] ${i === todayIndex ? 'text-accent' : 'text-muted'}`}>
+              <span
+                style={{
+                  fontSize: '11px',
+                  fontWeight: isToday ? 700 : 600,
+                  color: isToday ? '#C6F24E' : '#7E8A7E',
+                }}
+              >
                 {letter}
               </span>
             </div>

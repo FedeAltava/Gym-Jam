@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback } from 'react';
-import { useParams, useNavigate, Link } from 'react-router-dom';
-import { ArrowLeft, CheckCircle2 } from 'lucide-react';
+import { useParams, useNavigate } from 'react-router-dom';
+import { CheckCircle2 } from 'lucide-react';
 import { useWorkout } from '../hooks/useWorkouts';
 import { useExercises } from '../hooks/useExercises';
 import {
@@ -442,15 +442,15 @@ function ExerciseBlock({
   const totalSets = exercise.sets + extraSets;
 
   return (
-    <div className="rounded-card border border-border bg-card p-4">
+    <div style={{ borderRadius: '20px', padding: '18px', background: '#111511', border: '1px solid rgba(255,255,255,0.07)' }}>
       <div className="mb-3">
-        <h3 className="font-bold text-sm text-text">{exerciseName}</h3>
-        <p className="text-xs text-muted mt-0.5">
+        <h3 style={{ fontSize: '17px', fontWeight: 700, color: 'var(--text)', fontFamily: "'Barlow Semi Condensed', sans-serif", margin: 0 }}>{exerciseName}</h3>
+        <p style={{ fontSize: '12px', color: 'var(--text-muted)', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.5px', marginTop: '4px' }}>
           {muscleGroup && `${muscleGroup} · `}
           {exercise.sets} series · {exercise.reps_per_set} reps
         </p>
       </div>
-      <div className="space-y-2">
+      <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
         {Array.from({ length: totalSets }, (_, i) => i + 1).map((setNum) => {
           const lastLog = lastSessionLogs.get(`${exercise.id}:${setNum}`);
           return (
@@ -640,24 +640,40 @@ export function WorkoutSessionPage() {
 
   return (
     <div>
-      <Link
-        to={`/workouts/${workoutId}`}
-        className="inline-flex items-center gap-1.5 text-sm font-semibold mb-5 text-muted no-underline"
-      >
-        <ArrowLeft size={16} /> Volver al entrenamiento
-      </Link>
-
-      <div className="mb-4 flex items-start justify-between">
-        <div>
-          <h1 className="font-bold text-2xl text-text">{workout.name}</h1>
-          <p className="text-sm text-muted mt-1">{dayLabel}</p>
+      <div style={{ display: 'flex', alignItems: 'center', gap: '12px', marginBottom: '14px' }}>
+        <button
+          type="button"
+          onClick={() => navigate(`/workouts/${workoutId}`)}
+          aria-label="Volver"
+          style={{
+            width: '38px',
+            height: '38px',
+            borderRadius: '12px',
+            background: '#151A15',
+            border: '1px solid rgba(255,255,255,0.08)',
+            color: '#EAF0EA',
+            cursor: 'pointer',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            flexShrink: 0,
+          }}
+        >
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+            <path d="M15 18l-6-6 6-6" />
+          </svg>
+        </button>
+        <div style={{ flex: 1 }}>
+          <div style={{ fontSize: '21px', fontWeight: 700, color: '#EAF0EA', fontFamily: "'Barlow Semi Condensed', sans-serif" }}>
+            {workout.name}
+          </div>
+          <div style={{ fontSize: '13px', color: '#7E8A7E', fontWeight: 500 }}>
+            {dayLabel}{session ? ' · en curso' : ''}
+          </div>
         </div>
         {session && (
-          <div
-            className="text-right"
-            aria-label="Tiempo transcurrido"
-          >
-            <span className="font-condensed font-bold text-xl text-accent tabular-nums">
+          <div aria-label="Tiempo transcurrido" style={{ flexShrink: 0 }}>
+            <span style={{ fontFamily: "'Barlow Semi Condensed', sans-serif", fontWeight: 700, fontSize: '20px', color: '#2BE581', fontVariantNumeric: 'tabular-nums' }}>
               {formatElapsed(elapsedSeconds)}
             </span>
           </div>
@@ -666,23 +682,26 @@ export function WorkoutSessionPage() {
 
       {/* Progress bar — only while session is active */}
       {session && (
-        <div className="mb-6">
-          <div className="flex justify-between text-xs text-muted mb-1.5">
-            <span>Progreso</span>
-            <span>
-              {doneSets}/{totalSets} series
-            </span>
+        <div style={{ marginBottom: '24px' }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '12px', marginBottom: '6px' }}>
+            <span style={{ color: 'var(--text-muted)' }}>Progreso</span>
+            <span style={{ color: '#2BE581' }}>{doneSets}/{totalSets} series</span>
           </div>
           <div
-            className="h-2 rounded-btn bg-elevated overflow-hidden"
+            style={{ height: '8px', borderRadius: '4px', background: 'rgba(255,255,255,0.08)', overflow: 'hidden' }}
             role="progressbar"
             aria-valuenow={doneSets}
             aria-valuemin={0}
             aria-valuemax={totalSets}
           >
             <div
-              className="h-full bg-accent rounded-btn transition-all duration-300"
-              style={{ width: `${progressPct}%` }}
+              style={{
+                height: '100%',
+                borderRadius: '4px',
+                background: 'linear-gradient(90deg,#2BE581,#C6F24E)',
+                transition: 'width 0.3s',
+                width: `${progressPct}%`,
+              }}
             />
           </div>
         </div>
@@ -753,7 +772,18 @@ export function WorkoutSessionPage() {
                 type="button"
                 onClick={handleStart}
                 disabled={startSession.isPending}
-                className="font-semibold rounded-btn bg-accent text-bg border-none cursor-pointer px-8 h-12 text-base disabled:opacity-60 neon-glow"
+                style={{
+                  width: '100%',
+                  height: '54px',
+                  border: 'none',
+                  borderRadius: '16px',
+                  background: 'linear-gradient(135deg,#2BE581,#1fbd6a)',
+                  color: 'rgb(6,33,15)',
+                  fontSize: '16px',
+                  fontWeight: 700,
+                  cursor: startSession.isPending ? 'not-allowed' : 'pointer',
+                  opacity: startSession.isPending ? 0.6 : 1,
+                }}
               >
                 {startSession.isPending ? 'Iniciando…' : 'Iniciar sesión'}
               </button>
@@ -770,7 +800,7 @@ export function WorkoutSessionPage() {
       {/* Active session */}
       {session && (
         <>
-          <div className="space-y-4 mb-6">
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '16px', marginBottom: '24px' }}>
             {sortedExercises.map((exercise) => {
               const exerciseLogs = session.logs.filter(
                 (l) => l.workout_exercise_id === exercise.id,
@@ -797,16 +827,28 @@ export function WorkoutSessionPage() {
           </div>
 
           {session.status === 'in_progress' && (
-            <div className="flex justify-end">
-              <button
-                type="button"
-                onClick={handleComplete}
-                disabled={completeSession.isPending}
-                className="font-semibold rounded-btn bg-accent text-bg border-none cursor-pointer px-8 h-12 text-base disabled:opacity-60 neon-glow"
-              >
-                {completeSession.isPending ? 'Completando…' : 'Completar sesión'}
-              </button>
-            </div>
+            <button
+              type="button"
+              onClick={handleComplete}
+              disabled={completeSession.isPending}
+              style={{
+                width: '100%',
+                height: '54px',
+                marginTop: '18px',
+                border: 'none',
+                borderRadius: '16px',
+                background: 'linear-gradient(135deg,#2BE581,#1fbd6a)',
+                color: 'rgb(6,33,15)',
+                fontSize: '16px',
+                fontWeight: 700,
+                fontFamily: 'Barlow, sans-serif',
+                cursor: completeSession.isPending ? 'not-allowed' : 'pointer',
+                boxShadow: '0 8px 24px rgba(43,229,129,0.3)',
+                opacity: completeSession.isPending ? 0.6 : 1,
+              }}
+            >
+              {completeSession.isPending ? 'Completando…' : 'Completar sesión'}
+            </button>
           )}
           {completeSession.isError && (
             <p className="mt-3 text-xs text-danger text-right">

@@ -93,8 +93,8 @@ function SessionCard({ session, isFirst }: SessionCardProps) {
       style={{
         borderRadius: '20px',
         padding: '18px',
-        background: 'var(--card-bg)',
-        border: '1px solid rgba(255,255,255,0.07)',
+        background: isFirst ? '#111511' : 'rgb(15,19,15)',
+        border: isFirst ? '1px solid rgba(255,255,255,0.07)' : '1px solid rgba(255,255,255,0.06)',
       }}
     >
       {/* Header row */}
@@ -267,11 +267,13 @@ export function HistoryPage() {
   return (
     <div>
       {/* Page title */}
-      <div className="mb-6">
-        <h1 className="font-bold text-2xl text-text">Historial</h1>
-        <p className="text-sm mt-0.5 text-muted">
+      <div>
+        <div style={{ fontSize: '27px', fontWeight: 700, color: 'var(--text)', fontFamily: "'Barlow Semi Condensed', sans-serif", marginBottom: '2px' }}>
+          Historial
+        </div>
+        <div style={{ fontSize: '14px', color: 'var(--text-muted)', fontWeight: 500, marginBottom: '18px' }}>
           Todas tus sesiones de entrenamiento
-        </p>
+        </div>
       </div>
 
       {/* Filter chips */}
