@@ -20,6 +20,11 @@ export const DAY_LABEL: Record<DayKey, string> = {
   SUNDAY: 'Domingo',
 };
 
+/** Monday-first weekday index (0 = Monday … 6 = Sunday) for a given date. */
+export function mondayFirstIndex(date: Date): number {
+  return (date.getDay() + 6) % 7;
+}
+
 export const DAY_SHORT: Record<DayKey, string> = {
   MONDAY: 'Lun',
   TUESDAY: 'Mar',

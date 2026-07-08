@@ -64,6 +64,15 @@ export interface ApiError {
   detail: string;
 }
 
+export interface UserStats {
+  total_sessions: number;
+  streak: number;
+  total_prs: number;
+  weekly_volume_kg: number;
+  weekly_sessions: number;
+  weekly_prs: number;
+}
+
 export interface SessionHistoryLogResponse {
   id: string;
   workout_exercise_id: string;

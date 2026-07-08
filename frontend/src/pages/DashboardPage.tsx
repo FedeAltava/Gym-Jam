@@ -1,78 +1,112 @@
-import { Link } from 'react-router-dom';
-import { Plus } from 'lucide-react';
-import { WorkoutCard } from '../components/WorkoutCard';
 import { Spinner } from '../components/Spinner';
-import { useWorkouts } from '../hooks/useWorkouts';
+import { StreakCard } from '../components/dashboard/StreakCard';
+import { WeeklyChart } from '../components/dashboard/WeeklyChart';
+import { NextWorkoutCard } from '../components/dashboard/NextWorkoutCard';
+import { RecentActivityList } from '../components/dashboard/RecentActivityList';
+import { useAuthStore } from '../store/authStore';
+import { useUserStats } from '../hooks/useStats';
+import { useActiveWorkout } from '../hooks/useActiveWorkout';
+import { useSessionHistory } from '../hooks/useSessionHistory';
+import { DAYS, mondayFirstIndex, type DayKey } from '../lib/days';
+import type { SessionHistoryItemResponse } from '../types/api';
+
+function firstNameFromEmail(email: string): string {
+  const prefix = email.split('@')[0];
+  return prefix.charAt(0).toUpperCase() + prefix.slice(1);
+}
+
+function greetingForHour(hour: number): string {
+  if (hour < 12) return 'Buenos días';
+  if (hour < 20) return 'Buenas tardes';
+  return 'Buenas noches';
+}
+
+const subtitleFormat = new Intl.DateTimeFormat('es-ES', {
+  weekday: 'long',
+  day: 'numeric',
+  month: 'long',
+});
+
+/** Start of the current week: Monday 00:00 local time. */
+function currentWeekStart(now: Date): Date {
+  const start = new Date(now);
+  start.setDate(now.getDate() - mondayFirstIndex(now));
+  start.setHours(0, 0, 0, 0);
+  return start;
+}
+
+function sessionVolumeKg(session: SessionHistoryItemResponse): number {
+  return session.logs.reduce(
+    (total, log) => total + log.reps_completed * (log.weight_kg ?? 0),
+    0,
+  );
+}
 
 export function DashboardPage() {
-  const {
-    data,
-    isLoading,
-    isError,
-    error,
-    hasNextPage,
-    isFetchingNextPage,
-    fetchNextPage,
-  } = useWorkouts();
+  const user = useAuthStore((s) => s.user);
+  const { data: stats, isLoading: statsLoading } = useUserStats();
+  const { activeWorkout, isLoading: workoutsLoading } = useActiveWorkout();
+  const { data: historyData, isLoading: historyLoading } = useSessionHistory({
+    status: 'completed',
+  });
 
-  // Offset pagination can return the same workout on two pages when items
-  // shift between requests — dedupe by id to avoid duplicate React keys.
-  const workouts = data
-    ? Array.from(
-        new Map(data.pages.flat().map((w) => [w.id, w])).values(),
-      )
-    : undefined;
+  const now = new Date();
+  const todayIdx = mondayFirstIndex(now);
+  const firstName = user ? firstNameFromEmail(user.email) : '';
+
+  // Offset pagination can repeat items between pages — dedupe by id.
+  const completedSessions = historyData
+    ? Array.from(new Map(historyData.pages.flat().map((s) => [s.id, s])).values())
+    : [];
+  const recentSessions = completedSessions.slice(0, 2);
+
+  const weekStart = currentWeekStart(now);
+  const thisWeekSessions = completedSessions.filter(
+    (s) => new Date(s.started_at) >= weekStart,
+  );
+
+  const completedDays = new Set(
+    thisWeekSessions.map((s) => mondayFirstIndex(new Date(s.started_at))),
+  );
+  const volumes = Array.from({ length: 7 }, () => 0);
+  for (const session of thisWeekSessions) {
+    volumes[mondayFirstIndex(new Date(session.started_at))] += sessionVolumeKg(session);
+  }
+
+  const planDays = new Set(
+    (activeWorkout?.training_days ?? [])
+      .map((td) => DAYS.indexOf(td.day_of_week as DayKey))
+      .filter((idx) => idx >= 0),
+  );
+
+  const isLoading = statsLoading || workoutsLoading || historyLoading;
+  const isFullyEmpty = !activeWorkout && completedSessions.length === 0;
 
   return (
     <div>
-      <div className="flex items-center justify-between mb-6">
-        <div>
-          <h1 className="font-bold text-2xl text-text">Mis Entrenamientos</h1>
-          <p className="text-sm mt-0.5 text-muted">Gestiona y sigue tus planes</p>
+      <header className="mb-6">
+        <h1 className="font-condensed font-bold text-2xl text-text">
+          {greetingForHour(now.getHours())}, {firstName}
+        </h1>
+        <p className="text-sm mt-0.5 text-muted">Hoy, {subtitleFormat.format(now)}</p>
+      </header>
+
+      {isLoading ? (
+        <Spinner />
+      ) : isFullyEmpty ? (
+        <div className="max-w-md mx-auto mt-10">
+          <NextWorkoutCard workout={undefined} />
         </div>
-        <Link
-          to="/workouts/new"
-          className="flex items-center gap-1.5 font-semibold no-underline rounded-btn bg-accent text-bg text-sm"
-          style={{
-            height: '40px',
-            padding: '0 16px',
-            boxShadow: '0 0 12px rgba(0, 255, 135, 0.35)',
-          }}
-        >
-          <Plus size={16} />
-          Nuevo
-        </Link>
-      </div>
-
-      {isLoading && <Spinner />}
-      {isError && (
-        <p className="text-sm text-danger">
-          Error: {(error as Error).message}
-        </p>
-      )}
-
-      {workouts?.length === 0 && (
-        <div className="text-center py-16 rounded-card border-2 border-dashed border-border">
-          <p className="text-3xl mb-3">💪</p>
-          <p className="font-semibold mb-1 text-text">Sin entrenamientos aún</p>
-          <p className="text-sm text-muted">Crea tu primer entrenamiento para empezar</p>
-        </div>
-      )}
-
-      <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
-        {workouts?.map((w) => <WorkoutCard key={w.id} workout={w} />)}
-      </div>
-
-      {hasNextPage && (
-        <div className="flex justify-center mt-6">
-          <button
-            onClick={() => fetchNextPage()}
-            disabled={isFetchingNextPage}
-            className="inline-flex items-center gap-2 text-sm font-semibold rounded-btn border border-accent text-accent bg-transparent transition-colors hover:bg-accent hover:text-bg disabled:opacity-60 disabled:pointer-events-none"
-            style={{ height: '40px', padding: '0 20px', cursor: 'pointer' }}
-          >
-            {isFetchingNextPage ? 'Cargando…' : 'Cargar más'}
-          </button>
+      ) : (
+        <div className="grid gap-4">
+          <StreakCard
+            streak={stats?.streak ?? 0}
+            planDays={planDays}
+            completedDays={completedDays}
+          />
+          <WeeklyChart volumes={volumes} todayIndex={todayIdx} />
+          <NextWorkoutCard workout={activeWorkout} />
+          <RecentActivityList sessions={recentSessions} />
         </div>
       )}
     </div>
