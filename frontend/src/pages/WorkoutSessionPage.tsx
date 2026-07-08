@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { useParams, useNavigate, Link } from 'react-router-dom';
 import { ArrowLeft, CheckCircle2 } from 'lucide-react';
 import { useWorkout } from '../hooks/useWorkouts';
@@ -9,7 +9,9 @@ import {
   useUpdateLog,
   useCompleteSession,
   useSessionsForDay,
+  useDeleteExerciseLog,
 } from '../hooks/useSessions';
+import { useUserPreferences } from '../hooks/useUserPreferences';
 import { Spinner } from '../components/Spinner';
 import { DAY_LABEL } from '../lib/days';
 import type {
@@ -19,13 +21,69 @@ import type {
 } from '../types/api';
 
 // ---------------------------------------------------------------------------
+// Helpers
+// ---------------------------------------------------------------------------
+
+function formatElapsed(seconds: number): string {
+  const m = Math.floor(seconds / 60);
+  const s = seconds % 60;
+  return `${String(m).padStart(2, '0')}:${String(s).padStart(2, '0')}`;
+}
+
+// ---------------------------------------------------------------------------
+// Stepper
+// ---------------------------------------------------------------------------
+
+interface StepperProps {
+  value: number;
+  step: number;
+  min: number;
+  onChange: (v: number) => void;
+  disabled?: boolean;
+  'aria-label'?: string;
+}
+
+function Stepper({ value, step, min, onChange, disabled, 'aria-label': ariaLabel }: StepperProps) {
+  function decrement() {
+    onChange(Math.max(min, +(value - step).toFixed(4)));
+  }
+  function increment() {
+    onChange(+(value + step).toFixed(4));
+  }
+  return (
+    <div className="flex items-center gap-1" role="group" aria-label={ariaLabel}>
+      <button
+        type="button"
+        onClick={decrement}
+        disabled={disabled || value <= min}
+        aria-label="Reducir"
+        className="w-8 h-8 flex items-center justify-center rounded-btn bg-elevated border border-border text-text disabled:opacity-40 text-base font-bold leading-none"
+      >
+        −
+      </button>
+      <span className="w-14 text-center text-sm font-semibold text-text tabular-nums">
+        {Number.isInteger(value) ? value : value.toFixed(1)}
+      </span>
+      <button
+        type="button"
+        onClick={increment}
+        disabled={disabled}
+        aria-label="Aumentar"
+        className="w-8 h-8 flex items-center justify-center rounded-btn bg-elevated border border-border text-text disabled:opacity-40 text-base font-bold leading-none"
+      >
+        +
+      </button>
+    </div>
+  );
+}
+
+// ---------------------------------------------------------------------------
 // Set row
 // ---------------------------------------------------------------------------
 
 interface SetRowProps {
   sessionId: string;
   exercise: WorkoutExerciseResponse;
-  exerciseName: string;
   setNumber: number;
   suggestedReps: number;
   suggestedWeight: number | null;
@@ -34,6 +92,8 @@ interface SetRowProps {
   workoutId: string;
   dayId: string;
   sessionCompleted: boolean;
+  units: 'kg' | 'lb';
+  onDoneSetsChange: (delta: number) => void;
 }
 
 function SetRow({
@@ -47,102 +107,42 @@ function SetRow({
   workoutId,
   dayId,
   sessionCompleted,
+  units,
+  onDoneSetsChange,
 }: SetRowProps) {
-  const [reps, setReps] = useState('');
-  const [weight, setWeight] = useState('');
-  // Latest known log for this set — seeded from the session, then kept in
-  // sync locally after log/update mutations succeed.
+  // Seed stepper values from existing log or suggestions.
+  const [reps, setReps] = useState<number>(
+    existingLog?.reps_completed ?? suggestedReps,
+  );
+  const [weight, setWeight] = useState<number>(
+    existingLog?.weight_kg ?? suggestedWeight ?? 0,
+  );
+  // Latest known log for this set — seeded from the session, kept in sync locally.
   const [log, setLog] = useState<ExerciseLogResponse | undefined>(existingLog);
-  const [validationError, setValidationError] = useState<string | null>(null);
+
   const logSet = useLogSet();
   const updateLog = useUpdateLog();
+  const deleteLog = useDeleteExerciseLog();
 
   const isLogged = !!log;
-  const isPending = logSet.isPending || updateLog.isPending;
+  const isPending = logSet.isPending || updateLog.isPending || deleteLog.isPending;
   const isDisabled = sessionCompleted || isPending;
-  const mutationError = logSet.error ?? updateLog.error;
 
-  function handleLog() {
-    const repsVal = parseInt(reps, 10);
-    if (!reps || Number.isNaN(repsVal) || repsVal < 1) {
-      setValidationError('Ingresa las repeticiones (mínimo 1).');
-      return;
-    }
-    // Bodyweight exercises have no weight input — log the set without weight.
-    let weightKg: number | null = null;
-    if (!isBodyweight) {
-      // A number input reports '' for invalid content, so `weight` can be empty
-      // even when the placeholder makes it look filled. Never let NaN through:
-      // JSON.stringify(NaN) serializes to null and would silently log a
-      // weighted exercise as bodyweight.
-      const weightVal = parseFloat(weight);
-      if (weight === '' || !Number.isFinite(weightVal) || weightVal < 0) {
-        setValidationError('Ingresa un peso válido en kg (0 o más).');
-        return;
-      }
-      weightKg = weightVal;
-    }
-    setValidationError(null);
-    logSet.mutate(
-      {
-        sessionId,
-        workoutExerciseId: exercise.id,
-        setNumber,
-        repsCompleted: repsVal,
-        weightKg,
-        workoutId,
-        dayId,
-      },
-      { onSuccess: (data) => setLog(data) },
-    );
-  }
+  const weightStep = units === 'lb' ? 5 : 2.5;
 
-  function handleUpdate() {
-    if (!log) return;
-    const repsVal = reps !== '' ? parseInt(reps, 10) : undefined;
-    if (repsVal !== undefined && (Number.isNaN(repsVal) || repsVal < 1)) {
-      setValidationError('Las repeticiones deben ser 1 o más.');
-      return;
-    }
-    // Bodyweight exercises have no weight input — only reps can change.
-    const weightVal =
-      !isBodyweight && weight !== '' ? parseFloat(weight) : undefined;
-    if (
-      weightVal !== undefined &&
-      (!Number.isFinite(weightVal) || weightVal < 0)
-    ) {
-      setValidationError('El peso debe ser un número de 0 o más kg.');
-      return;
-    }
-    if (repsVal === undefined && weightVal === undefined) {
-      setValidationError(
-        isBodyweight
-          ? 'Ingresa nuevas repeticiones.'
-          : 'Ingresa nuevas repeticiones o un nuevo peso.',
-      );
-      return;
-    }
-    setValidationError(null);
-    updateLog.mutate(
-      {
-        sessionId,
-        logId: log.id,
-        repsCompleted: repsVal,
-        weightKg: weightVal,
-        workoutId,
-        dayId,
-      },
-      { onSuccess: (data) => setLog(data) },
-    );
+  // Weight is stored always in kg (ADR 9). Display convert only for steppers.
+  const displayWeight = units === 'lb' ? weight * 2.20462 : weight;
+  const stepperDisplayWeight =
+    units === 'lb' ? Math.round(displayWeight / 5) * 5 : weight;
+
+  function toStorageKg(displayVal: number): number {
+    return units === 'lb' ? displayVal / 2.20462 : displayVal;
   }
 
   // Read-only summary once the session is completed.
   if (sessionCompleted && log) {
     return (
-      <div
-        className="flex items-center gap-3 py-2 px-3 rounded-btn"
-        style={{ backgroundColor: 'rgba(0, 255, 135, 0.06)' }}
-      >
+      <div className="flex items-center gap-3 py-2 px-3 rounded-btn bg-accent/10">
         <span className="text-xs font-bold text-muted w-12 shrink-0">
           Serie {setNumber}
         </span>
@@ -155,140 +155,143 @@ function SetRow({
     );
   }
 
-  const canSubmit = isLogged
-    ? reps !== '' || (!isBodyweight && weight !== '')
-    : !!reps && (isBodyweight || weight !== '');
+  function handleToggleDone() {
+    if (isLogged) {
+      // Undo: delete the log
+      const logId = log!.id;
+      deleteLog.mutate(
+        { sessionId, logId, workoutId, dayId },
+        {
+          onSuccess: () => {
+            setLog(undefined);
+            onDoneSetsChange(-1);
+          },
+        },
+      );
+    } else {
+      // Mark done: post log with current stepper values
+      const repsVal = Math.max(1, Math.round(reps));
+      // NaN / negative guard — never let bad values through
+      const weightKg: number | null = isBodyweight
+        ? null
+        : (() => {
+            const kg = toStorageKg(weight);
+            return Number.isFinite(kg) && kg >= 0 ? kg : 0;
+          })();
+
+      logSet.mutate(
+        {
+          sessionId,
+          workoutExerciseId: exercise.id,
+          setNumber,
+          repsCompleted: repsVal,
+          weightKg,
+          workoutId,
+          dayId,
+        },
+        {
+          onSuccess: (data) => {
+            setLog(data);
+            onDoneSetsChange(+1);
+          },
+        },
+      );
+    }
+  }
+
+  function handleRepsChange(newReps: number) {
+    setReps(newReps);
+    // If already logged, PATCH immediately
+    if (isLogged && log) {
+      updateLog.mutate(
+        {
+          sessionId,
+          logId: log.id,
+          repsCompleted: Math.max(1, Math.round(newReps)),
+          weightKg: undefined,
+          workoutId,
+          dayId,
+        },
+        { onSuccess: (data) => setLog(data) },
+      );
+    }
+  }
+
+  function handleWeightChange(newDisplayWeight: number) {
+    const kg = toStorageKg(newDisplayWeight);
+    setWeight(kg);
+    // If already logged, PATCH immediately
+    if (isLogged && log) {
+      const weightKg = Number.isFinite(kg) && kg >= 0 ? kg : 0;
+      updateLog.mutate(
+        {
+          sessionId,
+          logId: log.id,
+          repsCompleted: undefined,
+          weightKg,
+          workoutId,
+          dayId,
+        },
+        { onSuccess: (data) => setLog(data) },
+      );
+    }
+  }
+
+  const doneClass = isLogged
+    ? 'opacity-60 border-border-accent bg-card'
+    : 'bg-card';
 
   return (
-    <div className="flex items-center gap-2 py-1.5">
-      <span className="text-xs font-bold text-muted w-12 shrink-0">
+    <div
+      className={`flex items-center gap-2 py-2 px-3 rounded-btn border border-border transition-colors ${doneClass}`}
+    >
+      <span className="text-xs font-bold text-muted w-14 shrink-0">
         Serie {setNumber}
       </span>
-      <input
-        type="number"
-        min={1}
+
+      <Stepper
         value={reps}
-        onChange={(e) => setReps(e.target.value)}
-        placeholder={log ? String(log.reps_completed) : String(suggestedReps)}
+        step={1}
+        min={0}
+        onChange={handleRepsChange}
         disabled={isDisabled}
         aria-label={`Repeticiones, serie ${setNumber}`}
-        className="w-20 text-sm disabled:opacity-50"
-        style={{
-          height: '36px',
-          borderRadius: '8px',
-          border: '1px solid var(--border)',
-          padding: '0 8px',
-          backgroundColor: 'var(--bg-elevated)',
-          color: 'var(--text)',
-        }}
       />
-      {isBodyweight ? (
-        <span
-          aria-label={`Peso corporal, serie ${setNumber}`}
-          className="w-20 text-xs text-muted inline-flex items-center justify-center text-center"
-          style={{
-            height: '36px',
-            borderRadius: '8px',
-            border: '1px solid var(--border)',
-            padding: '0 8px',
-            backgroundColor: 'var(--bg-elevated)',
-          }}
-        >
-          Peso corporal
-        </span>
-      ) : (
-        <>
-          <input
-            type="number"
-            min={0}
-            step={0.5}
-            value={weight}
-            onChange={(e) => setWeight(e.target.value)}
-            placeholder={
-              log?.weight_kg != null
-                ? String(log.weight_kg)
-                : suggestedWeight != null
-                  ? String(suggestedWeight)
-                  : '0'
-            }
-            disabled={isDisabled}
-            aria-label={`Peso kg, serie ${setNumber}`}
-            className="w-20 text-sm disabled:opacity-50"
-            style={{
-              height: '36px',
-              borderRadius: '8px',
-              border: '1px solid var(--border)',
-              padding: '0 8px',
-              backgroundColor: 'var(--bg-elevated)',
-              color: 'var(--text)',
-            }}
-          />
-          {isLogged && log?.weight_kg != null && (
-            <button
-              type="button"
-              onClick={() => {
-                setValidationError(null);
-                updateLog.mutate(
-                  {
-                    sessionId,
-                    logId: log.id,
-                    repsCompleted: undefined,
-                    weightKg: null, // explicit null = clear the weight
-                    workoutId,
-                    dayId,
-                  },
-                  {
-                    onSuccess: (data) => {
-                      setLog(data);
-                      setWeight('');
-                    },
-                  },
-                );
-              }}
-              disabled={isDisabled}
-              title="Quitar peso"
-              aria-label={`Quitar peso, serie ${setNumber}`}
-              className="text-xs text-muted disabled:opacity-50"
-              style={{
-                background: 'none',
-                border: 'none',
-                cursor: 'pointer',
-                padding: '0 4px',
-              }}
-            >
-              ×
-            </button>
-          )}
-        </>
+
+      {!isBodyweight && (
+        <Stepper
+          value={stepperDisplayWeight}
+          step={weightStep}
+          min={0}
+          onChange={handleWeightChange}
+          disabled={isDisabled}
+          aria-label={`Peso ${units}, serie ${setNumber}`}
+        />
       )}
+      {isBodyweight && (
+        <span className="text-xs text-muted px-2">Peso corporal</span>
+      )}
+
+      {/* Done toggle */}
       <button
-        onClick={isLogged ? handleUpdate : handleLog}
-        disabled={isDisabled || !canSubmit}
-        className="text-xs font-semibold rounded-btn disabled:opacity-50"
-        style={{
-          height: '36px',
-          padding: '0 12px',
-          border: 'none',
-          cursor: 'pointer',
-          // Inline colors on purpose: Tailwind's content scanner can miss
-          // dynamically-composed class strings and purge bg-orange-500 from
-          // the production CSS. Inline styles cannot be purged.
-          ...(isLogged
-            ? { backgroundColor: '#f97316', color: '#fff' }
-            : { backgroundColor: 'var(--neon-green)', color: 'var(--bg)' }),
-        }}
+        type="button"
+        onClick={handleToggleDone}
+        disabled={isDisabled}
+        aria-label={isLogged ? `Desmarcar serie ${setNumber}` : `Marcar serie ${setNumber} como hecha`}
+        aria-pressed={isLogged}
+        className={`ml-auto w-9 h-9 flex items-center justify-center rounded-btn border transition-colors disabled:opacity-40 ${
+          isLogged
+            ? 'bg-accent border-accent text-bg'
+            : 'bg-elevated border-border text-muted'
+        }`}
       >
-        {isPending ? '…' : isLogged ? 'Cambiar' : 'Registrar'}
+        <CheckCircle2 size={18} />
       </button>
-      {isLogged && (
-        <CheckCircle2 size={16} className="text-accent shrink-0" />
-      )}
-      {validationError && (
-        <span className="text-xs text-danger">{validationError}</span>
-      )}
-      {!validationError && (logSet.isError || updateLog.isError) && (
-        <span className="text-xs text-danger">
-          {(mutationError as Error).message}
+
+      {/* Mutation error */}
+      {(logSet.isError || updateLog.isError || deleteLog.isError) && (
+        <span className="text-xs text-danger ml-1">
+          {((logSet.error ?? updateLog.error ?? deleteLog.error) as Error).message}
         </span>
       )}
     </div>
@@ -303,66 +306,71 @@ interface ExerciseBlockProps {
   sessionId: string;
   exercise: WorkoutExerciseResponse;
   exerciseName: string;
+  muscleGroup: string;
   isBodyweight: boolean;
   logs: ExerciseLogResponse[];
   lastSessionLogs: Map<string, ExerciseLogResponse>;
   workoutId: string;
   dayId: string;
   sessionCompleted: boolean;
+  units: 'kg' | 'lb';
+  onDoneSetsChange: (delta: number) => void;
 }
 
 function ExerciseBlock({
   sessionId,
   exercise,
   exerciseName,
+  muscleGroup,
   isBodyweight,
   logs,
   lastSessionLogs,
   workoutId,
   dayId,
   sessionCompleted,
+  units,
+  onDoneSetsChange,
 }: ExerciseBlockProps) {
   const [extraSets, setExtraSets] = useState(0);
   const logsBySet = new Map(logs.map((l) => [l.set_number, l]));
   const totalSets = exercise.sets + extraSets;
 
   return (
-    <div className="rounded-card border border-border bg-surface p-4">
+    <div className="rounded-card border border-border bg-card p-4">
       <div className="mb-3">
         <h3 className="font-bold text-sm text-text">{exerciseName}</h3>
         <p className="text-xs text-muted mt-0.5">
+          {muscleGroup && `${muscleGroup} · `}
           {exercise.sets} series · {exercise.reps_per_set} reps
-          {exercise.weight_kg != null && ` · ${exercise.weight_kg} kg sugerido`}
         </p>
       </div>
-      <div className="space-y-1">
-        {Array.from({ length: totalSets }, (_, i) => i + 1).map(
-          (setNum) => {
-            const lastLog = lastSessionLogs.get(`${exercise.id}:${setNum}`);
-            return (
-              <SetRow
-                key={setNum}
-                sessionId={sessionId}
-                exercise={exercise}
-                exerciseName={exerciseName}
-                setNumber={setNum}
-                suggestedReps={lastLog?.reps_completed ?? exercise.reps_per_set}
-                suggestedWeight={lastLog?.weight_kg ?? exercise.weight_kg}
-                isBodyweight={isBodyweight}
-                existingLog={logsBySet.get(setNum)}
-                workoutId={workoutId}
-                dayId={dayId}
-                sessionCompleted={sessionCompleted}
-              />
-            );
-          },
-        )}
+      <div className="space-y-2">
+        {Array.from({ length: totalSets }, (_, i) => i + 1).map((setNum) => {
+          const lastLog = lastSessionLogs.get(`${exercise.id}:${setNum}`);
+          return (
+            <SetRow
+              key={setNum}
+              sessionId={sessionId}
+              exercise={exercise}
+              setNumber={setNum}
+              suggestedReps={lastLog?.reps_completed ?? exercise.reps_per_set}
+              suggestedWeight={lastLog?.weight_kg ?? exercise.weight_kg}
+              isBodyweight={isBodyweight}
+              existingLog={logsBySet.get(setNum)}
+              workoutId={workoutId}
+              dayId={dayId}
+              sessionCompleted={sessionCompleted}
+              units={units}
+              onDoneSetsChange={onDoneSetsChange}
+            />
+          );
+        })}
       </div>
       {!sessionCompleted && (
         <button
+          type="button"
           onClick={() => setExtraSets((n) => n + 1)}
-          className="mt-2 text-xs text-muted"
-          style={{ background: 'none', border: 'none', cursor: 'pointer', padding: 0 }}
+          className="mt-3 text-xs text-muted bg-transparent border-none cursor-pointer p-0"
         >
           + Serie extra
         </button>
@@ -391,34 +399,60 @@ export function WorkoutSessionPage() {
   const { data: exercises } = useExercises();
   const exerciseById = new Map((exercises ?? []).map((e) => [e.id, e]));
 
+  const { data: prefs } = useUserPreferences();
+  const units = prefs?.units ?? 'kg';
+
   const startSession = useStartSession();
   const completeSession = useCompleteSession();
 
-  // Existing sessions for this day — used to resume an in_progress session
-  // instead of creating a zombie duplicate on every page visit.
+  // Existing sessions for this day — resume an in_progress session instead of
+  // creating a zombie duplicate on every page visit.
   const { data: pastSessions, isLoading: sessionsLoading } = useSessionsForDay(
     workoutId,
     dayId,
   );
 
   // Tracks a session created during this page visit (after "Iniciar sesión").
-  // null = no new session started yet this visit.
   const [newSession, setNewSession] = useState<{
     id: string;
     status: 'in_progress' | 'completed';
-    logs: import('../types/api').ExerciseLogResponse[];
+    logs: ExerciseLogResponse[];
+    started_at: string;
   } | null>(null);
 
-  // An in_progress session found in past history that the user has not yet
-  // explicitly chosen to resume or replace.
-  const inProgressFromHistory = pastSessions?.find((s) => s.status === 'in_progress') ?? null;
+  const inProgressFromHistory =
+    pastSessions?.find((s) => s.status === 'in_progress') ?? null;
 
-  // The active session is only set once the user makes a deliberate choice:
-  // - "Retomar" calls setNewSession(inProgressFromHistory)
-  // - "Nueva sesión" calls handleStart() which sets newSession on success
-  // - "Iniciar sesión" (no history) calls handleStart() directly
   const session = newSession;
 
+  // Live timer — elapsed seconds since session.started_at
+  const [elapsedSeconds, setElapsedSeconds] = useState(0);
+
+  useEffect(() => {
+    if (!session) return;
+    const startTime = new Date(session.started_at).getTime();
+    // Initial value
+    setElapsedSeconds(Math.floor((Date.now() - startTime) / 1000));
+    const id = setInterval(() => {
+      setElapsedSeconds(Math.floor((Date.now() - startTime) / 1000));
+    }, 1000);
+    return () => clearInterval(id);
+  }, [session]);
+
+  // Done-sets counter — seeded from logs already in the session, then updated
+  // via callbacks from SetRow as the user toggles sets.
+  const [doneSets, setDoneSets] = useState(0);
+
+  // Seed done count when session is first set
+  useEffect(() => {
+    if (session) {
+      setDoneSets(session.logs.length);
+    }
+  }, [session?.id]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  const handleDoneSetsChange = useCallback((delta: number) => {
+    setDoneSets((prev) => Math.max(0, prev + delta));
+  }, []);
 
   if (workoutLoading) return <Spinner />;
   if (workoutError || !workout)
@@ -452,6 +486,7 @@ export function WorkoutSessionPage() {
             id: data.id,
             status: data.status,
             logs: data.logs,
+            started_at: data.started_at,
           });
         },
       },
@@ -470,10 +505,6 @@ export function WorkoutSessionPage() {
     );
   }
 
-  // Build a stable exercise-name lookup from the workout catalog query.
-  // The catalog hook (useExercises) is not needed here — exercise names are
-  // not included in WorkoutExerciseResponse. We show the exercise id as
-  // fallback and order by `order` field.
   const sortedExercises = [...day.exercises].sort((a, b) => {
     const mgA = exerciseById.get(a.exercise_id)?.muscle_group ?? '';
     const mgB = exerciseById.get(b.exercise_id)?.muscle_group ?? '';
@@ -485,7 +516,10 @@ export function WorkoutSessionPage() {
   // training day (any calendar date). Falls back to plan values if no history.
   const lastCompletedSession = (pastSessions ?? [])
     .filter((s) => s.status === 'completed')
-    .sort((a, b) => new Date(b.started_at).getTime() - new Date(a.started_at).getTime())[0];
+    .sort(
+      (a, b) =>
+        new Date(b.started_at).getTime() - new Date(a.started_at).getTime(),
+    )[0];
 
   const lastSessionLogs = new Map(
     (lastCompletedSession?.logs ?? []).map((l) => [
@@ -493,6 +527,10 @@ export function WorkoutSessionPage() {
       l,
     ]),
   );
+
+  // Progress bar stats
+  const totalSets = sortedExercises.reduce((sum, ex) => sum + ex.sets, 0);
+  const progressPct = totalSets > 0 ? Math.min(100, (doneSets / totalSets) * 100) : 0;
 
   return (
     <div>
@@ -503,17 +541,51 @@ export function WorkoutSessionPage() {
         <ArrowLeft size={16} /> Volver al entrenamiento
       </Link>
 
-      <div className="mb-6">
-        <h1 className="font-bold text-2xl text-text">{workout.name}</h1>
-        <p className="text-sm text-muted mt-1">{dayLabel}</p>
+      <div className="mb-4 flex items-start justify-between">
+        <div>
+          <h1 className="font-bold text-2xl text-text">{workout.name}</h1>
+          <p className="text-sm text-muted mt-1">{dayLabel}</p>
+        </div>
+        {session && (
+          <div
+            className="text-right"
+            aria-label="Tiempo transcurrido"
+          >
+            <span className="font-condensed font-bold text-xl text-accent tabular-nums">
+              {formatElapsed(elapsedSeconds)}
+            </span>
+          </div>
+        )}
       </div>
 
-      {/* Loading existing sessions — don't offer "Iniciar" until we know
-          whether there is an in_progress session to resume. */}
+      {/* Progress bar — only while session is active */}
+      {session && (
+        <div className="mb-6">
+          <div className="flex justify-between text-xs text-muted mb-1.5">
+            <span>Progreso</span>
+            <span>
+              {doneSets}/{totalSets} series
+            </span>
+          </div>
+          <div
+            className="h-2 rounded-btn bg-elevated overflow-hidden"
+            role="progressbar"
+            aria-valuenow={doneSets}
+            aria-valuemin={0}
+            aria-valuemax={totalSets}
+          >
+            <div
+              className="h-full bg-accent rounded-btn transition-all duration-300"
+              style={{ width: `${progressPct}%` }}
+            />
+          </div>
+        </div>
+      )}
+
+      {/* Loading existing sessions */}
       {!session && sessionsLoading && <Spinner />}
 
-      {/* Resume confirmation — shown when there is an in_progress session from
-          a previous visit and the user has not yet chosen what to do. */}
+      {/* Resume confirmation */}
       {!newSession && inProgressFromHistory && !sessionsLoading && (
         <div
           className="rounded-card border border-border bg-surface p-4 mb-4"
@@ -521,48 +593,34 @@ export function WorkoutSessionPage() {
         >
           <p className="text-sm font-semibold text-text mb-1">
             Sesión en progreso del{' '}
-            {new Date(inProgressFromHistory.started_at).toLocaleDateString('es', {
-              day: 'numeric',
-              month: 'short',
-              year: 'numeric',
-            })}
+            {new Date(inProgressFromHistory.started_at).toLocaleDateString(
+              'es',
+              { day: 'numeric', month: 'short', year: 'numeric' },
+            )}
           </p>
           <p className="text-xs text-muted mb-3">
             ¿Deseas retomarla o iniciar una nueva sesión?
           </p>
           <div className="flex gap-2">
             <button
+              type="button"
               onClick={() =>
                 setNewSession({
                   id: inProgressFromHistory.id,
                   status: inProgressFromHistory.status,
                   logs: inProgressFromHistory.logs,
+                  started_at: inProgressFromHistory.started_at,
                 })
               }
-              className="text-sm font-semibold rounded-btn"
-              style={{
-                height: '36px',
-                padding: '0 16px',
-                border: 'none',
-                cursor: 'pointer',
-                backgroundColor: 'var(--neon-green)',
-                color: 'var(--bg)',
-              }}
+              className="text-sm font-semibold rounded-btn bg-accent text-bg border-none cursor-pointer px-4 h-9"
             >
               Retomar
             </button>
             <button
+              type="button"
               onClick={handleStart}
               disabled={startSession.isPending}
-              className="text-sm font-semibold rounded-btn disabled:opacity-60"
-              style={{
-                height: '36px',
-                padding: '0 16px',
-                cursor: 'pointer',
-                backgroundColor: 'transparent',
-                border: '1px solid var(--border)',
-                color: 'var(--text)',
-              }}
+              className="text-sm font-semibold rounded-btn bg-transparent border border-border text-text cursor-pointer px-4 h-9 disabled:opacity-60"
             >
               {startSession.isPending ? 'Iniciando…' : 'Nueva sesión'}
             </button>
@@ -575,9 +633,7 @@ export function WorkoutSessionPage() {
         </div>
       )}
 
-      {/* Pre-start state — only when there is no in_progress history and no
-          active session. When inProgressFromHistory exists, the confirmation
-          banner above handles user choice instead. */}
+      {/* Pre-start state */}
       {!newSession && !sessionsLoading && !inProgressFromHistory && (
         <div className="rounded-card border-2 border-dashed border-border p-8 text-center">
           <p className="text-sm text-muted mb-4">
@@ -588,19 +644,10 @@ export function WorkoutSessionPage() {
           {day.exercises.length > 0 && (
             <>
               <button
+                type="button"
                 onClick={handleStart}
                 disabled={startSession.isPending}
-                className="font-semibold rounded-btn disabled:opacity-60"
-                style={{
-                  height: '48px',
-                  padding: '0 32px',
-                  border: 'none',
-                  backgroundColor: 'var(--neon-green)',
-                  color: 'var(--bg)',
-                  fontSize: '15px',
-                  cursor: 'pointer',
-                  boxShadow: '0 0 16px rgba(0, 255, 135, 0.4)',
-                }}
+                className="font-semibold rounded-btn bg-accent text-bg border-none cursor-pointer px-8 h-12 text-base disabled:opacity-60 neon-glow"
               >
                 {startSession.isPending ? 'Iniciando…' : 'Iniciar sesión'}
               </button>
@@ -622,18 +669,22 @@ export function WorkoutSessionPage() {
               const exerciseLogs = session.logs.filter(
                 (l) => l.workout_exercise_id === exercise.id,
               );
+              const catalogExercise = exerciseById.get(exercise.exercise_id);
               return (
                 <ExerciseBlock
                   key={exercise.id}
                   sessionId={session.id}
                   exercise={exercise}
-                  exerciseName={exerciseById.get(exercise.exercise_id)?.name ?? exercise.exercise_id}
-                  isBodyweight={exerciseById.get(exercise.exercise_id)?.is_bodyweight ?? false}
+                  exerciseName={catalogExercise?.name ?? exercise.exercise_id}
+                  muscleGroup={catalogExercise?.muscle_group ?? ''}
+                  isBodyweight={catalogExercise?.is_bodyweight ?? false}
                   logs={exerciseLogs}
                   lastSessionLogs={lastSessionLogs}
                   workoutId={workoutId}
                   dayId={dayId}
                   sessionCompleted={session.status === 'completed'}
+                  units={units}
+                  onDoneSetsChange={handleDoneSetsChange}
                 />
               );
             })}
@@ -642,19 +693,10 @@ export function WorkoutSessionPage() {
           {session.status === 'in_progress' && (
             <div className="flex justify-end">
               <button
+                type="button"
                 onClick={handleComplete}
                 disabled={completeSession.isPending}
-                className="font-semibold rounded-btn disabled:opacity-60"
-                style={{
-                  height: '48px',
-                  padding: '0 32px',
-                  border: 'none',
-                  backgroundColor: 'var(--neon-green)',
-                  color: 'var(--bg)',
-                  fontSize: '15px',
-                  cursor: 'pointer',
-                  boxShadow: '0 0 16px rgba(0, 255, 135, 0.4)',
-                }}
+                className="font-semibold rounded-btn bg-accent text-bg border-none cursor-pointer px-8 h-12 text-base disabled:opacity-60 neon-glow"
               >
                 {completeSession.isPending ? 'Completando…' : 'Completar sesión'}
               </button>

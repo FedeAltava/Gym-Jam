@@ -186,3 +186,23 @@ export function useDeleteSession() {
     },
   });
 }
+
+interface DeleteExerciseLogContext {
+  sessionId: string;
+  logId: string;
+  // context for cache invalidation
+  workoutId: string;
+  dayId: string;
+}
+
+export function useDeleteExerciseLog() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: ({ sessionId, logId }: DeleteExerciseLogContext) =>
+      apiFetch<void>(`/sessions/${sessionId}/logs/${logId}`, { method: 'DELETE' }),
+    onSuccess: (_data, { workoutId, dayId }) => {
+      qc.invalidateQueries({ queryKey: ['sessions', workoutId, dayId] });
+      qc.invalidateQueries({ queryKey: ['sessions', 'history'] });
+    },
+  });
+}
