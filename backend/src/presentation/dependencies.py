@@ -38,10 +38,15 @@ from backend.src.application.use_cases.start_workout_session import StartWorkout
 from backend.src.application.use_cases.log_exercise_set import LogExerciseSetUseCase
 from backend.src.application.use_cases.update_exercise_log import UpdateExerciseLogUseCase
 from backend.src.application.use_cases.complete_workout_session import CompleteWorkoutSessionUseCase
+from backend.src.application.use_cases.delete_exercise_log import DeleteExerciseLogUseCase
 from backend.src.application.use_cases.delete_workout_session import DeleteWorkoutSessionUseCase
 from backend.src.application.use_cases.get_sessions_for_day import GetSessionsForDayUseCase
 from backend.src.application.use_cases.get_session_history import GetSessionHistoryUseCase
+from backend.src.infrastructure.persistence.personal_record_repository import (
+    SqlAlchemyPersonalRecordRepository,
+)
 from backend.src.infrastructure.persistence.session_repository import SqlAlchemySessionRepository
+from backend.src.domain.repositories.personal_record_repository import PersonalRecordRepository
 from backend.src.domain.repositories.session_repository import SessionRepository
 
 oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/auth/login")
@@ -206,10 +211,23 @@ def get_update_log_uc(
     return UpdateExerciseLogUseCase(session_repo)
 
 
+def get_personal_record_repository(
+    session: AsyncSession = Depends(get_session),
+) -> PersonalRecordRepository:
+    return SqlAlchemyPersonalRecordRepository(session)
+
+
 def get_complete_session_uc(
     session_repo: SessionRepository = Depends(get_session_repository),
+    pr_repo: PersonalRecordRepository = Depends(get_personal_record_repository),
 ) -> CompleteWorkoutSessionUseCase:
-    return CompleteWorkoutSessionUseCase(session_repo)
+    return CompleteWorkoutSessionUseCase(session_repo, pr_repo)
+
+
+def get_delete_log_uc(
+    session_repo: SessionRepository = Depends(get_session_repository),
+) -> DeleteExerciseLogUseCase:
+    return DeleteExerciseLogUseCase(session_repo)
 
 
 def get_delete_session_uc(

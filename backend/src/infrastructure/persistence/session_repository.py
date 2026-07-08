@@ -3,7 +3,7 @@ from __future__ import annotations
 
 from datetime import UTC, date, datetime, time, timedelta
 
-from sqlalchemy import delete, select, update
+from sqlalchemy import delete, func, select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
@@ -15,6 +15,7 @@ from backend.src.domain.value_objects.workout_session_id import WorkoutSessionId
 from backend.src.infrastructure.persistence.mappers import WorkoutSessionMapper
 from backend.src.infrastructure.persistence.models import (
     ExerciseModel,
+    PersonalRecordModel,
     TrainingDayModel,
     WorkoutExerciseModel,
     WorkoutLogModel,
@@ -137,6 +138,16 @@ class SqlAlchemySessionRepository(SessionRepository):
         # Column-only select ON PURPOSE: loading WorkoutSessionModel entities
         # would auto-fire the logs relationship (lazy="selectin") — a third
         # query that cannot carry the exercise-name join.
+        # Pre-grouped PR counts per session, attached via LEFT JOIN so
+        # sessions without PRs still return (pr_count = 0).
+        pr_counts = (
+            select(
+                PersonalRecordModel.session_id.label("session_id"),
+                func.count().label("pr_count"),
+            )
+            .group_by(PersonalRecordModel.session_id)
+            .subquery()
+        )
         stmt = (
             select(
                 WorkoutSessionModel.id,
@@ -146,12 +157,14 @@ class SqlAlchemySessionRepository(SessionRepository):
                 WorkoutSessionModel.completed_at,
                 WorkoutModel.name.label("workout_name"),
                 TrainingDayModel.day_of_week,
+                func.coalesce(pr_counts.c.pr_count, 0).label("pr_count"),
             )
             .join(WorkoutModel, WorkoutSessionModel.workout_id == WorkoutModel.id)
             .join(
                 TrainingDayModel,
                 WorkoutSessionModel.training_day_id == TrainingDayModel.id,
             )
+            .outerjoin(pr_counts, pr_counts.c.session_id == WorkoutSessionModel.id)
             .where(WorkoutSessionModel.user_id == user_id)
             .order_by(WorkoutSessionModel.started_at.desc())
             .limit(limit)
@@ -243,6 +256,12 @@ class SqlAlchemySessionRepository(SessionRepository):
                 ),
                 status="completed" if row.completed_at is not None else "in_progress",
                 logs=tuple(logs_by_session[row.id]),
+                pr_count=row.pr_count,
+                duration_seconds=(
+                    int((row.completed_at - row.started_at).total_seconds())
+                    if row.completed_at is not None
+                    else None
+                ),
             )
             for row in rows
         ]

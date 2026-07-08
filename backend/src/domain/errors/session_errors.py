@@ -36,3 +36,9 @@ class InvalidRepsCompleted(SessionError):
 class SessionNotFound(SessionError):
     def __init__(self) -> None:
         super().__init__("Workout session not found.")
+
+
+class LogNotFound(SessionError):
+    def __init__(self, log_id: str) -> None:
+        super().__init__(f"Log '{log_id}' not found in session.")
+        self.log_id = log_id

@@ -10,6 +10,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from backend.src.application.commands import (
     CompleteWorkoutSessionCommand,
+    DeleteExerciseLogCommand,
     DeleteWorkoutSessionCommand,
     GetSessionHistoryQuery,
     GetSessionsForDayCommand,
@@ -18,6 +19,7 @@ from backend.src.application.commands import (
     UpdateExerciseLogCommand,
 )
 from backend.src.application.use_cases.complete_workout_session import CompleteWorkoutSessionUseCase
+from backend.src.application.use_cases.delete_exercise_log import DeleteExerciseLogUseCase
 from backend.src.application.use_cases.delete_workout_session import DeleteWorkoutSessionUseCase
 from backend.src.application.use_cases.get_session_history import GetSessionHistoryUseCase
 from backend.src.application.use_cases.get_sessions_for_day import GetSessionsForDayUseCase
@@ -28,6 +30,7 @@ from backend.src.infrastructure.database import get_session
 from backend.src.presentation.dependencies import (
     get_complete_session_uc,
     get_current_user_id,
+    get_delete_log_uc,
     get_delete_session_uc,
     get_get_sessions_for_day_uc,
     get_log_exercise_set_uc,
@@ -181,6 +184,24 @@ async def update_exercise_log(
         raise result.failure()
     await session.commit()
     return ExerciseLogResponse.from_dto(result.unwrap())
+
+
+@router.delete(
+    "/sessions/{session_id}/logs/{log_id}",
+    status_code=204,
+)
+async def delete_exercise_log(
+    session_id: str,
+    log_id: str,
+    uc: DeleteExerciseLogUseCase = Depends(get_delete_log_uc),
+    user_id: str = Depends(get_current_user_id),
+    session: AsyncSession = Depends(get_session),
+) -> None:
+    cmd = DeleteExerciseLogCommand(user_id=user_id, session_id=session_id, log_id=log_id)
+    result = await uc.execute(cmd)
+    if isinstance(result, Failure):
+        raise result.failure()
+    await session.commit()
 
 
 @router.post(

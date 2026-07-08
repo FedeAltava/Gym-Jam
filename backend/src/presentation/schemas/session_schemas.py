@@ -61,6 +61,8 @@ class WorkoutSessionResponse(BaseModel):
     started_at: str
     status: str
     completed_at: str | None
+    # Whole seconds between started_at and completed_at; null in progress.
+    duration_seconds: int | None
     logs: list[ExerciseLogResponse]
 
     @classmethod
@@ -73,6 +75,7 @@ class WorkoutSessionResponse(BaseModel):
             started_at=dto.started_at,
             status=dto.status,
             completed_at=dto.completed_at,
+            duration_seconds=dto.duration_seconds,
             logs=[ExerciseLogResponse.from_dto(log) for log in dto.logs],
         )
 
@@ -108,6 +111,10 @@ class SessionHistoryItemResponse(BaseModel):
     started_at: str
     completed_at: str | None
     status: str  # "completed" | "in_progress" — derived from completed_at
+    # PRs achieved in this session — drives the PR badge in Historial.
+    pr_count: int
+    # Whole seconds between started_at and completed_at; null in progress.
+    duration_seconds: int | None
     logs: list[SessionHistoryLogResponse]
 
     @classmethod
@@ -121,5 +128,7 @@ class SessionHistoryItemResponse(BaseModel):
             started_at=dto.started_at,
             completed_at=dto.completed_at,
             status=dto.status,
+            pr_count=dto.pr_count,
+            duration_seconds=dto.duration_seconds,
             logs=[SessionHistoryLogResponse.from_dto(log) for log in dto.logs],
         )

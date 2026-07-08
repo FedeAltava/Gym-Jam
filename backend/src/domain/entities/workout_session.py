@@ -4,10 +4,13 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 from datetime import UTC, datetime
 
+from returns.result import Failure, Result, Success
+
 from backend.src.domain.entities.exercise_log import ExerciseLog
 from backend.src.domain.entities.workout_exercise import WorkoutExercise
 from backend.src.domain.errors.session_errors import (
     InvalidRepsCompleted,
+    LogNotFound,
     SessionAlreadyCompleted,
     SetAlreadyLogged,
     SetExceedsPlan,
@@ -80,6 +83,15 @@ class WorkoutSession:
         )
         self._logs.append(log)
         return log
+
+    def remove_log(self, log_id: ExerciseLogId) -> Result[None, LogNotFound]:
+        # No completed-session guard on purpose: log edits on completed
+        # sessions are allowed (consistent with UpdateExerciseLogUseCase).
+        log = next((entry for entry in self._logs if entry.id == log_id), None)
+        if log is None:
+            return Failure(LogNotFound(log_id=str(log_id.value)))
+        self._logs.remove(log)
+        return Success(None)
 
     def complete(self) -> None:
         if self.completed_at is None:

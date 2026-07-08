@@ -157,6 +157,10 @@ class SessionHistoryItemDTO:
     completed_at: str | None
     status: str
     logs: tuple[SessionHistoryLogDTO, ...]
+    # PRs achieved in this session (personal_records.session_id count).
+    pr_count: int = 0
+    # completed_at - started_at in whole seconds; None while in progress.
+    duration_seconds: int | None = None
 
 
 @dataclass(frozen=True)
@@ -169,9 +173,16 @@ class WorkoutSessionDTO:
     status: str
     completed_at: str | None
     logs: tuple[ExerciseLogDTO, ...]
+    # completed_at - started_at in whole seconds; None while in progress.
+    duration_seconds: int | None = None
 
     @classmethod
     def from_aggregate(cls, session: WorkoutSession) -> "WorkoutSessionDTO":
+        duration_seconds = (
+            int((session.completed_at - session.started_at).total_seconds())
+            if session.completed_at is not None
+            else None
+        )
         return cls(
             id=str(session.id.value),
             user_id=session.user_id,
@@ -181,4 +192,5 @@ class WorkoutSessionDTO:
             status=session.status,
             completed_at=session.completed_at.isoformat() if session.completed_at is not None else None,
             logs=tuple(ExerciseLogDTO.from_entity(log) for log in session.logs),
+            duration_seconds=duration_seconds,
         )

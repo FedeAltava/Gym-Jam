@@ -137,6 +137,29 @@ class WorkoutLogModel(Base):
     session: Mapped["WorkoutSessionModel"] = relationship("WorkoutSessionModel", back_populates="logs")
 
 
+class PersonalRecordModel(Base):
+    __tablename__ = "personal_records"
+    __table_args__ = (
+        # One row per (user, catalog exercise): the heaviest weight ever
+        # logged. Upserted in Python (SELECT-then-INSERT, ADR 4) — the UNIQUE
+        # constraint is the backstop.
+        UniqueConstraint("user_id", "exercise_id", name="uq_personal_records_user_exercise"),
+        Index("ix_personal_records_user", "user_id"),
+        # Serves the pr_count LEFT JOIN in session history.
+        Index("ix_personal_records_session_id", "session_id"),
+    )
+    id: Mapped[str] = mapped_column(String(36), primary_key=True)
+    user_id: Mapped[str] = mapped_column(String(36), ForeignKey("users.id", ondelete="CASCADE"), nullable=False)
+    # Soft reference to the exercise catalog, same rationale as
+    # workout_exercises.exercise_id (legacy free-text ids, no FK).
+    exercise_id: Mapped[str] = mapped_column(String(255), nullable=False)
+    weight_kg: Mapped[float] = mapped_column(Float, nullable=False)
+    achieved_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+    session_id: Mapped[str] = mapped_column(
+        String(36), ForeignKey("workout_sessions.id", ondelete="CASCADE"), nullable=False
+    )
+
+
 class PasswordResetTokenModel(Base):
     __tablename__ = "password_reset_tokens"
     id: Mapped[str] = mapped_column(String(36), primary_key=True)

@@ -107,6 +107,13 @@ class UpdateExerciseLogCommand:
 
 
 @dataclass(frozen=True)
+class DeleteExerciseLogCommand:
+    user_id: str
+    session_id: str
+    log_id: str
+
+
+@dataclass(frozen=True)
 class CompleteWorkoutSessionCommand:
     user_id: str
     session_id: str
