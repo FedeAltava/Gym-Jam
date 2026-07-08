@@ -2,6 +2,8 @@ export interface UserResponse {
   id: string;
   email: string;
   created_at: string;
+  rest_seconds: number;
+  units: 'kg' | 'lb';
 }
 
 export interface TokenResponse {
@@ -91,5 +93,7 @@ export interface SessionHistoryItemResponse {
   started_at: string;
   completed_at: string | null;
   status: 'completed' | 'in_progress';
+  duration_seconds: number | null;
+  pr_count: number;
   logs: SessionHistoryLogResponse[];
 }

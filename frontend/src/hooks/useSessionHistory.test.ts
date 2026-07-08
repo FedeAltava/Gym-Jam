@@ -27,6 +27,8 @@ function makeSession(id: string): SessionHistoryItemResponse {
     started_at: '2024-01-01T10:00:00Z',
     completed_at: '2024-01-01T11:00:00Z',
     status: 'completed',
+    duration_seconds: 3600,
+    pr_count: 0,
     logs: [],
   };
 }
@@ -67,6 +69,21 @@ describe('useSessionHistory', () => {
     expect(vi.mocked(apiFetch)).toHaveBeenCalledWith(
       '/sessions?status=completed&limit=20&offset=0',
     );
+  });
+
+  it('includes date_from for Monday UTC when period=this_week', async () => {
+    vi.mocked(apiFetch).mockResolvedValue([]);
+    const { wrapper } = createWrapper();
+    const { result } = renderHook(
+      () => useSessionHistory({ period: 'this_week' }),
+      { wrapper },
+    );
+
+    await waitFor(() => expect(result.current.isSuccess).toBe(true));
+
+    const call = vi.mocked(apiFetch).mock.calls[0][0] as string;
+    expect(call).toMatch(/date_from=\d{4}-\d{2}-\d{2}/);
+    expect(call).not.toContain('period=');
   });
 
   it('sets hasNextPage to true when a full page (20 items) is returned', async () => {
