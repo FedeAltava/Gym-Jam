@@ -164,6 +164,16 @@ class SessionHistoryItemDTO:
 
 
 @dataclass(frozen=True)
+class UserStatsDTO:
+    total_sessions: int
+    streak: int
+    total_prs: int
+    weekly_volume_kg: float
+    weekly_sessions: int
+    weekly_prs: int
+
+
+@dataclass(frozen=True)
 class WorkoutSessionDTO:
     id: str
     user_id: str

@@ -141,6 +141,11 @@ class UpdateUserPreferencesCommand:
 
 
 @dataclass(frozen=True)
+class GetUserStatsQuery:
+    user_id: str
+
+
+@dataclass(frozen=True)
 class GetSessionHistoryQuery:
     user_id: str
     workout_id: str | None = None

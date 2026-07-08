@@ -42,9 +42,14 @@ from backend.src.application.use_cases.delete_exercise_log import DeleteExercise
 from backend.src.application.use_cases.delete_workout_session import DeleteWorkoutSessionUseCase
 from backend.src.application.use_cases.get_sessions_for_day import GetSessionsForDayUseCase
 from backend.src.application.use_cases.get_session_history import GetSessionHistoryUseCase
+from backend.src.application.use_cases.get_user_stats import GetUserStatsUseCase
 from backend.src.infrastructure.persistence.personal_record_repository import (
     SqlAlchemyPersonalRecordRepository,
 )
+from backend.src.infrastructure.persistence.stats_repository import (
+    SqlAlchemyStatsRepository,
+)
+from backend.src.domain.repositories.stats_repository import StatsRepository
 from backend.src.infrastructure.persistence.session_repository import SqlAlchemySessionRepository
 from backend.src.domain.repositories.personal_record_repository import PersonalRecordRepository
 from backend.src.domain.repositories.session_repository import SessionRepository
@@ -247,3 +252,13 @@ def get_session_history_uc(
     session_repo: SessionRepository = Depends(get_session_repository),
 ) -> GetSessionHistoryUseCase:
     return GetSessionHistoryUseCase(session_repo)
+
+
+def get_stats_repository(session: AsyncSession = Depends(get_session)) -> StatsRepository:
+    return SqlAlchemyStatsRepository(session)
+
+
+def get_user_stats_uc(
+    stats_repo: StatsRepository = Depends(get_stats_repository),
+) -> GetUserStatsUseCase:
+    return GetUserStatsUseCase(stats_repo)

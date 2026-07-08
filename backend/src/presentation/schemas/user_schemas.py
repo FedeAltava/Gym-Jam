@@ -11,3 +11,12 @@ class UserPreferencesRequest(BaseModel):
 
     rest_seconds: int | None = Field(None, ge=0, le=600)
     units: Literal["kg", "lb"] | None = None
+
+
+class UserStatsResponse(BaseModel):
+    total_sessions: int
+    streak: int
+    total_prs: int
+    weekly_volume_kg: float
+    weekly_sessions: int
+    weekly_prs: int
