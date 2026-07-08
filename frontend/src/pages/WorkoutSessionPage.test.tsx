@@ -186,7 +186,7 @@ describe('WorkoutSessionPage', () => {
     const incrementBtn = firstGroup.querySelector(
       'button[aria-label="Aumentar"]',
     ) as HTMLElement;
-    const valueSpan = firstGroup.querySelector('span.w-14') as HTMLElement;
+    const valueSpan = firstGroup.querySelector('span.w-10') as HTMLElement;
 
     const before = parseInt(valueSpan.textContent ?? '0', 10);
     await user.click(incrementBtn);
@@ -208,7 +208,7 @@ describe('WorkoutSessionPage', () => {
     const incrementBtn = firstWeightGroup.querySelector(
       'button[aria-label="Aumentar"]',
     ) as HTMLElement;
-    const valueSpan = firstWeightGroup.querySelector('span.w-14') as HTMLElement;
+    const valueSpan = firstWeightGroup.querySelector('span.w-10') as HTMLElement;
 
     const before = parseFloat(valueSpan.textContent ?? '0');
     await user.click(incrementBtn);

@@ -61,7 +61,7 @@ function Stepper({ value, step, min, onChange, disabled, 'aria-label': ariaLabel
       >
         −
       </button>
-      <span className="w-14 text-center text-sm font-semibold text-text tabular-nums">
+      <span className="w-10 text-center text-sm font-semibold text-text tabular-nums">
         {Number.isInteger(value) ? value : value.toFixed(1)}
       </span>
       <button
@@ -243,9 +243,9 @@ function SetRow({
 
   return (
     <div
-      className={`flex items-center gap-2 py-2 px-3 rounded-btn border border-border transition-colors ${doneClass}`}
+      className={`flex items-center gap-1.5 py-2 px-3 rounded-btn border border-border transition-colors ${doneClass}`}
     >
-      <span className="text-xs font-bold text-muted w-14 shrink-0">
+      <span className="text-xs font-bold text-muted w-12 shrink-0">
         Serie {setNumber}
       </span>
 
@@ -279,7 +279,7 @@ function SetRow({
         disabled={isDisabled}
         aria-label={isLogged ? `Desmarcar serie ${setNumber}` : `Marcar serie ${setNumber} como hecha`}
         aria-pressed={isLogged}
-        className={`ml-auto w-9 h-9 flex items-center justify-center rounded-btn border transition-colors disabled:opacity-40 ${
+        className={`ml-auto w-8 h-8 shrink-0 flex items-center justify-center rounded-btn border transition-colors disabled:opacity-40 ${
           isLogged
             ? 'bg-accent border-accent text-bg'
             : 'bg-elevated border-border text-muted'
