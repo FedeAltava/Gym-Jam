@@ -8,7 +8,7 @@ import { RegisterPage } from './pages/RegisterPage';
 import { ForgotPasswordPage } from './pages/ForgotPasswordPage';
 import { ResetPasswordPage } from './pages/ResetPasswordPage';
 import { DashboardPage } from './pages/DashboardPage';
-import { NewWorkoutPage } from './pages/NewWorkoutPage';
+import { WorkoutsPage } from './pages/WorkoutsPage';
 import { WorkoutDetailPage } from './pages/WorkoutDetailPage';
 import { WorkoutSessionPage } from './pages/WorkoutSessionPage';
 import { AddExercisesPage } from './pages/AddExercisesPage';
@@ -34,7 +34,9 @@ export default function App() {
           >
             <Route index element={<Navigate to="/dashboard" replace />} />
             <Route path="dashboard" element={<DashboardPage />} />
-            <Route path="workouts/new" element={<NewWorkoutPage />} />
+            <Route path="workouts" element={<WorkoutsPage />} />
+            {/* Legacy route superseded by the NewRoutineModal on /workouts. */}
+            <Route path="workouts/new" element={<Navigate to="/workouts" replace />} />
             <Route path="workouts/:id" element={<WorkoutDetailPage />} />
             <Route path="workouts/:workoutId/session/:dayId" element={<WorkoutSessionPage />} />
             <Route path="workouts/:workoutId/days/:day/add-exercises" element={<AddExercisesPage />} />

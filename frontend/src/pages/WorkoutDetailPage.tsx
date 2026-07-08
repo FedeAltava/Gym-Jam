@@ -89,14 +89,14 @@ function PastSessionsList({
                 style={
                   s.status === 'completed'
                     ? {
-                        backgroundColor: 'rgba(0, 255, 135, 0.1)',
+                        backgroundColor: 'var(--accent-soft)',
                         color: 'var(--neon-green)',
-                        border: '1px solid rgba(0, 255, 135, 0.3)',
+                        border: '1px solid var(--border-accent)',
                       }
                     : {
-                        backgroundColor: 'rgba(0, 212, 255, 0.1)',
+                        backgroundColor: 'var(--bg-elevated)',
                         color: 'var(--neon-blue)',
-                        border: '1px solid rgba(0, 212, 255, 0.3)',
+                        border: '1px solid var(--border)',
                       }
                 }
               >
@@ -133,8 +133,8 @@ function PastSessionsList({
                     style={{
                       border: 'none',
                       cursor: 'pointer',
-                      backgroundColor: '#ef4444',
-                      color: '#fff',
+                      backgroundColor: 'var(--danger)',
+                      color: 'var(--bg)',
                     }}
                   >
                     {deleteSession.isPending &&
@@ -552,15 +552,15 @@ export function WorkoutDetailPage() {
                 style={
                   workout.is_active
                     ? {
-                        backgroundColor: 'rgba(0, 255, 135, 0.1)',
-                        border: '1px solid rgba(0, 255, 135, 0.3)',
-                        color: 'var(--color-accent)',
+                        backgroundColor: 'var(--accent-soft)',
+                        border: '1px solid var(--border-accent)',
+                        color: 'var(--neon-green)',
                         cursor: 'pointer',
                       }
                     : {
-                        backgroundColor: 'rgba(128, 128, 128, 0.1)',
-                        border: '1px solid rgba(128, 128, 128, 0.3)',
-                        color: 'var(--color-muted)',
+                        backgroundColor: 'var(--bg-elevated)',
+                        border: '1px solid var(--border)',
+                        color: 'var(--text-muted)',
                         cursor: 'pointer',
                       }
                 }

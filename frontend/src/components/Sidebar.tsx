@@ -5,7 +5,7 @@ import { LayoutDashboard, PlusCircle, History, LogOut, User } from 'lucide-react
 
 const NAV = [
   { to: '/dashboard', label: 'Home', icon: LayoutDashboard },
-  { to: '/workouts/new', label: 'Entrenamientos', icon: PlusCircle },
+  { to: '/workouts', label: 'Rutinas', icon: PlusCircle },
   { to: '/history', label: 'Historial', icon: History },
   { to: '/profile', label: 'Perfil', icon: User },
 ];

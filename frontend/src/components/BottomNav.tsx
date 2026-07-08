@@ -3,7 +3,7 @@ import { LayoutDashboard, PlusCircle, History, User } from 'lucide-react';
 
 const TABS = [
   { to: '/dashboard', label: 'Home', icon: LayoutDashboard },
-  { to: '/workouts/new', label: 'Entrena', icon: PlusCircle },
+  { to: '/workouts', label: 'Rutinas', icon: PlusCircle },
   { to: '/history', label: 'Historial', icon: History },
   { to: '/profile', label: 'Perfil', icon: User },
 ];
