@@ -99,7 +99,7 @@ beforeEach(() => {
   useAuthStore.setState({
     token: 'token',
     refreshToken: 'refresh',
-    user: { id: 'u1', email: 'federico@example.com', created_at: '2026-01-01T00:00:00Z' },
+    user: { id: 'u1', email: 'federico@example.com', created_at: '2026-01-01T00:00:00Z', rest_seconds: 90, units: 'kg' as const },
   });
 });
 

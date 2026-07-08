@@ -1,4 +1,4 @@
-import { screen, waitFor, act } from '@testing-library/react';
+import { screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { renderWithProviders } from '../test/test-utils';
 import { WorkoutSessionPage } from './WorkoutSessionPage';
@@ -133,7 +133,7 @@ beforeEach(() => {
   useAuthStore.setState({
     token: 'token',
     refreshToken: 'refresh',
-    user: { id: 'u1', email: 'test@example.com', created_at: '2026-01-01T00:00:00Z' },
+    user: { id: 'u1', email: 'test@example.com', created_at: '2026-01-01T00:00:00Z', rest_seconds: 90, units: 'kg' as const },
   });
 });
 

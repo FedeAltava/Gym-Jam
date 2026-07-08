@@ -3,7 +3,7 @@ import { useAuthStore } from '../store/authStore';
 
 const API_URL = 'http://test.local';
 
-const MOCK_USER = { id: 'u1', email: 'test@example.com', created_at: '2024-01-01T00:00:00Z' };
+const MOCK_USER = { id: 'u1', email: 'test@example.com', created_at: '2024-01-01T00:00:00Z', rest_seconds: 90, units: 'kg' as const };
 
 function makeResponse(status: number, body?: unknown, ok?: boolean): Response {
   const isOk = ok ?? (status >= 200 && status < 300);
