@@ -171,7 +171,7 @@ export function RegisterPage() {
                 border: 'none',
                 cursor: 'pointer',
                 marginTop: '8px',
-                boxShadow: '0 0 16px rgba(0, 255, 135, 0.4)',
+                boxShadow: '0 0 16px var(--neon-glow)',
               }}
             >
               {registerMutation.isPending ? 'Creando…' : 'Crear cuenta'}

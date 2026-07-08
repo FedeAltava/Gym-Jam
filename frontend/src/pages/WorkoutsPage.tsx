@@ -1,5 +1,5 @@
-import { useState } from 'react';
-import { Link } from 'react-router-dom';
+import { useEffect, useState } from 'react';
+import { Link, useSearchParams } from 'react-router-dom';
 import { Play, Plus } from 'lucide-react';
 import { useWorkouts } from '../hooks/useWorkouts';
 import { Spinner } from '../components/Spinner';
@@ -78,7 +78,15 @@ function RoutineCard({
 }
 
 export function WorkoutsPage() {
-  const [showModal, setShowModal] = useState(false);
+  const [searchParams, setSearchParams] = useSearchParams();
+  const [showModal, setShowModal] = useState(() => searchParams.get('new') === 'true');
+
+  useEffect(() => {
+    if (searchParams.get('new') === 'true') {
+      setShowModal(true);
+      setSearchParams({}, { replace: true });
+    }
+  }, [searchParams, setSearchParams]);
   const {
     data,
     isLoading,
