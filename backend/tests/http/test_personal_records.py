@@ -75,7 +75,7 @@ async def test_delete_log_returns_204_and_removes_log(client) -> None:
 
 async def test_delete_log_of_another_user_returns_403(client, client_user2) -> None:
     wid, day_id = await create_workout_with_day(client, "TUESDAY")
-    ex_id = await add_exercise_to_day(client, wid, "TUESDAY", "squat")
+    ex_id = await add_exercise_to_day(client, wid, "TUESDAY", "hack-squat")
     session_id, log_id = await start_session_with_log(client, wid, day_id, ex_id, 100.0)
 
     r = await client_user2.delete(f"/sessions/{session_id}/logs/{log_id}")
@@ -132,7 +132,7 @@ async def test_complete_detects_first_pr_then_beat_then_tie(client) -> None:
 
 async def test_complete_is_idempotent_for_prs(client) -> None:
     wid, day_id = await create_workout_with_day(client, "FRIDAY")
-    ex_id = await add_exercise_to_day(client, wid, "FRIDAY", "barbell-row")
+    ex_id = await add_exercise_to_day(client, wid, "FRIDAY", "machine-row")
     session_id, _ = await start_session_with_log(client, wid, day_id, ex_id, 70.0)
 
     r1 = await client.post(f"/sessions/{session_id}/complete", json={})
@@ -145,7 +145,7 @@ async def test_complete_is_idempotent_for_prs(client) -> None:
 
 async def test_bodyweight_logs_produce_no_pr(client) -> None:
     wid, day_id = await create_workout_with_day(client, "SATURDAY")
-    ex_id = await add_exercise_to_day(client, wid, "SATURDAY", "pull-up")
+    ex_id = await add_exercise_to_day(client, wid, "SATURDAY", "lat-pulldown")
     session_id, _ = await start_session_with_log(client, wid, day_id, ex_id, None)
 
     r = await client.post(f"/sessions/{session_id}/complete", json={})

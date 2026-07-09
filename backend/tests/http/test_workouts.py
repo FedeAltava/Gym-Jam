@@ -102,7 +102,7 @@ async def test_add_exercise_returns_201(client):
 
 # 13. POST exercises — workout not found
 async def test_add_exercise_workout_not_found_returns_404(client):
-    r = await client.post("/workouts/00000000-0000-0000-0000-000000000999/training-days/MONDAY/exercises", json={"exercise_id": "squat"})
+    r = await client.post("/workouts/00000000-0000-0000-0000-000000000999/training-days/MONDAY/exercises", json={"exercise_id": "hack-squat"})
     assert r.status_code == 404
 
 
@@ -128,7 +128,7 @@ async def test_reorder_exercises_returns_200(client):
     created = await create_workout(client, "Reorder Test")
     wid = created["id"]
     await client.post(f"/workouts/{wid}/training-days", json={"day_of_week": "SUNDAY"})
-    r1 = await client.post(f"/workouts/{wid}/training-days/SUNDAY/exercises", json={"exercise_id": "squat"})
+    r1 = await client.post(f"/workouts/{wid}/training-days/SUNDAY/exercises", json={"exercise_id": "hack-squat"})
     r2 = await client.post(f"/workouts/{wid}/training-days/SUNDAY/exercises", json={"exercise_id": "deadlift"})
     id1 = r1.json()["id"]
     id2 = r2.json()["id"]
@@ -136,7 +136,7 @@ async def test_reorder_exercises_returns_200(client):
     assert r.status_code == 200
     exercises = r.json()["exercises"]
     assert exercises[0]["exercise_id"] == "deadlift"
-    assert exercises[1]["exercise_id"] == "squat"
+    assert exercises[1]["exercise_id"] == "hack-squat"
 
 
 # 17. PUT reorder — workout not found
@@ -164,12 +164,12 @@ async def test_get_workout_includes_structure(client):
     created = await create_workout(client, "Structure Test")
     wid = created["id"]
     await client.post(f"/workouts/{wid}/training-days", json={"day_of_week": "MONDAY"})
-    await client.post(f"/workouts/{wid}/training-days/MONDAY/exercises", json={"exercise_id": "squat"})
+    await client.post(f"/workouts/{wid}/training-days/MONDAY/exercises", json={"exercise_id": "hack-squat"})
     r = await client.get(f"/workouts/{wid}")
     assert r.status_code == 200
     days = r.json()["training_days"]
     assert len(days) == 1
-    assert days[0]["exercises"][0]["exercise_id"] == "squat"
+    assert days[0]["exercises"][0]["exercise_id"] == "hack-squat"
 
 
 # 21. GET /workouts — returns list

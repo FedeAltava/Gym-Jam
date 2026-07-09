@@ -65,7 +65,7 @@ async def test_get_sessions_empty_returns_200(client) -> None:
 
 async def test_full_session_flow(client) -> None:
     wid, day_id = await create_workout_with_day(client, "WEDNESDAY")
-    ex_id = await add_exercise_to_day(client, wid, "WEDNESDAY", "squat")
+    ex_id = await add_exercise_to_day(client, wid, "WEDNESDAY", "hack-squat")
 
     # Start session
     r = await client.post(f"/workouts/{wid}/days/{day_id}/sessions", json={})
@@ -181,7 +181,7 @@ async def test_log_set_reps_zero_returns_422(client) -> None:
 
 async def test_log_set_null_weight_returns_201(client) -> None:
     wid, day_id = await create_workout_with_day(client, "FRIDAY")
-    ex_id = await add_exercise_to_day(client, wid, "FRIDAY", "push-up")
+    ex_id = await add_exercise_to_day(client, wid, "FRIDAY", "bench-press")
 
     r = await client.post(f"/workouts/{wid}/days/{day_id}/sessions", json={})
     session_id = r.json()["id"]
@@ -200,7 +200,7 @@ async def test_log_set_null_weight_returns_201(client) -> None:
 
 async def test_log_set_omitted_weight_returns_201(client) -> None:
     wid, day_id = await create_workout_with_day(client, "FRIDAY")
-    ex_id = await add_exercise_to_day(client, wid, "FRIDAY", "plank")
+    ex_id = await add_exercise_to_day(client, wid, "FRIDAY", "crunch-machine")
 
     r = await client.post(f"/workouts/{wid}/days/{day_id}/sessions", json={})
     session_id = r.json()["id"]
@@ -235,7 +235,7 @@ async def test_log_extra_set_beyond_plan_returns_201(client) -> None:
 
 async def test_log_set_duplicate_returns_409(client) -> None:
     wid, day_id = await create_workout_with_day(client, "SUNDAY")
-    ex_id = await add_exercise_to_day(client, wid, "SUNDAY", "pull-up")
+    ex_id = await add_exercise_to_day(client, wid, "SUNDAY", "lat-pulldown")
 
     r = await client.post(f"/workouts/{wid}/days/{day_id}/sessions", json={})
     session_id = r.json()["id"]
@@ -277,7 +277,7 @@ async def test_update_log_returns_200(client) -> None:
 
 async def test_update_log_partial_only_weight(client) -> None:
     wid, day_id = await create_workout_with_day(client, "TUESDAY")
-    ex_id = await add_exercise_to_day(client, wid, "TUESDAY", "squat")
+    ex_id = await add_exercise_to_day(client, wid, "TUESDAY", "hack-squat")
 
     r = await client.post(f"/workouts/{wid}/days/{day_id}/sessions", json={})
     session_id = r.json()["id"]
@@ -301,7 +301,7 @@ async def test_update_log_partial_only_weight(client) -> None:
 
 async def test_update_log_explicit_null_clears_weight(client) -> None:
     wid, day_id = await create_workout_with_day(client, "THURSDAY")
-    ex_id = await add_exercise_to_day(client, wid, "THURSDAY", "pull-up")
+    ex_id = await add_exercise_to_day(client, wid, "THURSDAY", "lat-pulldown")
 
     r = await client.post(f"/workouts/{wid}/days/{day_id}/sessions", json={})
     session_id = r.json()["id"]
@@ -327,7 +327,7 @@ async def test_update_log_explicit_null_clears_weight(client) -> None:
 
 async def test_update_log_omitted_weight_keeps_value(client) -> None:
     wid, day_id = await create_workout_with_day(client, "FRIDAY")
-    ex_id = await add_exercise_to_day(client, wid, "FRIDAY", "barbell-row")
+    ex_id = await add_exercise_to_day(client, wid, "FRIDAY", "machine-row")
 
     r = await client.post(f"/workouts/{wid}/days/{day_id}/sessions", json={})
     session_id = r.json()["id"]
@@ -432,7 +432,7 @@ async def test_delete_session_returns_204_and_removes_it(client) -> None:
 
 async def test_delete_session_with_logs_returns_204(client) -> None:
     wid, day_id = await create_workout_with_day(client, "TUESDAY")
-    ex_id = await add_exercise_to_day(client, wid, "TUESDAY", "squat")
+    ex_id = await add_exercise_to_day(client, wid, "TUESDAY", "hack-squat")
 
     r = await client.post(f"/workouts/{wid}/days/{day_id}/sessions", json={})
     session_id = r.json()["id"]
@@ -491,7 +491,7 @@ async def test_add_exercise_without_plan_fields_uses_defaults(client) -> None:
 
     r = await client.post(
         f"/workouts/{wid}/training-days/THURSDAY/exercises",
-        json={"exercise_id": "squat"},
+        json={"exercise_id": "hack-squat"},
     )
     assert r.status_code == 201
     data = r.json()

@@ -60,7 +60,7 @@ async def test_history_requires_auth(auth_client) -> None:
 
 async def test_history_returns_session_with_resolved_names(client) -> None:
     wid, day_id = await create_workout_with_day(client, "MONDAY")
-    ex_id = await add_exercise_to_day(client, wid, "MONDAY", "squat")
+    ex_id = await add_exercise_to_day(client, wid, "MONDAY", "hack-squat")
     session_id = await start_session(client, wid, day_id)
 
     r = await client.post(
@@ -93,8 +93,8 @@ async def test_history_returns_session_with_resolved_names(client) -> None:
     # Logs ordered by set_number, exercise name resolved server-side
     assert [log["set_number"] for log in item["logs"]] == [1, 2]
     log = item["logs"][0]
-    # Catalog seed name for "squat" (EXERCISE_SEED ships Spanish names)
-    assert log["exercise_name"] == "Sentadilla"
+    # Catalog seed name for "hack-squat" (EXERCISE_SEED ships Spanish names)
+    assert log["exercise_name"] == "Sentadilla hack"
     assert log["workout_exercise_id"] == ex_id
     assert log["reps_completed"] == 8
     assert log["weight_kg"] == 100.0
