@@ -28,33 +28,33 @@ def make_user(email: str = "alice@example.com") -> UserModel:
 
 
 async def test_save_and_find_by_email(session: AsyncSession) -> None:
-    repo = SqlAlchemyUserRepository()
+    repo = SqlAlchemyUserRepository(session)
     user = make_user("alice@example.com")
-    await repo.save(user, session)
+    await repo.save(user)
     await session.commit()
-    found = await repo.find_by_email("alice@example.com", session)
+    found = await repo.find_by_email("alice@example.com")
     assert found is not None
     assert found.email == "alice@example.com"
 
 
 async def test_find_by_email_not_found_returns_none(session: AsyncSession) -> None:
-    repo = SqlAlchemyUserRepository()
-    found = await repo.find_by_email("ghost@example.com", session)
+    repo = SqlAlchemyUserRepository(session)
+    found = await repo.find_by_email("ghost@example.com")
     assert found is None
 
 
 async def test_find_by_id_returns_user(session: AsyncSession) -> None:
-    repo = SqlAlchemyUserRepository()
+    repo = SqlAlchemyUserRepository(session)
     user = make_user("bob@example.com")
-    await repo.save(user, session)
+    await repo.save(user)
     await session.commit()
-    found = await repo.find_by_id(user.id, session)
+    found = await repo.find_by_id(user.id)
     assert found is not None
     assert found.id == user.id
     assert found.email == "bob@example.com"
 
 
 async def test_find_by_id_not_found_returns_none(session: AsyncSession) -> None:
-    repo = SqlAlchemyUserRepository()
-    found = await repo.find_by_id("nonexistent-id", session)
+    repo = SqlAlchemyUserRepository(session)
+    found = await repo.find_by_id("nonexistent-id")
     assert found is None

@@ -8,14 +8,17 @@ from backend.src.infrastructure.persistence.models import UserModel
 
 
 class SqlAlchemyUserRepository(UserRepository):
-    async def save(self, user: UserModel, session: AsyncSession) -> None:
-        session.add(user)
-        await session.flush()
+    def __init__(self, session: AsyncSession) -> None:
+        self._session = session
 
-    async def find_by_email(self, email: str, session: AsyncSession) -> UserModel | None:
-        result = await session.execute(select(UserModel).where(UserModel.email == email))
+    async def save(self, user: UserModel) -> None:
+        self._session.add(user)
+        await self._session.flush()
+
+    async def find_by_email(self, email: str) -> UserModel | None:
+        result = await self._session.execute(select(UserModel).where(UserModel.email == email))
         return result.scalar_one_or_none()
 
-    async def find_by_id(self, user_id: str, session: AsyncSession) -> UserModel | None:
-        result = await session.execute(select(UserModel).where(UserModel.id == user_id))
+    async def find_by_id(self, user_id: str) -> UserModel | None:
+        result = await self._session.execute(select(UserModel).where(UserModel.id == user_id))
         return result.scalar_one_or_none()

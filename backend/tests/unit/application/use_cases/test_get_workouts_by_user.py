@@ -3,8 +3,8 @@ import pytest
 from returns.result import Success
 
 from backend.src.application.dtos import WorkoutWithDaysDTO
+from backend.src.application.commands import GetWorkoutsByUserQuery
 from backend.src.application.use_cases.get_workouts_by_user import (
-    GetWorkoutsByUserQuery,
     GetWorkoutsByUserUseCase,
 )
 from backend.src.domain.aggregates.workout import Workout

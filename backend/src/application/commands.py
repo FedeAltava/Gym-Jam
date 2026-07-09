@@ -157,3 +157,22 @@ class GetSessionHistoryQuery:
     offset: int = 0
 
 
+@dataclass(frozen=True)
+class RegisterUserCommand:
+    email: str
+    password: str
+
+
+@dataclass(frozen=True)
+class SetWorkoutActiveCommand:
+    workout_id: str
+    user_id: str
+    is_active: bool
+
+
+@dataclass(frozen=True)
+class GetWorkoutsByUserQuery:
+    user_id: str
+    limit: int = 50
+    offset: int = 0
+

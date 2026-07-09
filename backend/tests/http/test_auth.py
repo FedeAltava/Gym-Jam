@@ -261,9 +261,10 @@ async def test_login_rate_limit_keys_on_x_real_ip(auth_client):
 async def test_forgot_password_with_valid_email_returns_204(auth_client):
     await register(auth_client, "forgot@example.com")
     with patch(
-        "backend.src.application.use_cases.forgot_password.send_reset_email",
+        "backend.src.presentation.dependencies.send_reset_email",
         new_callable=AsyncMock,
-    ):
+    ) as mock_send:
+        mock_send.return_value = None
         r = await auth_client.post(f"{BASE}/forgot-password", json={"email": "forgot@example.com"})
     assert r.status_code == 204
 
@@ -271,9 +272,10 @@ async def test_forgot_password_with_valid_email_returns_204(auth_client):
 # 25. POST /auth/forgot-password — unknown email → 204 (same response — no enumeration)
 async def test_forgot_password_with_unknown_email_returns_204(auth_client):
     with patch(
-        "backend.src.application.use_cases.forgot_password.send_reset_email",
+        "backend.src.presentation.dependencies.send_reset_email",
         new_callable=AsyncMock,
-    ):
+    ) as mock_send:
+        mock_send.return_value = None
         r = await auth_client.post(f"{BASE}/forgot-password", json={"email": "nobody@example.com"})
     assert r.status_code == 204
 

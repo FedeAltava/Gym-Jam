@@ -1,17 +1,22 @@
 """Tests for ChangePasswordUseCase."""
 from __future__ import annotations
+
 import uuid
 from datetime import UTC, datetime, timedelta
 
 import pytest
 import sqlalchemy
 from returns.result import Failure, Success
+from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
 
 from backend.src.application.errors import DomainViolationError
 from backend.src.application.use_cases.change_password import ChangePasswordUseCase
-from backend.src.infrastructure.auth.password import hash_password
+from backend.src.infrastructure.auth.password import hash_password, verify_password
 from backend.src.infrastructure.persistence.models import Base, RefreshTokenModel, UserModel
+from backend.src.infrastructure.persistence.refresh_token_repository import (
+    SqlAlchemyRefreshTokenRepository,
+)
 from backend.src.infrastructure.persistence.user_repository import SqlAlchemyUserRepository
 
 TEST_DB_URL = "sqlite+aiosqlite:///:memory:"
@@ -52,17 +57,14 @@ async def test_change_password_happy_path(session: AsyncSession) -> None:
     session.add(user)
     await session.flush()
 
-    repo = SqlAlchemyUserRepository()
-    uc = ChangePasswordUseCase(repo)
-    result = await uc.execute(user.id, "correct-password", "new-password-1", session)
+    repo = SqlAlchemyUserRepository(session)
+    refresh_repo = SqlAlchemyRefreshTokenRepository(session)
+    uc = ChangePasswordUseCase(repo, refresh_repo, hash_password, verify_password)
+    result = await uc.execute(user.id, "correct-password", "new-password-1")
 
     assert isinstance(result, Success)
-    # Fetch the user back to verify the password was actually updated.
-    updated = await repo.find_by_id(user.id, session)
+    updated = await repo.find_by_id(user.id)
     assert updated is not None
-    # The stored hash should differ from the original.
-    assert updated.hashed_password != hash_password("correct-password")
-    from backend.src.infrastructure.auth.password import verify_password
     assert verify_password("new-password-1", updated.hashed_password)
 
 
@@ -71,9 +73,10 @@ async def test_change_password_wrong_current_password(session: AsyncSession) -> 
     session.add(user)
     await session.flush()
 
-    repo = SqlAlchemyUserRepository()
-    uc = ChangePasswordUseCase(repo)
-    result = await uc.execute(user.id, "wrong-password", "new-password-1", session)
+    repo = SqlAlchemyUserRepository(session)
+    refresh_repo = SqlAlchemyRefreshTokenRepository(session)
+    uc = ChangePasswordUseCase(repo, refresh_repo, hash_password, verify_password)
+    result = await uc.execute(user.id, "wrong-password", "new-password-1")
 
     assert isinstance(result, Failure)
     assert isinstance(result.failure(), DomainViolationError)
@@ -81,9 +84,10 @@ async def test_change_password_wrong_current_password(session: AsyncSession) -> 
 
 
 async def test_change_password_user_not_found(session: AsyncSession) -> None:
-    repo = SqlAlchemyUserRepository()
-    uc = ChangePasswordUseCase(repo)
-    result = await uc.execute("nonexistent-id", "any-password", "new-password-1", session)
+    repo = SqlAlchemyUserRepository(session)
+    refresh_repo = SqlAlchemyRefreshTokenRepository(session)
+    uc = ChangePasswordUseCase(repo, refresh_repo, hash_password, verify_password)
+    result = await uc.execute("nonexistent-id", "any-password", "new-password-1")
 
     assert isinstance(result, Failure)
     assert isinstance(result.failure(), DomainViolationError)
@@ -111,16 +115,18 @@ async def test_change_password_revokes_refresh_tokens(session: AsyncSession) -> 
     session.add_all([token1, token2])
     await session.flush()
 
-    repo = SqlAlchemyUserRepository()
-    uc = ChangePasswordUseCase(repo)
-    result = await uc.execute(user.id, "correct-password", "new-password-1", session)
+    repo = SqlAlchemyUserRepository(session)
+    refresh_repo = SqlAlchemyRefreshTokenRepository(session)
+    uc = ChangePasswordUseCase(repo, refresh_repo, hash_password, verify_password)
+    result = await uc.execute(user.id, "correct-password", "new-password-1")
 
     assert isinstance(result, Success)
 
-    # Verify tokens are revoked in-session.
-    from sqlalchemy import select
-    from backend.src.infrastructure.persistence.models import RefreshTokenModel as RTM
-    rows = (await session.execute(
-        select(RTM).where(RTM.user_id == user.id)
-    )).scalars().all()
+    rows = (
+        await session.execute(
+            select(RefreshTokenModel)
+            .where(RefreshTokenModel.user_id == user.id)
+            .execution_options(populate_existing=True)
+        )
+    ).scalars().all()
     assert all(r.revoked_at is not None for r in rows)

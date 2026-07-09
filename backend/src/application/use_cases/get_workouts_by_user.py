@@ -1,18 +1,10 @@
 """GetWorkoutsByUserUseCase — application layer."""
-from dataclasses import dataclass
-
 from returns.result import Result, Success
 
+from backend.src.application.commands import GetWorkoutsByUserQuery
 from backend.src.application.dtos import WorkoutWithDaysDTO
 from backend.src.application.errors import ApplicationError
 from backend.src.domain.repositories.workout_repository import WorkoutRepository
-
-
-@dataclass(frozen=True)
-class GetWorkoutsByUserQuery:
-    user_id: str
-    limit: int = 50
-    offset: int = 0
 
 
 class GetWorkoutsByUserUseCase:

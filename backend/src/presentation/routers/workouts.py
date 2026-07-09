@@ -14,13 +14,13 @@ from backend.src.application.commands import (
     ReorderExercisesCommand,
     ReorderTrainingDaysCommand,
 )
-from backend.src.application.use_cases.get_workouts_by_user import GetWorkoutsByUserQuery
+from backend.src.application.commands import GetWorkoutsByUserQuery, SetWorkoutActiveCommand
 from backend.src.application.use_cases.add_exercise_to_workout import AddExerciseToWorkoutUseCase
 from backend.src.application.use_cases.add_training_day import AddTrainingDayUseCase
 from backend.src.application.use_cases.create_workout import CreateWorkoutUseCase
 from backend.src.application.use_cases.delete_workout import DeleteWorkoutUseCase
 from backend.src.application.use_cases.rename_workout import RenameWorkoutUseCase
-from backend.src.application.use_cases.set_workout_active import SetWorkoutActiveUseCase, SetWorkoutActiveCommand
+from backend.src.application.use_cases.set_workout_active import SetWorkoutActiveUseCase
 from backend.src.application.use_cases.get_workout_with_days import GetWorkoutWithDaysUseCase
 from backend.src.application.use_cases.get_workouts_by_user import GetWorkoutsByUserUseCase
 from backend.src.application.use_cases.remove_exercise_from_workout import RemoveExerciseFromWorkoutUseCase

@@ -1,21 +1,13 @@
 """SetWorkoutActiveUseCase — activate or deactivate a workout."""
 from __future__ import annotations
 
-from dataclasses import dataclass
-
 from returns.result import Failure, Result, Success
 
+from backend.src.application.commands import SetWorkoutActiveCommand
 from backend.src.application.dtos import WorkoutWithDaysDTO
 from backend.src.application.errors import ApplicationError, UnauthorizedError, WorkoutNotFoundError
 from backend.src.domain.repositories.workout_repository import WorkoutRepository
 from backend.src.domain.value_objects import WorkoutId
-
-
-@dataclass(frozen=True)
-class SetWorkoutActiveCommand:
-    workout_id: str
-    user_id: str
-    is_active: bool
 
 
 class SetWorkoutActiveUseCase:

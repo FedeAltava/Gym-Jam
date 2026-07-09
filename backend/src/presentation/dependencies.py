@@ -1,23 +1,41 @@
 from datetime import timedelta
+from typing import Any
+from collections.abc import Callable
 
 from fastapi import Depends, HTTPException, status
 from fastapi.security import OAuth2PasswordBearer
 from sqlalchemy.ext.asyncio import AsyncSession
+
 from backend.src.infrastructure.database import get_session
 from backend.src.infrastructure.auth.jwt import create_access_token, decode_access_token
+from backend.src.infrastructure.auth.password import hash_password, verify_password
 from backend.src.infrastructure.auth.refresh_tokens import (
     generate_refresh_token,
     hash_refresh_token,
 )
 from backend.src.infrastructure.config import settings
-from backend.src.infrastructure.persistence.user_repository import SqlAlchemyUserRepository
+from backend.src.infrastructure.email.email_service import send_reset_email
 from backend.src.infrastructure.persistence.models import UserModel
+from backend.src.infrastructure.persistence.user_repository import SqlAlchemyUserRepository
+from backend.src.infrastructure.persistence.password_reset_token_repository import (
+    SqlAlchemyPasswordResetTokenRepository,
+)
 from backend.src.infrastructure.persistence.exercise_repository import SqlAlchemyExerciseRepository
 from backend.src.infrastructure.persistence.refresh_token_repository import (
     SqlAlchemyRefreshTokenRepository,
 )
 from backend.src.infrastructure.persistence.workout_repository import SqlAlchemyWorkoutRepository
+from backend.src.infrastructure.persistence.session_repository import SqlAlchemySessionRepository
+from backend.src.infrastructure.persistence.personal_record_repository import (
+    SqlAlchemyPersonalRecordRepository,
+)
+from backend.src.infrastructure.persistence.stats_repository import (
+    SqlAlchemyStatsRepository,
+)
 from backend.src.domain.repositories.workout_repository import WorkoutRepository
+from backend.src.domain.repositories.session_repository import SessionRepository
+from backend.src.domain.repositories.personal_record_repository import PersonalRecordRepository
+from backend.src.domain.repositories.stats_repository import StatsRepository
 from backend.src.application.services.token_issuer import TokenIssuer
 from backend.src.application.use_cases.create_workout import CreateWorkoutUseCase
 from backend.src.application.use_cases.logout import LogoutUseCase
@@ -43,28 +61,30 @@ from backend.src.application.use_cases.delete_workout_session import DeleteWorko
 from backend.src.application.use_cases.get_sessions_for_day import GetSessionsForDayUseCase
 from backend.src.application.use_cases.get_session_history import GetSessionHistoryUseCase
 from backend.src.application.use_cases.get_user_stats import GetUserStatsUseCase
-from backend.src.infrastructure.persistence.personal_record_repository import (
-    SqlAlchemyPersonalRecordRepository,
-)
-from backend.src.infrastructure.persistence.stats_repository import (
-    SqlAlchemyStatsRepository,
-)
-from backend.src.domain.repositories.stats_repository import StatsRepository
-from backend.src.infrastructure.persistence.session_repository import SqlAlchemySessionRepository
-from backend.src.domain.repositories.personal_record_repository import PersonalRecordRepository
-from backend.src.domain.repositories.session_repository import SessionRepository
+from backend.src.application.use_cases.forgot_password import ForgotPasswordUseCase
+from backend.src.application.use_cases.reset_password import ResetPasswordUseCase
+from backend.src.application.use_cases.change_password import ChangePasswordUseCase
+from backend.src.application.use_cases.update_user_preferences import UpdateUserPreferencesUseCase
+from backend.src.application.use_cases.register_user import RegisterUserUseCase
 
 oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/auth/login")
 oauth2_scheme_optional = OAuth2PasswordBearer(tokenUrl="/auth/login", auto_error=False)
-_user_repo = SqlAlchemyUserRepository()
+
+
+def _create_user_model(user_id: str, email: str, hashed_password: str) -> UserModel:
+    return UserModel(id=user_id, email=email, hashed_password=hashed_password)
+
+
+def get_user_repository(session: AsyncSession = Depends(get_session)) -> SqlAlchemyUserRepository:
+    return SqlAlchemyUserRepository(session)
 
 
 async def get_current_user(
     token: str = Depends(oauth2_scheme),
-    session: AsyncSession = Depends(get_session),
+    user_repo: SqlAlchemyUserRepository = Depends(get_user_repository),
 ) -> UserModel:
-    user_id = decode_access_token(token)  # raises 401 on invalid/expired token
-    user = await _user_repo.find_by_id(user_id, session)
+    user_id = decode_access_token(token)
+    user = await user_repo.find_by_id(user_id)
     if user is None:
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="User not found")
     return user
@@ -72,17 +92,12 @@ async def get_current_user(
 
 async def get_current_user_optional(
     token: str | None = Depends(oauth2_scheme_optional),
-    session: AsyncSession = Depends(get_session),
+    user_repo: SqlAlchemyUserRepository = Depends(get_user_repository),
 ) -> UserModel | None:
-    """Best-effort identity: missing, invalid, or expired bearer yields None.
-
-    Used by routes that can authenticate by other means (e.g. logout, where
-    possession of the refresh token is itself the credential).
-    """
     if token is None:
         return None
     try:
-        return await get_current_user(token, session)
+        return await get_current_user(token, user_repo)
     except HTTPException:
         return None
 
@@ -103,6 +118,12 @@ def get_refresh_token_repository(
     session: AsyncSession = Depends(get_session),
 ) -> SqlAlchemyRefreshTokenRepository:
     return SqlAlchemyRefreshTokenRepository(session)
+
+
+def get_password_reset_token_repository(
+    session: AsyncSession = Depends(get_session),
+) -> SqlAlchemyPasswordResetTokenRepository:
+    return SqlAlchemyPasswordResetTokenRepository(session)
 
 
 def get_token_issuer(
@@ -262,3 +283,56 @@ def get_user_stats_uc(
     stats_repo: StatsRepository = Depends(get_stats_repository),
 ) -> GetUserStatsUseCase:
     return GetUserStatsUseCase(stats_repo)
+
+
+def get_forgot_password_uc(
+    user_repo: SqlAlchemyUserRepository = Depends(get_user_repository),
+    token_repo: SqlAlchemyPasswordResetTokenRepository = Depends(get_password_reset_token_repository),
+) -> ForgotPasswordUseCase:
+    return ForgotPasswordUseCase(
+        user_repo=user_repo,
+        token_repo=token_repo,
+        send_email=send_reset_email,
+        base_url=settings.app_base_url,
+    )
+
+
+def get_reset_password_uc(
+    user_repo: SqlAlchemyUserRepository = Depends(get_user_repository),
+    token_repo: SqlAlchemyPasswordResetTokenRepository = Depends(get_password_reset_token_repository),
+    refresh_token_repo: SqlAlchemyRefreshTokenRepository = Depends(get_refresh_token_repository),
+) -> ResetPasswordUseCase:
+    return ResetPasswordUseCase(
+        user_repo=user_repo,
+        token_repo=token_repo,
+        refresh_token_repo=refresh_token_repo,
+        hash_password=hash_password,
+    )
+
+
+def get_change_password_uc(
+    user_repo: SqlAlchemyUserRepository = Depends(get_user_repository),
+    refresh_token_repo: SqlAlchemyRefreshTokenRepository = Depends(get_refresh_token_repository),
+) -> ChangePasswordUseCase:
+    return ChangePasswordUseCase(
+        user_repo=user_repo,
+        refresh_token_repo=refresh_token_repo,
+        hash_password=hash_password,
+        verify_password=verify_password,
+    )
+
+
+def get_update_preferences_uc(
+    user_repo: SqlAlchemyUserRepository = Depends(get_user_repository),
+) -> UpdateUserPreferencesUseCase:
+    return UpdateUserPreferencesUseCase(user_repo=user_repo)
+
+
+def get_register_user_uc(
+    user_repo: SqlAlchemyUserRepository = Depends(get_user_repository),
+) -> RegisterUserUseCase:
+    return RegisterUserUseCase(
+        user_repo=user_repo,
+        create_user=_create_user_model,
+        hash_password=hash_password,
+    )
