@@ -33,19 +33,19 @@ const fetchMock = vi.fn();
 beforeEach(() => {
   vi.stubGlobal('fetch', fetchMock);
   fetchMock.mockReset();
-  useAuthStore.setState({ token: null, refreshToken: null, user: null });
+  useAuthStore.setState({ token: null, user: null });
   vi.spyOn(window, 'location', 'get').mockReturnValue({ href: '' } as Location);
 });
 
 afterEach(() => {
   vi.unstubAllGlobals();
   vi.restoreAllMocks();
-  useAuthStore.setState({ token: null, refreshToken: null, user: null });
+  useAuthStore.setState({ token: null, user: null });
 });
 
 describe('apiFetch happy path', () => {
   it('sends Authorization Bearer header from the auth store token', async () => {
-    useAuthStore.setState({ token: 'my-token', refreshToken: 'rt', user: MOCK_USER });
+    useAuthStore.setState({ token: 'my-token', user: MOCK_USER });
     fetchMock.mockResolvedValueOnce(makeResponse(200, { id: 1 }));
 
     await apiFetch('/api/test');
@@ -64,7 +64,7 @@ describe('apiFetch happy path', () => {
   });
 
   it('does not clobber a caller-supplied Authorization header', async () => {
-    useAuthStore.setState({ token: 'store-token', refreshToken: 'rt', user: MOCK_USER });
+    useAuthStore.setState({ token: 'store-token', user: MOCK_USER });
     fetchMock.mockResolvedValueOnce(makeResponse(200, { ok: true }));
 
     await apiFetch('/api/test', {
@@ -128,12 +128,12 @@ describe('apiFetch error mapping', () => {
 
 describe('401 refresh-and-retry', () => {
   it('on 401 with a token, POSTs /auth/refresh, retries the original request with the new access token, and returns its result', async () => {
-    useAuthStore.setState({ token: 'old-token', refreshToken: 'old-refresh', user: MOCK_USER });
+    useAuthStore.setState({ token: 'old-token', user: MOCK_USER });
 
     fetchMock
       .mockResolvedValueOnce(makeResponse(401, null, false))
       .mockResolvedValueOnce(
-        makeResponse(200, { access_token: 'new-token', refresh_token: 'new-refresh', token_type: 'bearer' }),
+        makeResponse(200, { access_token: 'new-token', token_type: 'bearer' }),
       )
       .mockResolvedValueOnce(makeResponse(200, { data: 'ok' }));
 
@@ -149,13 +149,13 @@ describe('401 refresh-and-retry', () => {
     expect((retryCall[1].headers as Record<string, string>)['Authorization']).toBe('Bearer new-token');
   });
 
-  it('updates the auth store with the rotated access + refresh tokens after a successful refresh', async () => {
-    useAuthStore.setState({ token: 'old-token', refreshToken: 'old-refresh', user: MOCK_USER });
+  it('updates the auth store with the rotated access token after a successful refresh', async () => {
+    useAuthStore.setState({ token: 'old-token', user: MOCK_USER });
 
     fetchMock
       .mockResolvedValueOnce(makeResponse(401, null, false))
       .mockResolvedValueOnce(
-        makeResponse(200, { access_token: 'new-token', refresh_token: 'new-refresh', token_type: 'bearer' }),
+        makeResponse(200, { access_token: 'new-token', token_type: 'bearer' }),
       )
       .mockResolvedValueOnce(makeResponse(200, {}));
 
@@ -163,12 +163,11 @@ describe('401 refresh-and-retry', () => {
 
     const state = useAuthStore.getState();
     expect(state.token).toBe('new-token');
-    expect(state.refreshToken).toBe('new-refresh');
     expect(state.user).toEqual(MOCK_USER);
   });
 
   it('when refresh returns 401, clears the auth store and throws ApiError 401', async () => {
-    useAuthStore.setState({ token: 'old-token', refreshToken: 'old-refresh', user: MOCK_USER });
+    useAuthStore.setState({ token: 'old-token', user: MOCK_USER });
 
     fetchMock
       .mockResolvedValueOnce(makeResponse(401, null, false))
@@ -180,12 +179,11 @@ describe('401 refresh-and-retry', () => {
 
     const state = useAuthStore.getState();
     expect(state.token).toBeNull();
-    expect(state.refreshToken).toBeNull();
     expect(state.user).toBeNull();
   });
 
   it('when refresh returns 500, KEEPS the auth store intact and throws ApiError with status 500', async () => {
-    useAuthStore.setState({ token: 'old-token', refreshToken: 'old-refresh', user: MOCK_USER });
+    useAuthStore.setState({ token: 'old-token', user: MOCK_USER });
 
     fetchMock
       .mockResolvedValueOnce(makeResponse(401, null, false))
@@ -197,17 +195,16 @@ describe('401 refresh-and-retry', () => {
 
     const state = useAuthStore.getState();
     expect(state.token).toBe('old-token');
-    expect(state.refreshToken).toBe('old-refresh');
     expect(state.user).toEqual(MOCK_USER);
   });
 
   it('when the retried request still returns 401, clears the auth store and throws ApiError 401', async () => {
-    useAuthStore.setState({ token: 'old-token', refreshToken: 'old-refresh', user: MOCK_USER });
+    useAuthStore.setState({ token: 'old-token', user: MOCK_USER });
 
     fetchMock
       .mockResolvedValueOnce(makeResponse(401, null, false))
       .mockResolvedValueOnce(
-        makeResponse(200, { access_token: 'new-token', refresh_token: 'new-refresh', token_type: 'bearer' }),
+        makeResponse(200, { access_token: 'new-token', token_type: 'bearer' }),
       )
       .mockResolvedValueOnce(makeResponse(401, null, false));
 
@@ -217,12 +214,11 @@ describe('401 refresh-and-retry', () => {
 
     const state = useAuthStore.getState();
     expect(state.token).toBeNull();
-    expect(state.refreshToken).toBeNull();
     expect(state.user).toBeNull();
   });
 
   it('does NOT attempt refresh for /auth/login 401', async () => {
-    useAuthStore.setState({ token: null, refreshToken: null, user: null });
+    useAuthStore.setState({ token: null, user: null });
 
     fetchMock.mockResolvedValueOnce(makeJsonErrorResponse(401, { detail: 'Invalid credentials' }));
 
@@ -234,7 +230,7 @@ describe('401 refresh-and-retry', () => {
   });
 
   it('single-flight — two concurrent 401 requests trigger exactly one call to /auth/refresh', async () => {
-    useAuthStore.setState({ token: 'old-token', refreshToken: 'old-refresh', user: MOCK_USER });
+    useAuthStore.setState({ token: 'old-token', user: MOCK_USER });
 
     let refreshResolve!: (r: Response) => void;
     const refreshPending = new Promise<Response>((resolve) => {
@@ -262,7 +258,7 @@ describe('401 refresh-and-retry', () => {
 
     await Promise.resolve();
     refreshResolve(
-      makeResponse(200, { access_token: 'new-token', refresh_token: 'new-refresh', token_type: 'bearer' }),
+      makeResponse(200, { access_token: 'new-token', token_type: 'bearer' }),
     );
 
     await Promise.allSettled([p1, p2]);
@@ -274,7 +270,7 @@ describe('401 refresh-and-retry', () => {
   });
 
   it('does not resurrect a session — if store was logged out while refresh was in flight, throws and leaves store logged out', async () => {
-    useAuthStore.setState({ token: 'old-token', refreshToken: 'old-refresh', user: MOCK_USER });
+    useAuthStore.setState({ token: 'old-token', user: MOCK_USER });
 
     let refreshResolve!: (r: Response) => void;
     const refreshPending = new Promise<Response>((resolve) => {
@@ -301,7 +297,7 @@ describe('401 refresh-and-retry', () => {
     useAuthStore.getState().logout();
 
     refreshResolve(
-      makeResponse(200, { access_token: 'new-token', refresh_token: 'new-refresh', token_type: 'bearer' }),
+      makeResponse(200, { access_token: 'new-token', token_type: 'bearer' }),
     );
 
     await expect(promise).rejects.toSatisfy(
@@ -310,7 +306,6 @@ describe('401 refresh-and-retry', () => {
 
     const state = useAuthStore.getState();
     expect(state.token).toBeNull();
-    expect(state.refreshToken).toBeNull();
     expect(state.user).toBeNull();
   });
 });

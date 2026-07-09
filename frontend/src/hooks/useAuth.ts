@@ -23,7 +23,7 @@ export function useLoginMutation() {
       return { token, user };
     },
     onSuccess: ({ token, user }) => {
-      setAuth(token.access_token, token.refresh_token, user);
+      setAuth(token.access_token, user);
       navigate('/dashboard');
     },
   });

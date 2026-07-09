@@ -177,16 +177,10 @@ export function ProfilePage() {
 
   // ------------- Logout -------------
   async function handleLogout() {
-    const refreshToken = useAuthStore.getState().refreshToken;
-    if (refreshToken) {
-      try {
-        await apiFetch<void>('/auth/logout', {
-          method: 'POST',
-          body: JSON.stringify({ refresh_token: refreshToken }),
-        });
-      } catch {
-        // ignore — local logout happens regardless
-      }
+    try {
+      await apiFetch<void>('/auth/logout', { method: 'POST' });
+    } catch {
+      // ignore — local logout happens regardless
     }
     logout();
     navigate('/login');

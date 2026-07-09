@@ -3,6 +3,7 @@ from __future__ import annotations
 import logging
 
 from fastapi import APIRouter, Depends, HTTPException, Request, Response
+from fastapi.responses import JSONResponse
 from returns.result import Failure
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -15,6 +16,7 @@ from backend.src.application.use_cases.refresh_session import RefreshSessionUseC
 from backend.src.application.use_cases.register_user import RegisterUserUseCase
 from backend.src.application.use_cases.reset_password import ResetPasswordUseCase
 from backend.src.infrastructure.auth.password import DUMMY_HASH, verify_password
+from backend.src.infrastructure.config import settings
 from backend.src.infrastructure.database import get_session
 from backend.src.infrastructure.persistence.models import UserModel
 from backend.src.infrastructure.persistence.user_repository import SqlAlchemyUserRepository
@@ -44,7 +46,6 @@ from backend.src.presentation.schemas.auth_schemas import (
     ForgotPasswordRequest,
     LoginRequest,
     LogoutRequest,
-    RefreshRequest,
     RegisterRequest,
     ResetPasswordRequest,
     TokenResponse,
@@ -54,6 +55,23 @@ from backend.src.presentation.schemas.auth_schemas import (
 logger = logging.getLogger(__name__)
 
 router = APIRouter()
+
+
+def _set_refresh_cookie(response: Response, token: str, expire_days: int) -> None:
+    _is_prod = settings.environment == "production"
+    response.set_cookie(
+        key="refresh_token",
+        value=token,
+        httponly=True,
+        samesite="strict" if _is_prod else "lax",
+        secure=_is_prod,
+        max_age=expire_days * 86400,
+        path="/auth",
+    )
+
+
+def _clear_refresh_cookie(response: Response) -> None:
+    response.delete_cookie(key="refresh_token", path="/auth")
 
 
 @router.post("/register", response_model=UserResponse, status_code=201)
@@ -78,7 +96,7 @@ async def register(
     )
 
 
-@router.post("/login", response_model=TokenResponse, status_code=200)
+@router.post("/login", status_code=200)
 async def login(
     request: Request,
     body: LoginRequest,
@@ -86,7 +104,7 @@ async def login(
     user_repo: SqlAlchemyUserRepository = Depends(get_user_repository),
     token_issuer: TokenIssuer = Depends(get_token_issuer),
     _rate: None = Depends(login_limiter.dependency),
-) -> TokenResponse:
+) -> Response:
     user = await user_repo.find_by_email(body.email)
     if user is None:
         verify_password(body.password, DUMMY_HASH)
@@ -97,39 +115,50 @@ async def login(
         raise HTTPException(status_code=401, detail="Invalid credentials")
     pair = await token_issuer.issue_for_login(user.id)
     await session.commit()
-    return TokenResponse(access_token=pair.access_token, refresh_token=pair.refresh_token)
+    response = JSONResponse(content={"access_token": pair.access_token, "token_type": "bearer"})
+    _set_refresh_cookie(response, pair.refresh_token, settings.refresh_token_expire_days)
+    return response
 
 
-@router.post("/refresh", response_model=TokenResponse, status_code=200)
+@router.post("/refresh", status_code=200)
 async def refresh(
     request: Request,
-    body: RefreshRequest,
     session: AsyncSession = Depends(get_session),
     use_case: RefreshSessionUseCase = Depends(get_refresh_session_uc),
     _rate: None = Depends(refresh_limiter.dependency),
-) -> TokenResponse:
-    result = await use_case.execute(body.refresh_token)
+) -> Response:
+    raw_token = request.cookies.get("refresh_token")
+    if not raw_token:
+        raise HTTPException(status_code=401, detail="Missing refresh token")
+    result = await use_case.execute(raw_token)
     await session.commit()
     if isinstance(result, Failure):
-        raise HTTPException(status_code=401, detail="Invalid refresh token")
+        resp = JSONResponse(status_code=401, content={"detail": "Invalid refresh token"})
+        _clear_refresh_cookie(resp)
+        return resp
     pair = result.unwrap()
-    return TokenResponse(access_token=pair.access_token, refresh_token=pair.refresh_token)
+    response = JSONResponse(content={"access_token": pair.access_token, "token_type": "bearer"})
+    _set_refresh_cookie(response, pair.refresh_token, settings.refresh_token_expire_days)
+    return response
 
 
 @router.post("/logout", status_code=204)
 async def logout(
+    request: Request,
     body: LogoutRequest | None = None,
     _rate: None = Depends(logout_limiter.dependency),
     user: UserModel | None = Depends(get_current_user_optional),
     session: AsyncSession = Depends(get_session),
     use_case: LogoutUseCase = Depends(get_logout_uc),
 ) -> Response:
-    raw_refresh_token = body.refresh_token if body is not None else None
+    raw_refresh_token = request.cookies.get("refresh_token")
     if raw_refresh_token is None and user is None:
         raise HTTPException(status_code=401, detail="Not authenticated")
     await use_case.execute(user.id if user is not None else None, raw_refresh_token)
     await session.commit()
-    return Response(status_code=204)
+    response = Response(status_code=204)
+    _clear_refresh_cookie(response)
+    return response
 
 
 @router.get("/me", response_model=UserResponse)

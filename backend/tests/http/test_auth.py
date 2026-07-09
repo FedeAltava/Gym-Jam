@@ -72,7 +72,8 @@ async def test_login_returns_access_token(auth_client):
     assert r.status_code == 200
     data = r.json()
     assert "access_token" in data
-    assert "refresh_token" in data
+    assert "refresh_token" not in data  # refresh token is in httpOnly cookie, not body
+    assert r.cookies.get("refresh_token"), "Login must set refresh_token httpOnly cookie"
     assert data["token_type"] == "bearer"
 
 

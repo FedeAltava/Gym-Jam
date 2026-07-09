@@ -49,14 +49,13 @@ let refreshPromise: Promise<string> | null = null;
 
 async function refreshAccessToken(): Promise<string> {
   const useAuthStore = await getAuthStore();
-  const { refreshToken, user } = useAuthStore.getState();
-  if (!refreshToken || !user) throw new SessionExpiredError();
+  const { user } = useAuthStore.getState();
+  if (!user) throw new SessionExpiredError();
 
   // Network errors propagate as-is: they are transient, not session death.
   const response = await fetch(`${API_URL}/auth/refresh`, {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ refresh_token: refreshToken }),
+    credentials: 'include',
   });
   if (response.status === 401 || response.status === 403) {
     throw new SessionExpiredError();
@@ -67,16 +66,12 @@ async function refreshAccessToken(): Promise<string> {
   }
   const tokens = (await response.json()) as TokenResponse;
   // The store may have changed while the refresh was in flight: a logout must
-  // NOT be resurrected by a late refresh result, and if another tab already
-  // rotated the session its (newer) tokens win over ours.
+  // NOT be resurrected by a late refresh result.
   const current = useAuthStore.getState();
-  if (current.refreshToken !== refreshToken) {
-    if (current.token && current.refreshToken && current.user) {
-      return current.token;
-    }
+  if (!current.user) {
     throw new SessionExpiredError();
   }
-  useAuthStore.getState().setAuth(tokens.access_token, tokens.refresh_token, user);
+  useAuthStore.getState().setAuth(tokens.access_token, user);
   return tokens.access_token;
 }
 
@@ -105,7 +100,7 @@ function doFetch(
   if (token && !hasAuthHeader) {
     headers['Authorization'] = `Bearer ${token}`;
   }
-  return fetch(`${API_URL}${path}`, { ...options, headers });
+  return fetch(`${API_URL}${path}`, { ...options, headers, credentials: 'include' });
 }
 
 export async function apiFetch<T>(
