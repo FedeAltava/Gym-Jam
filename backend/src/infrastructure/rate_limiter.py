@@ -78,12 +78,29 @@ class SlidingWindowRateLimiter:
             )
 
 
+_SLIDING_WINDOW_LUA = """
+local key = KEYS[1]
+local now = tonumber(ARGV[1])
+local window_start = tonumber(ARGV[2])
+local max_calls = tonumber(ARGV[3])
+local expire = tonumber(ARGV[4])
+redis.call('ZREMRANGEBYSCORE', key, 0, window_start)
+local count = redis.call('ZCARD', key)
+if count >= max_calls then
+    return 0
+end
+redis.call('ZADD', key, now, tostring(now))
+redis.call('EXPIRE', key, expire)
+return 1
+"""
+
+
 class RedisRateLimiter:
     """Redis-backed sliding-window rate limiter. Shared across workers.
 
-    Uses a Redis sorted set per (prefix, client-IP) key: member scores are
-    request timestamps, so pruning entries older than the window and counting
-    the remainder yields the sliding-window request count.
+    Uses a Redis sorted set per (prefix, client-IP) key. The check-and-add
+    is executed as a single atomic Lua script, eliminating the TOCTOU race
+    that would otherwise allow concurrent requests to slip past the limit.
     """
 
     def __init__(self, max_calls: int, window_seconds: int, key_prefix: str) -> None:
@@ -114,16 +131,18 @@ class RedisRateLimiter:
         full_key = f"rl:{self._key_prefix}:{key}"
         now = time.time()
         window_start = now - self._window_seconds
-        async with r.pipeline(transaction=True) as pipe:
-            pipe.zremrangebyscore(full_key, 0, window_start)
-            pipe.zcard(full_key)
-            results = await pipe.execute()
-        count: int = results[1]
-        if count >= self._max_calls:
-            return False
-        await r.zadd(full_key, {str(now): now})
-        await r.expire(full_key, self._window_seconds * 2)
-        return True
+        # Single atomic Lua script: prune + count + conditionally add.
+        # Eliminates the TOCTOU gap between the pipeline read and the zadd.
+        result = await r.eval(
+            _SLIDING_WINDOW_LUA,
+            1,
+            full_key,
+            str(now),
+            str(window_start),
+            str(self._max_calls),
+            str(self._window_seconds * 2),
+        )
+        return bool(result)
 
     def reset(self, key: str | None = None) -> None:
         """No-op — Redis keys expire on their own; tests use the in-memory limiter."""
@@ -159,3 +178,5 @@ register_limiter = _make_limiter(10, 60, "register")
 refresh_limiter = _make_limiter(30, 60, "refresh")
 logout_limiter = _make_limiter(30, 60, "logout")
 forgot_password_limiter = _make_limiter(3, 60, "forgot_password")
+reset_password_limiter = _make_limiter(5, 60, "reset_password")
+change_password_limiter = _make_limiter(5, 60, "change_password")

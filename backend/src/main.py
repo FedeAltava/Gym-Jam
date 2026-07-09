@@ -39,7 +39,14 @@ logging.config.dictConfig(_LOGGING_CONFIG)
 
 
 def create_app() -> FastAPI:
-    app = FastAPI(title="Gym-Jam API", version="0.1.0")
+    _is_prod = settings.environment == "production"
+    app = FastAPI(
+        title="Gym-Jam API",
+        version="0.1.0",
+        docs_url=None if _is_prod else "/docs",
+        redoc_url=None if _is_prod else "/redoc",
+        openapi_url=None if _is_prod else "/openapi.json",
+    )
     app.add_middleware(
         CORSMiddleware,
         allow_origins=settings.cors_origins,

@@ -19,11 +19,13 @@ from backend.src.infrastructure.database import get_session
 from backend.src.infrastructure.persistence.models import UserModel
 from backend.src.infrastructure.persistence.user_repository import SqlAlchemyUserRepository
 from backend.src.infrastructure.rate_limiter import (
+    change_password_limiter,
     forgot_password_limiter,
     login_limiter,
     logout_limiter,
     refresh_limiter,
     register_limiter,
+    reset_password_limiter,
 )
 from backend.src.presentation.dependencies import (
     get_change_password_uc,
@@ -158,9 +160,11 @@ async def forgot_password(
 
 @router.post("/reset-password", status_code=204)
 async def reset_password(
+    request: Request,
     body: ResetPasswordRequest,
     session: AsyncSession = Depends(get_session),
     uc: ResetPasswordUseCase = Depends(get_reset_password_uc),
+    _rate: None = Depends(reset_password_limiter.dependency),
 ) -> Response:
     result = await uc.execute(body.token, body.new_password)
     await session.commit()
@@ -172,10 +176,12 @@ async def reset_password(
 
 @router.patch("/password", status_code=204)
 async def change_password(
+    request: Request,
     body: ChangePasswordRequest,
     user: UserModel = Depends(get_current_user),
     session: AsyncSession = Depends(get_session),
     uc: ChangePasswordUseCase = Depends(get_change_password_uc),
+    _rate: None = Depends(change_password_limiter.dependency),
 ) -> Response:
     result = await uc.execute(user.id, body.current_password, body.new_password)
     await session.commit()
