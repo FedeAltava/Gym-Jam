@@ -30,4 +30,4 @@ Thumbs.db
 .idea/
 .vscode/
 *.swp
-.atl/.skill-registry.cache.json
+.atl/
