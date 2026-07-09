@@ -537,22 +537,19 @@ export function WorkoutSessionPage() {
   useEffect(() => {
     if (!session) return;
     const startTime = new Date(session.started_at).getTime();
-    // Initial value
-    setElapsedSeconds(Math.floor((Date.now() - startTime) / 1000));
-    const id = setInterval(() => {
-      setElapsedSeconds(Math.floor((Date.now() - startTime) / 1000));
-    }, 1000);
-    return () => clearInterval(id);
+    const tick = () => setElapsedSeconds(Math.floor((Date.now() - startTime) / 1000));
+    const initId = setTimeout(tick, 0);
+    const id = setInterval(tick, 1000);
+    return () => { clearTimeout(initId); clearInterval(id); };
   }, [session]);
 
   // Done-sets counter — seeded from logs already in the session, then updated
   // via callbacks from SetRow as the user toggles sets.
   const [doneSets, setDoneSets] = useState(0);
 
-  // Seed done count when session is first set
   useEffect(() => {
     if (session) {
-      setDoneSets(session.logs.length);
+      setTimeout(() => setDoneSets(session.logs.length), 0);
     }
   }, [session?.id]); // eslint-disable-line react-hooks/exhaustive-deps
 

@@ -175,7 +175,6 @@ async def test_refresh_of_logout_revoked_token_gets_no_grace(auth_client):
     second_login = await auth_client.post(
         f"{BASE}/login", json={"email": "nograce@example.com", "password": _DEFAULT_PASSWORD}
     )
-    second_access = second_login.json()["access_token"]
     second_refresh = second_login.cookies.get("refresh_token")
     # Revoke the first token: explicitly present it as the logout cookie
     r = await logout_with_cookie(

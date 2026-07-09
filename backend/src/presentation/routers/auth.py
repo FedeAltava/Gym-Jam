@@ -18,6 +18,7 @@ from backend.src.application.use_cases.reset_password import ResetPasswordUseCas
 from backend.src.infrastructure.auth.password import DUMMY_HASH, verify_password
 from backend.src.infrastructure.config import settings
 from backend.src.infrastructure.database import get_session
+from backend.src.infrastructure.email.email_service import send_reset_email
 from backend.src.infrastructure.persistence.models import UserModel
 from backend.src.infrastructure.persistence.user_repository import SqlAlchemyUserRepository
 from backend.src.infrastructure.rate_limiter import (
@@ -40,7 +41,6 @@ from backend.src.presentation.dependencies import (
     get_reset_password_uc,
     get_token_issuer,
     get_user_repository,
-    send_reset_email,
 )
 from backend.src.presentation.schemas.auth_schemas import (
     ChangePasswordRequest,
@@ -49,7 +49,6 @@ from backend.src.presentation.schemas.auth_schemas import (
     LogoutRequest,
     RegisterRequest,
     ResetPasswordRequest,
-    TokenResponse,
     UserResponse,
 )
 

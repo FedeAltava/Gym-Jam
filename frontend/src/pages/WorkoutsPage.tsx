@@ -158,7 +158,7 @@ export function WorkoutsPage() {
 
   useEffect(() => {
     if (searchParams.get('new') === 'true') {
-      setShowModal(true);
+      setTimeout(() => setShowModal(true), 0);
       setSearchParams({}, { replace: true });
     }
   }, [searchParams, setSearchParams]);

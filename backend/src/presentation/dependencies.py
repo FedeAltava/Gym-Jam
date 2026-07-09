@@ -1,6 +1,4 @@
 from datetime import timedelta
-from typing import Any
-from collections.abc import Callable
 
 from fastapi import Depends, HTTPException, status
 from fastapi.security import OAuth2PasswordBearer
@@ -14,7 +12,6 @@ from backend.src.infrastructure.auth.refresh_tokens import (
     hash_refresh_token,
 )
 from backend.src.infrastructure.config import settings
-from backend.src.infrastructure.email.email_service import send_reset_email
 from backend.src.infrastructure.persistence.models import UserModel
 from backend.src.infrastructure.persistence.user_repository import SqlAlchemyUserRepository
 from backend.src.infrastructure.persistence.password_reset_token_repository import (

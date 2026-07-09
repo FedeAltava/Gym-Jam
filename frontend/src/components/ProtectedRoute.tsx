@@ -15,7 +15,6 @@ export function ProtectedRoute({ children }: { children: React.ReactNode }) {
 
   useEffect(() => {
     if (!user || token) {
-      setIsRefreshing(false);
       return;
     }
     const apiUrl = import.meta.env.VITE_API_URL as string;

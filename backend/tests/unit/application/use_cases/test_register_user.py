@@ -3,7 +3,6 @@ from __future__ import annotations
 
 from typing import Any
 
-import pytest
 from returns.result import Failure, Success
 
 from backend.src.application.commands import RegisterUserCommand
