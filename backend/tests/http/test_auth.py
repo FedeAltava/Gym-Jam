@@ -310,3 +310,75 @@ async def test_change_password_wrong_current_password_returns_400(auth_client):
         headers={"Authorization": f"Bearer {token}"},
     )
     assert r.status_code == 400
+
+
+# 29. Register — password with no uppercase returns 422
+async def test_register_no_uppercase_returns_422(auth_client):
+    r = await auth_client.post(
+        f"{BASE}/register",
+        json={"email": "nouppercase@example.com", "password": "alllowercase1"},
+    )
+    assert r.status_code == 422
+
+
+# 30. Register — password with no digit returns 422
+async def test_register_no_digit_returns_422(auth_client):
+    r = await auth_client.post(
+        f"{BASE}/register",
+        json={"email": "nodigit@example.com", "password": "NoDigitHere"},
+    )
+    assert r.status_code == 422
+
+
+# 31. PATCH /auth/password — wrong current password returns generic error message
+async def test_change_password_wrong_current_returns_generic_message(auth_client):
+    await register(auth_client, "changepw_msg@example.com")
+    token_r = await login(auth_client, "changepw_msg@example.com")
+    token = token_r.json()["access_token"]
+    r = await auth_client.patch(
+        f"{BASE}/password",
+        json={"current_password": "WrongPassword1", "new_password": "NewPassword1"},
+        headers={"Authorization": f"Bearer {token}"},
+    )
+    assert r.status_code == 400
+    detail = r.json()["detail"]
+    assert "wrong" not in detail.lower()
+    assert "incorrect" not in detail.lower()
+
+
+# 32. POST /auth/login — login sets httpOnly refresh_token cookie with correct attributes
+async def test_login_sets_httponly_cookie(auth_client):
+    await register(auth_client, "cookietest@example.com")
+    r = await login(auth_client, "cookietest@example.com")
+    assert r.status_code == 200
+    set_cookie = r.headers.get("set-cookie", "")
+    assert "refresh_token" in set_cookie
+    assert "HttpOnly" in set_cookie
+    assert "Path=/auth" in set_cookie
+
+
+# 33. POST /auth/refresh — invalid cookie returns 401 and clears the cookie
+async def test_refresh_clears_cookie_on_invalid_token(auth_client):
+    auth_client.cookies.set("refresh_token", "totally-invalid-token", path="/auth")
+    r = await auth_client.post(f"{BASE}/refresh")
+    assert r.status_code == 401
+    set_cookie = r.headers.get("set-cookie", "")
+    # The cookie must be cleared: either Max-Age=0 or an empty value
+    assert "refresh_token" in set_cookie
+    assert "Max-Age=0" in set_cookie or 'refresh_token=""' in set_cookie or "refresh_token=;" in set_cookie
+
+
+# 34. POST /auth/logout — clears the refresh_token cookie
+async def test_logout_clears_cookie(auth_client):
+    await register(auth_client, "logoutcookie@example.com")
+    login_r = await login(auth_client, "logoutcookie@example.com")
+    assert login_r.status_code == 200
+    token = login_r.json()["access_token"]
+    r = await auth_client.post(
+        f"{BASE}/logout",
+        headers={"Authorization": f"Bearer {token}"},
+    )
+    assert r.status_code == 204
+    set_cookie = r.headers.get("set-cookie", "")
+    assert "refresh_token" in set_cookie
+    assert "Max-Age=0" in set_cookie or 'refresh_token=""' in set_cookie or "refresh_token=;" in set_cookie

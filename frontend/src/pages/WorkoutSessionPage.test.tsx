@@ -230,4 +230,51 @@ describe('WorkoutSessionPage', () => {
     const bodyweightLabels = screen.getAllByText('Peso corporal');
     expect(bodyweightLabels.length).toBeGreaterThan(0);
   });
+
+  it('renders exercises in plan order, not by muscle group', async () => {
+    // The fixture has Press banca (Pecho, order=1) before Dominadas (Espalda, order=2).
+    // Reversing the order in the day payload verifies the component sorts by `order`,
+    // not by insertion order or muscle group.
+    const user = userEvent.setup();
+    mockApiFetch.mockImplementation((path: string, options?: RequestInit) => {
+      if (path === '/auth/me') return Promise.resolve(PREFS_FIXTURE);
+      if (path.startsWith('/workouts/w1/days/day1/sessions')) {
+        if (options?.method === 'POST') return Promise.resolve(SESSION_FIXTURE);
+        return Promise.resolve([]);
+      }
+      if (path.startsWith('/workouts')) {
+        return Promise.resolve({
+          ...WORKOUT_FIXTURE,
+          training_days: [
+            {
+              ...WORKOUT_FIXTURE.training_days[0],
+              exercises: [
+                // Reversed insertion order: Dominadas first in array, but order=2
+                { id: 'we2', exercise_id: 'e2', order: 2, sets: 2, reps_per_set: 12, weight_kg: null },
+                // Press banca second in array, but order=1
+                { id: 'we1', exercise_id: 'e1', order: 1, sets: 3, reps_per_set: 10, weight_kg: 80 },
+              ],
+            },
+          ],
+        });
+      }
+      if (path.startsWith('/exercises')) return Promise.resolve(EXERCISES_FIXTURE);
+      return Promise.resolve(undefined);
+    });
+
+    renderWithProviders(<WorkoutSessionPage />);
+    const startBtn = await screen.findByRole('button', { name: /Iniciar sesión/ });
+    await user.click(startBtn);
+
+    await screen.findByText('Press banca');
+
+    const exerciseHeadings = screen.getAllByRole('heading', { level: 3 });
+    const names = exerciseHeadings.map((h) => h.textContent ?? '');
+    const pressIndex = names.findIndex((n) => n.includes('Press banca'));
+    const dominadasIndex = names.findIndex((n) => n.includes('Dominadas'));
+
+    expect(pressIndex).toBeGreaterThanOrEqual(0);
+    expect(dominadasIndex).toBeGreaterThanOrEqual(0);
+    expect(pressIndex).toBeLessThan(dominadasIndex);
+  });
 });

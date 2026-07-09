@@ -82,3 +82,24 @@ async def test_forgot_password_creates_token_record(session: AsyncSession) -> No
     assert len(rows) == 1
     assert rows[0].used_at is None
     assert rows[0].expires_at is not None
+
+
+async def test_forgot_password_smtp_failure_returns_success(session: AsyncSession) -> None:
+    async def failing_send(email: str, url: str) -> None:
+        raise Exception("SMTP error")
+
+    user = UserModel(
+        id=str(uuid.uuid4()),
+        email=f"{uuid.uuid4()}@example.com",
+        hashed_password=hash_password("password"),
+    )
+    session.add(user)
+    await session.flush()
+
+    repo = SqlAlchemyUserRepository(session)
+    token_repo = SqlAlchemyPasswordResetTokenRepository(session)
+    uc = ForgotPasswordUseCase(repo, token_repo, failing_send, "http://test.local")
+
+    result = await uc.execute(user.email)
+
+    assert isinstance(result, Success)

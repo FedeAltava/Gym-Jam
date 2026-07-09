@@ -296,3 +296,10 @@ async def test_rename_workout_empty_name_returns_422(client):
     created = await create_workout(client, "Rename Empty Test")
     r = await client.patch(f"/workouts/{created['id']}", json={"name": ""})
     assert r.status_code == 422
+
+
+# 37. PATCH /workouts/{id} — name over 100 chars returns 422
+async def test_rename_workout_name_too_long_returns_422(client):
+    created = await create_workout(client, "Rename Long Test")
+    r = await client.patch(f"/workouts/{created['id']}", json={"name": "a" * 101})
+    assert r.status_code == 422
