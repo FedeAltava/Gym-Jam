@@ -40,6 +40,7 @@ from backend.src.presentation.dependencies import (
     get_reset_password_uc,
     get_token_issuer,
     get_user_repository,
+    send_reset_email,
 )
 from backend.src.presentation.schemas.auth_schemas import (
     ChangePasswordRequest,
@@ -71,7 +72,14 @@ def _set_refresh_cookie(response: Response, token: str, expire_days: int) -> Non
 
 
 def _clear_refresh_cookie(response: Response) -> None:
-    response.delete_cookie(key="refresh_token", path="/auth")
+    _is_prod = settings.environment == "production"
+    response.delete_cookie(
+        key="refresh_token",
+        path="/auth",
+        secure=_is_prod,
+        httponly=True,
+        samesite="strict" if _is_prod else "lax",
+    )
 
 
 @router.post("/register", response_model=UserResponse, status_code=201)
@@ -182,8 +190,15 @@ async def forgot_password(
     uc: ForgotPasswordUseCase = Depends(get_forgot_password_uc),
     _rate: None = Depends(forgot_password_limiter.dependency),
 ) -> Response:
-    await uc.execute(body.email)
+    result = await uc.execute(body.email)
     await session.commit()
+    notification = result.unwrap()
+    if notification is not None:
+        user_email, reset_url = notification
+        try:
+            await send_reset_email(user_email, reset_url)
+        except Exception:
+            logger.warning("Failed to send password reset email to %s", user_email)
     return Response(status_code=204)
 
 

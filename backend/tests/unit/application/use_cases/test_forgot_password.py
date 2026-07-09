@@ -2,7 +2,6 @@
 from __future__ import annotations
 
 import uuid
-from unittest.mock import AsyncMock
 
 import pytest
 import sqlalchemy
@@ -44,19 +43,17 @@ async def session(engine, create_tables) -> AsyncSession:
 
 
 async def test_forgot_password_unknown_email(session: AsyncSession) -> None:
-    mock_send = AsyncMock()
     repo = SqlAlchemyUserRepository(session)
     token_repo = SqlAlchemyPasswordResetTokenRepository(session)
-    uc = ForgotPasswordUseCase(repo, token_repo, mock_send, "http://test.local")
+    uc = ForgotPasswordUseCase(repo, token_repo, "http://test.local")
 
     result = await uc.execute("nobody@example.com")
 
     assert isinstance(result, Success)
-    mock_send.assert_not_called()
+    assert result.unwrap() is None
 
 
 async def test_forgot_password_creates_token_record(session: AsyncSession) -> None:
-    mock_send = AsyncMock()
     user = UserModel(
         id=str(uuid.uuid4()),
         email=f"{uuid.uuid4()}@example.com",
@@ -67,12 +64,16 @@ async def test_forgot_password_creates_token_record(session: AsyncSession) -> No
 
     repo = SqlAlchemyUserRepository(session)
     token_repo = SqlAlchemyPasswordResetTokenRepository(session)
-    uc = ForgotPasswordUseCase(repo, token_repo, mock_send, "http://test.local")
+    uc = ForgotPasswordUseCase(repo, token_repo, "http://test.local")
 
     result = await uc.execute(user.email)
 
     assert isinstance(result, Success)
-    mock_send.assert_called_once()
+    notification = result.unwrap()
+    assert notification is not None
+    returned_email, reset_url = notification
+    assert returned_email == user.email
+    assert "reset-password?token=" in reset_url
 
     rows = (
         await session.execute(
@@ -82,24 +83,3 @@ async def test_forgot_password_creates_token_record(session: AsyncSession) -> No
     assert len(rows) == 1
     assert rows[0].used_at is None
     assert rows[0].expires_at is not None
-
-
-async def test_forgot_password_smtp_failure_returns_success(session: AsyncSession) -> None:
-    async def failing_send(email: str, url: str) -> None:
-        raise Exception("SMTP error")
-
-    user = UserModel(
-        id=str(uuid.uuid4()),
-        email=f"{uuid.uuid4()}@example.com",
-        hashed_password=hash_password("password"),
-    )
-    session.add(user)
-    await session.flush()
-
-    repo = SqlAlchemyUserRepository(session)
-    token_repo = SqlAlchemyPasswordResetTokenRepository(session)
-    uc = ForgotPasswordUseCase(repo, token_repo, failing_send, "http://test.local")
-
-    result = await uc.execute(user.email)
-
-    assert isinstance(result, Success)

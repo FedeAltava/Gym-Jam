@@ -292,7 +292,6 @@ def get_forgot_password_uc(
     return ForgotPasswordUseCase(
         user_repo=user_repo,
         token_repo=token_repo,
-        send_email=send_reset_email,
         base_url=settings.app_base_url,
     )
 

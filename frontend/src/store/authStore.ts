@@ -35,15 +35,10 @@ if (typeof window !== 'undefined') {
     if (event.key === AUTH_STORAGE_KEY || event.key === null) {
       const prevUserId = useAuthStore.getState().user?.id;
       useAuthStore.persist.rehydrate();
-      // After rehydrate() (synchronous for localStorage), check if the user
-      // changed. If so, the in-memory token belongs to a different session —
-      // clear it so the next render triggers a fresh login or silent refresh.
-      queueMicrotask(() => {
-        const newUserId = useAuthStore.getState().user?.id;
-        if (newUserId !== prevUserId) {
-          useAuthStore.setState({ token: null });
-        }
-      });
+      const newUserId = useAuthStore.getState().user?.id;
+      if (newUserId !== prevUserId) {
+        useAuthStore.setState({ token: null });
+      }
     }
   });
 }

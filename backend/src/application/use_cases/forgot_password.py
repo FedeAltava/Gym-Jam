@@ -2,10 +2,8 @@
 from __future__ import annotations
 
 import hashlib
-import logging
 import secrets
 import uuid
-from collections.abc import Awaitable, Callable
 from datetime import UTC, datetime, timedelta
 
 from returns.result import Result, Success
@@ -14,23 +12,19 @@ from backend.src.application.errors import ApplicationError
 from backend.src.domain.repositories.password_reset_token_repository import PasswordResetTokenRepository
 from backend.src.domain.repositories.user_repository import UserRepository
 
-logger = logging.getLogger(__name__)
-
 
 class ForgotPasswordUseCase:
     def __init__(
         self,
         user_repo: UserRepository,
         token_repo: PasswordResetTokenRepository,
-        send_email: Callable[[str, str], Awaitable[None]],
         base_url: str,
     ) -> None:
         self._user_repo = user_repo
         self._token_repo = token_repo
-        self._send_email = send_email
         self._base_url = base_url
 
-    async def execute(self, email: str) -> Result[None, ApplicationError]:
+    async def execute(self, email: str) -> Result[tuple[str, str] | None, ApplicationError]:
         user = await self._user_repo.find_by_email(email)
         if user is None:
             return Success(None)
@@ -43,11 +37,5 @@ class ForgotPasswordUseCase:
             token_hash=token_hash,
             expires_at=datetime.now(UTC) + timedelta(minutes=15),
         )
-
         reset_url = f"{self._base_url}/reset-password?token={raw_token}"
-        try:
-            await self._send_email(user.email, reset_url)
-        except Exception:
-            logger.exception("Failed to send password reset email to %s", user.email)
-
-        return Success(None)
+        return Success((user.email, reset_url))

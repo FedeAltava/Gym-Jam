@@ -1,6 +1,7 @@
 import { Link, useLocation } from 'react-router-dom';
 import { useAuthStore } from '../store/authStore';
 import { useNavigate } from 'react-router-dom';
+import { apiFetch } from '../lib/api';
 import { LayoutDashboard, PlusCircle, History, LogOut, User } from 'lucide-react';
 
 const NAV = [
@@ -59,8 +60,15 @@ export function Sidebar() {
         </div>
         <button
           onClick={() => {
-            logout();
-            navigate('/login');
+            void (async () => {
+              try {
+                await apiFetch<void>('/auth/logout', { method: 'POST' });
+              } catch {
+                // ignore — local logout happens regardless
+              }
+              logout();
+              navigate('/login');
+            })();
           }}
           className="w-full flex items-center gap-3 px-3 py-2.5 rounded-btn text-sm font-semibold transition-colors text-muted hover:text-danger"
           style={{ backgroundColor: 'transparent' }}
