@@ -1,6 +1,6 @@
 # Gym-Jam
 
-A full-stack gym workout tracker built as a portfolio project. Manage workout plans, training days, and exercise sessions — with JWT authentication, personal records, session history, and a polished mobile-first UI.
+A full-stack gym workout tracker. Manage workout plans, training days, and exercise sessions — with JWT authentication, personal records, session history, and a polished mobile-first UI.
 
 > Built with **Clean/Hexagonal Architecture**, strict **TDD** (637 tests), and deployed via **Docker Compose**.
 
