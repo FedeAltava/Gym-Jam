@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { Link, useSearchParams } from 'react-router-dom';
+import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 import { Play, Plus } from 'lucide-react';
 import { useWorkouts } from '../hooks/useWorkouts';
 import { Spinner } from '../components/Spinner';
@@ -18,6 +18,7 @@ function RoutineCard({
   workout: WorkoutResponse;
   todayKey: DayKey;
 }) {
+  const navigate = useNavigate();
   const count = exerciseCount(workout);
   const todayPlanDay = workout.is_active
     ? workout.training_days.find((d) => d.day_of_week === todayKey)
@@ -30,6 +31,7 @@ function RoutineCard({
 
   return (
     <article
+      onClick={() => navigate(`/workouts/${workout.id}`)}
       style={{
         borderRadius: '22px',
         padding: '20px',
@@ -37,29 +39,27 @@ function RoutineCard({
         border: isActive ? '1px solid rgba(43,229,129,0.25)' : '1px solid rgba(255,255,255,0.07)',
         marginBottom: '14px',
         position: 'relative',
+        cursor: 'pointer',
       }}
     >
       {/* Header row: name + active badge */}
       <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: '8px' }}>
-        <Link
-          to={`/workouts/${workout.id}`}
-          style={{ textDecoration: 'none', flex: 1, minWidth: 0 }}
+        <h3
+          style={{
+            fontSize: '19px',
+            fontFamily: "'Barlow Semi Condensed', sans-serif",
+            fontWeight: 700,
+            color: 'var(--text)',
+            overflow: 'hidden',
+            textOverflow: 'ellipsis',
+            whiteSpace: 'nowrap',
+            margin: 0,
+            flex: 1,
+            minWidth: 0,
+          }}
         >
-          <h3
-            style={{
-              fontSize: '19px',
-              fontFamily: "'Barlow Semi Condensed', sans-serif",
-              fontWeight: 700,
-              color: 'var(--text)',
-              overflow: 'hidden',
-              textOverflow: 'ellipsis',
-              whiteSpace: 'nowrap',
-              margin: 0,
-            }}
-          >
-            {workout.name}
-          </h3>
-        </Link>
+          {workout.name}
+        </h3>
         {isActive && (
           <span
             style={{
@@ -128,6 +128,7 @@ function RoutineCard({
       {todayPlanDay && (
         <Link
           to={`/workouts/${workout.id}/session/${todayPlanDay.id}`}
+          onClick={(e) => e.stopPropagation()}
           style={{
             display: 'inline-flex',
             alignItems: 'center',
