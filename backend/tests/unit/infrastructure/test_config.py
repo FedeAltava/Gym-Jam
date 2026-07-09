@@ -59,5 +59,19 @@ def test_settings_short_secret_key_raises_in_production() -> None:
 
 def test_settings_valid_secret_key_accepted_in_production() -> None:
     key = "a" * 32  # exactly 32 chars, not the sentinel
-    s = Settings(environment="production", secret_key=key)
+    s = Settings(
+        environment="production",
+        secret_key=key,
+        database_url="postgresql+asyncpg://user:pass@db/gymjam",
+    )
     assert s.secret_key == key
+
+
+def test_production_rejects_sqlite_database_url() -> None:
+    key = "a" * 32
+    with pytest.raises(ValidationError, match="SQLite"):
+        Settings(
+            environment="production",
+            secret_key=key,
+            database_url="sqlite+aiosqlite:///./gym_jam.db",
+        )

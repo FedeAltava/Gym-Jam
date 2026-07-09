@@ -37,13 +37,30 @@ class Settings(BaseSettings):
     app_base_url: str = "http://localhost:5173"
 
     @model_validator(mode="after")
-    def validate_secret_key_in_production(self) -> "Settings":
-        if self.environment == "production":
-            if self.secret_key in _INSECURE_SECRETS or len(self.secret_key) < _MIN_SECRET_LEN:
-                raise ValueError(
-                    "SECRET_KEY must be set to a secure value (>= 32 chars) in production. "
-                    "Generate one with: openssl rand -hex 32"
-                )
+    def validate_production_settings(self) -> "Settings":
+        if self.environment != "production":
+            return self
+        if self.secret_key in _INSECURE_SECRETS or len(self.secret_key) < _MIN_SECRET_LEN:
+            raise ValueError(
+                "SECRET_KEY must be set to a secure value (>= 32 chars) in production. "
+                "Generate one with: openssl rand -hex 32"
+            )
+        if "sqlite" in self.database_url.lower():
+            raise ValueError(
+                "DATABASE_URL must not use SQLite in production. "
+                "Configure a PostgreSQL connection string."
+            )
+        import warnings
+        if not self.redis_url:
+            warnings.warn(
+                "REDIS_URL is not set in production: rate limiting is per-process only.",
+                stacklevel=2,
+            )
+        if not self.smtp_host:
+            warnings.warn(
+                "SMTP_HOST is not set in production: password reset emails will fail silently.",
+                stacklevel=2,
+            )
         return self
 
 

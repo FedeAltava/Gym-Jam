@@ -21,20 +21,27 @@ export function ProtectedRoute({ children }: { children: React.ReactNode }) {
     const apiUrl = import.meta.env.VITE_API_URL as string;
     fetch(`${apiUrl}/auth/refresh`, { method: 'POST', credentials: 'include' })
       .then((r) => {
-        if (!r.ok) {
-          logout();
-          return;
+        if (r.status === 401 || r.status === 403) {
+          logout();   // cookie is gone — session is genuinely dead
+          return undefined;
         }
-        return r.json();
+        if (!r.ok) {
+          // Transient failure (429, 5xx): don't destroy session state.
+          // token stays null → Navigate to /login lets the user retry.
+          return undefined;
+        }
+        return r.json() as Promise<{ access_token?: string }>;
       })
-      .then((data?: { access_token?: string }) => {
+      .then((data) => {
         if (data?.access_token && user) {
           setAuth(data.access_token, user);
-        } else {
-          logout();
         }
+        // On undefined (transient error or 401/403 already handled): fall through.
+        // token stays null, redirect to /login happens after setIsRefreshing(false).
       })
-      .catch(() => logout())
+      .catch(() => {
+        // Network error: don't logout — let redirect happen, user can retry.
+      })
       .finally(() => setIsRefreshing(false));
   }, []); // only on mount
 
