@@ -611,12 +611,7 @@ export function WorkoutSessionPage() {
     );
   }
 
-  const sortedExercises = [...day.exercises].sort((a, b) => {
-    const mgA = exerciseById.get(a.exercise_id)?.muscle_group ?? '';
-    const mgB = exerciseById.get(b.exercise_id)?.muscle_group ?? '';
-    const mg = mgA.localeCompare(mgB);
-    return mg !== 0 ? mg : a.order - b.order;
-  });
+  const sortedExercises = [...day.exercises].sort((a, b) => a.order - b.order);
 
   // Pre-fill placeholders from the most recent completed session for this
   // training day (any calendar date). Falls back to plan values if no history.
