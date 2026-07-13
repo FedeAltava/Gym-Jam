@@ -1,6 +1,6 @@
 import { useState, useCallback, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { LogOut, Calendar, Clock, Globe } from 'lucide-react';
+import { LogOut, Calendar, Clock, Globe, ChevronDown } from 'lucide-react';
 import { apiFetch } from '../lib/api';
 import { useAuthStore } from '../store/authStore';
 import { useUserStats } from '../hooks/useStats';
@@ -138,6 +138,7 @@ export function ProfilePage() {
   }
 
   // ------------- Change password state -------------
+  const [showPasswordForm, setShowPasswordForm] = useState(false);
   const [currentPassword, setCurrentPassword] = useState('');
   const [newPassword, setNewPassword] = useState('');
   const [confirmNewPassword, setConfirmNewPassword] = useState('');
@@ -429,7 +430,7 @@ export function ProfilePage() {
         )}
       </div>
 
-      {/* ─── Account info / Change password ─── */}
+      {/* ─── Change password ─── */}
       <div
         style={{
           borderRadius: '20px',
@@ -437,97 +438,100 @@ export function ProfilePage() {
           border: '1px solid rgba(255,255,255,0.06)',
           overflow: 'hidden',
           marginBottom: '16px',
-          padding: '16px',
         }}
       >
-        <h2
+        <button
+          onClick={() => setShowPasswordForm((v) => !v)}
           style={{
-            fontSize: '15px',
-            fontWeight: 700,
-            color: 'var(--text)',
-            marginBottom: '12px',
+            width: '100%',
+            display: 'flex',
+            alignItems: 'center',
+            gap: '14px',
+            padding: '16px',
+            background: 'transparent',
+            border: 'none',
+            cursor: 'pointer',
+            textAlign: 'left',
           }}
         >
-          Cambiar contraseña
-        </h2>
-        <form onSubmit={handleChangePassword} style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
-          <div>
-            <label htmlFor="current-password" className="block text-xs font-semibold mb-1 text-muted">
-              Contraseña actual
-            </label>
-            <input
-              id="current-password"
-              type="password"
-              value={currentPassword}
-              onChange={(e) => setCurrentPassword(e.target.value)}
-              placeholder="••••••••"
-              required
-              className="w-full"
-              style={{
-                height: '40px',
-                borderRadius: '10px',
-                border: '1px solid var(--border)',
-                padding: '0 12px',
-                fontSize: '14px',
-              }}
-            />
-          </div>
-          <div>
-            <label htmlFor="new-password" className="block text-xs font-semibold mb-1 text-muted">
-              Nueva contraseña
-            </label>
-            <input
-              id="new-password"
-              type="password"
-              value={newPassword}
-              onChange={(e) => setNewPassword(e.target.value)}
-              placeholder="••••••••"
-              required
-              minLength={8}
-              className="w-full"
-              style={{
-                height: '40px',
-                borderRadius: '10px',
-                border: '1px solid var(--border)',
-                padding: '0 12px',
-                fontSize: '14px',
-              }}
-            />
-          </div>
-          <div>
-            <label htmlFor="confirm-new-password" className="block text-xs font-semibold mb-1 text-muted">
-              Confirmar nueva contraseña
-            </label>
-            <input
-              id="confirm-new-password"
-              type="password"
-              value={confirmNewPassword}
-              onChange={(e) => setConfirmNewPassword(e.target.value)}
-              placeholder="••••••••"
-              required
-              className="w-full"
-              style={{
-                height: '40px',
-                borderRadius: '10px',
-                border: '1px solid var(--border)',
-                padding: '0 12px',
-                fontSize: '14px',
-              }}
-            />
-          </div>
+          <span style={{ flex: 1, fontSize: '15px', fontWeight: 600, color: 'var(--text)' }}>
+            Cambiar contraseña
+          </span>
+          <ChevronDown
+            size={18}
+            style={{
+              color: 'var(--text-muted)',
+              transition: 'transform 0.2s',
+              transform: showPasswordForm ? 'rotate(180deg)' : 'rotate(0deg)',
+            }}
+          />
+        </button>
 
-          {pwSuccess && <p className="text-xs text-accent">{pwSuccess}</p>}
-          {pwError && <p className="text-xs text-danger">{pwError}</p>}
-
-          <button
-            type="submit"
-            disabled={pwLoading}
-            className="w-full font-semibold transition-all duration-200 disabled:opacity-60 rounded-btn bg-accent text-bg"
-            style={{ height: '44px', fontSize: '14px', border: 'none', cursor: 'pointer' }}
+        {showPasswordForm && (
+          <form
+            onSubmit={handleChangePassword}
+            style={{ display: 'flex', flexDirection: 'column', gap: '12px', padding: '0 16px 16px' }}
           >
-            {pwLoading ? 'Guardando…' : 'Actualizar contraseña'}
-          </button>
-        </form>
+            <div>
+              <label htmlFor="current-password" className="block text-xs font-semibold mb-1 text-muted">
+                Contraseña actual
+              </label>
+              <input
+                id="current-password"
+                type="password"
+                value={currentPassword}
+                onChange={(e) => setCurrentPassword(e.target.value)}
+                placeholder="••••••••"
+                required
+                className="w-full"
+                style={{ height: '40px', borderRadius: '10px', border: '1px solid var(--border)', padding: '0 12px', fontSize: '14px' }}
+              />
+            </div>
+            <div>
+              <label htmlFor="new-password" className="block text-xs font-semibold mb-1 text-muted">
+                Nueva contraseña
+              </label>
+              <input
+                id="new-password"
+                type="password"
+                value={newPassword}
+                onChange={(e) => setNewPassword(e.target.value)}
+                placeholder="••••••••"
+                required
+                minLength={8}
+                className="w-full"
+                style={{ height: '40px', borderRadius: '10px', border: '1px solid var(--border)', padding: '0 12px', fontSize: '14px' }}
+              />
+            </div>
+            <div>
+              <label htmlFor="confirm-new-password" className="block text-xs font-semibold mb-1 text-muted">
+                Confirmar nueva contraseña
+              </label>
+              <input
+                id="confirm-new-password"
+                type="password"
+                value={confirmNewPassword}
+                onChange={(e) => setConfirmNewPassword(e.target.value)}
+                placeholder="••••••••"
+                required
+                className="w-full"
+                style={{ height: '40px', borderRadius: '10px', border: '1px solid var(--border)', padding: '0 12px', fontSize: '14px' }}
+              />
+            </div>
+
+            {pwSuccess && <p className="text-xs text-accent">{pwSuccess}</p>}
+            {pwError && <p className="text-xs text-danger">{pwError}</p>}
+
+            <button
+              type="submit"
+              disabled={pwLoading}
+              className="w-full font-semibold transition-all duration-200 disabled:opacity-60 rounded-btn bg-accent text-bg"
+              style={{ height: '44px', fontSize: '14px', border: 'none', cursor: 'pointer' }}
+            >
+              {pwLoading ? 'Guardando…' : 'Actualizar contraseña'}
+            </button>
+          </form>
+        )}
       </div>
 
       {/* ─── Logout ─── */}
