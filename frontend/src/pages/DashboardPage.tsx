@@ -69,7 +69,6 @@ export function DashboardPage() {
   );
 
   const isLoading = statsLoading || workoutsLoading || historyLoading;
-  const isFullyEmpty = !activeWorkout && completedSessions.length === 0;
 
   return (
     <div>
@@ -85,10 +84,6 @@ export function DashboardPage() {
 
       {isLoading ? (
         <Spinner />
-      ) : isFullyEmpty ? (
-        <div className="max-w-md mx-auto mt-10">
-          <NextWorkoutCard workout={undefined} />
-        </div>
       ) : (
         <div className="grid gap-4">
           <StreakCard
