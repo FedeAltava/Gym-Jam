@@ -213,6 +213,7 @@ class SqlAlchemySessionRepository(SessionRepository):
                     WorkoutLogModel.weight_kg,
                     WorkoutExerciseModel.exercise_id,
                     ExerciseModel.name.label("exercise_name"),
+                    ExerciseModel.muscle_group.label("muscle_group"),
                 )
                 .join(
                     WorkoutExerciseModel,
@@ -230,13 +231,12 @@ class SqlAlchemySessionRepository(SessionRepository):
                     SessionHistoryLogDTO(
                         id=log_row.id,
                         workout_exercise_id=log_row.workout_exercise_id,
-                        # Fallback to the raw exercise_id for legacy free-text
-                        # references without a catalog row.
                         exercise_name=(
                             log_row.exercise_name
                             if log_row.exercise_name is not None
                             else log_row.exercise_id
                         ),
+                        muscle_group=log_row.muscle_group,
                         set_number=log_row.set_number,
                         reps_completed=log_row.reps_completed,
                         weight_kg=log_row.weight_kg,

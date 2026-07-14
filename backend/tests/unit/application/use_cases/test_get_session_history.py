@@ -105,6 +105,7 @@ async def test_history_propagates_repo_results_as_dtos(
         id="log-1",
         workout_exercise_id="we-1",
         exercise_name="Bench Press",
+        muscle_group="Pecho",
         set_number=1,
         reps_completed=10,
         weight_kg=80.0,

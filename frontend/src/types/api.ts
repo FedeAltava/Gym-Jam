@@ -78,6 +78,7 @@ export interface SessionHistoryLogResponse {
   id: string;
   workout_exercise_id: string;
   exercise_name: string;
+  muscle_group: string | null;
   set_number: number;
   reps_completed: number;
   weight_kg: number | null;
