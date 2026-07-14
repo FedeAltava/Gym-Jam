@@ -14,6 +14,7 @@ import { WorkoutSessionPage } from './pages/WorkoutSessionPage';
 import { AddExercisesPage } from './pages/AddExercisesPage';
 import { ProfilePage } from './pages/ProfilePage';
 import { HistoryPage } from './pages/HistoryPage';
+import { SessionDetailPage } from './pages/SessionDetailPage';
 
 export default function App() {
   return (
@@ -42,6 +43,7 @@ export default function App() {
             <Route path="workouts/:workoutId/days/:day/add-exercises" element={<AddExercisesPage />} />
             <Route path="profile" element={<ProfilePage />} />
             <Route path="history" element={<HistoryPage />} />
+            <Route path="history/:sessionId" element={<SessionDetailPage />} />
           </Route>
           <Route path="*" element={<Navigate to="/dashboard" replace />} />
         </Routes>
