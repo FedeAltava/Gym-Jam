@@ -315,7 +315,13 @@ export function HistoryPage() {
       {sessions && sessions.length > 0 && (
         <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
           {sessions.map((session, index) => (
-            <SessionCard key={session.id} session={session} isFirst={index === 0} />
+            <Link
+              key={session.id}
+              to={`/history/${session.id}`}
+              style={{ textDecoration: 'none' }}
+            >
+              <SessionCard session={session} isFirst={index === 0} />
+            </Link>
           ))}
         </div>
       )}

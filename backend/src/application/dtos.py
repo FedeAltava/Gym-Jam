@@ -141,6 +141,7 @@ class SessionHistoryLogDTO:
     id: str
     workout_exercise_id: str
     exercise_name: str
+    muscle_group: str | None
     set_number: int
     reps_completed: int
     weight_kg: float | None

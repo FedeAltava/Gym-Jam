@@ -44,7 +44,7 @@ export function NextWorkoutCard({ workout }: NextWorkoutCardProps) {
           Planifica tus días de entrenamiento para empezar a progresar
         </p>
         <Link
-          to="/workouts?new=true"
+          to="/workouts"
           style={{
             display: 'inline-flex',
             alignItems: 'center',

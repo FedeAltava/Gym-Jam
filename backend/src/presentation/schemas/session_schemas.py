@@ -83,9 +83,8 @@ class WorkoutSessionResponse(BaseModel):
 class SessionHistoryLogResponse(BaseModel):
     id: str
     workout_exercise_id: str
-    # Resolved server-side from the exercise catalog (raw exercise_id for
-    # legacy free-text references).
     exercise_name: str
+    muscle_group: str | None
     set_number: int
     reps_completed: int
     weight_kg: float | None
@@ -96,6 +95,7 @@ class SessionHistoryLogResponse(BaseModel):
             id=dto.id,
             workout_exercise_id=dto.workout_exercise_id,
             exercise_name=dto.exercise_name,
+            muscle_group=dto.muscle_group,
             set_number=dto.set_number,
             reps_completed=dto.reps_completed,
             weight_kg=dto.weight_kg,

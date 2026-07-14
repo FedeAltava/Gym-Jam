@@ -2,6 +2,7 @@ import { useForm, Controller } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
 import { X } from 'lucide-react';
+import { useNavigate } from 'react-router-dom';
 import { useCreateWorkout } from '../../hooks/useWorkouts';
 import { DAYS, DAY_LABEL, DAY_SHORT } from '../../lib/days';
 
@@ -17,6 +18,7 @@ interface NewRoutineModalProps {
 }
 
 export function NewRoutineModal({ onClose }: NewRoutineModalProps) {
+  const navigate = useNavigate();
   const {
     register,
     handleSubmit,
@@ -35,7 +37,12 @@ export function NewRoutineModal({ onClose }: NewRoutineModalProps) {
         description: data.description || undefined,
         training_days: data.training_days,
       },
-      { onSuccess: onClose },
+      {
+        onSuccess: (workout) => {
+          onClose();
+          navigate(`/workouts/${workout.id}`);
+        },
+      },
     ),
   );
 
