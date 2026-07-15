@@ -24,6 +24,20 @@ class InMemorySessionRepository(SessionRepository):
     async def get_by_id(self, id: WorkoutSessionId) -> WorkoutSession | None:
         return self._store.get(str(id.value))
 
+    async def get_in_progress_for_day(
+        self,
+        user_id: str,
+        training_day_id: TrainingDayId,
+    ) -> WorkoutSession | None:
+        for s in self._store.values():
+            if (
+                s.user_id == user_id
+                and s.training_day_id == training_day_id
+                and s.completed_at is None
+            ):
+                return s
+        return None
+
     async def delete(self, session_id: WorkoutSessionId) -> None:
         self._store.pop(str(session_id.value), None)
 
@@ -44,6 +58,16 @@ class InMemorySessionRepository(SessionRepository):
         ]
         # Return newest first (consistent with SQL repo)
         return sorted(results, key=lambda s: s.started_at, reverse=True)
+
+    async def get_history_item_for_user(
+        self,
+        user_id: str,
+        session_id: str,
+    ) -> SessionHistoryItemDTO | None:
+        for item in self._history_items:
+            if item.id == session_id:
+                return item
+        return None
 
     def seed_history(self, items: list[SessionHistoryItemDTO]) -> None:
         """Seed pre-built history read models (already ordered newest-first)."""

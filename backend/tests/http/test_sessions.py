@@ -398,14 +398,32 @@ async def test_complete_session_idempotent(client) -> None:
 
 # ── 11. Multiple sessions same day ───────────────────────────────────────────
 
-async def test_multiple_sessions_same_day(client) -> None:
+async def test_second_in_progress_session_same_day_rejected(client) -> None:
     wid, day_id = await create_workout_with_day(client, "TUESDAY")
 
     r1 = await client.post(f"/workouts/{wid}/days/{day_id}/sessions", json={})
-    r2 = await client.post(f"/workouts/{wid}/days/{day_id}/sessions", json={})
     assert r1.status_code == 201
+
+    # A second session for the same day while one is still in progress is a
+    # conflict — prevents zombie duplicate sessions from two tabs.
+    r2 = await client.post(f"/workouts/{wid}/days/{day_id}/sessions", json={})
+    assert r2.status_code == 409
+
+
+async def test_new_session_allowed_after_completing_previous(client) -> None:
+    wid, day_id = await create_workout_with_day(client, "TUESDAY")
+
+    r1 = await client.post(f"/workouts/{wid}/days/{day_id}/sessions", json={})
+    assert r1.status_code == 201
+    first_id = r1.json()["id"]
+
+    rc = await client.post(f"/sessions/{first_id}/complete", json={})
+    assert rc.status_code == 200
+
+    # Once the previous session is completed, a new one may start.
+    r2 = await client.post(f"/workouts/{wid}/days/{day_id}/sessions", json={})
     assert r2.status_code == 201
-    assert r1.json()["id"] != r2.json()["id"]
+    assert r2.json()["id"] != first_id
 
     r3 = await client.get(f"/workouts/{wid}/days/{day_id}/sessions")
     assert r3.status_code == 200

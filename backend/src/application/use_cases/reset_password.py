@@ -46,7 +46,15 @@ class ResetPasswordUseCase:
             ))
 
         user.hashed_password = self._hash_password(new_password)
-        await self._token_repo.mark_used(record.id, datetime.now(UTC))
+        marked = await self._token_repo.mark_used(record.id, datetime.now(UTC))
+        if not marked:
+            # A concurrent request already consumed this token — treat it as
+            # invalid so the password change from this losing request is not
+            # committed on the strength of an already-used token.
+            return Failure(DomainViolationError(
+                domain_error=ValueError(_INVALID_TOKEN_MSG),
+                message=_INVALID_TOKEN_MSG,
+            ))
         await self._refresh_token_repo.revoke_all_for_user(user.id)
 
         return Success(None)

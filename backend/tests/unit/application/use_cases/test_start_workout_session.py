@@ -6,7 +6,11 @@ from returns.result import Failure, Success
 
 from backend.src.application.commands import StartWorkoutSessionCommand
 from backend.src.application.dtos import WorkoutSessionDTO
-from backend.src.application.errors import UnauthorizedError, WorkoutNotFoundError
+from backend.src.application.errors import (
+    SessionAlreadyInProgressError,
+    UnauthorizedError,
+    WorkoutNotFoundError,
+)
 from backend.src.application.use_cases.start_workout_session import StartWorkoutSessionUseCase
 from backend.src.domain.aggregates.workout import Workout
 from backend.src.domain.value_objects import DayOfWeek, TrainingDayId, WorkoutId
@@ -154,7 +158,7 @@ async def test_start_session_training_day_not_in_workout(
     assert isinstance(result.failure(), WorkoutNotFoundError)
 
 
-async def test_start_session_multiple_sessions_same_day_allowed(
+async def test_start_session_second_in_progress_same_day_rejected(
     use_case: StartWorkoutSessionUseCase,
     workout_repo: InMemoryWorkoutRepository,
     session_repo: InMemorySessionRepository,
@@ -172,5 +176,7 @@ async def test_start_session_multiple_sessions_same_day_allowed(
     r2 = await use_case.execute(cmd)
 
     assert isinstance(r1, Success)
-    assert isinstance(r2, Success)
-    assert r1.unwrap().id != r2.unwrap().id
+    # A second session while one is still in progress for the same day is a
+    # conflict — prevents zombie duplicate sessions.
+    assert isinstance(r2, Failure)
+    assert isinstance(r2.failure(), SessionAlreadyInProgressError)

@@ -23,6 +23,7 @@ from backend.src.application.use_cases.delete_exercise_log import DeleteExercise
 from backend.src.application.use_cases.delete_workout_session import DeleteWorkoutSessionUseCase
 from backend.src.application.use_cases.get_session_history import GetSessionHistoryUseCase
 from backend.src.application.use_cases.get_sessions_for_day import GetSessionsForDayUseCase
+from backend.src.application.use_cases.get_workout_session import GetWorkoutSessionUseCase
 from backend.src.application.use_cases.log_exercise_set import LogExerciseSetUseCase
 from backend.src.application.use_cases.start_workout_session import StartWorkoutSessionUseCase
 from backend.src.application.use_cases.update_exercise_log import UpdateExerciseLogUseCase
@@ -34,6 +35,7 @@ from backend.src.presentation.dependencies import (
     get_delete_session_uc,
     get_get_sessions_for_day_uc,
     get_log_exercise_set_uc,
+    get_get_workout_session_uc,
     get_session_history_uc,
     get_start_session_uc,
     get_update_log_uc,
@@ -126,6 +128,22 @@ async def get_session_history(
     if isinstance(result, Failure):
         raise result.failure()
     return [SessionHistoryItemResponse.from_dto(dto) for dto in result.unwrap()]
+
+
+@router.get(
+    "/sessions/{session_id}",
+    status_code=200,
+    response_model=SessionHistoryItemResponse,
+)
+async def get_session_detail(
+    session_id: str,
+    uc: GetWorkoutSessionUseCase = Depends(get_get_workout_session_uc),
+    user_id: str = Depends(get_current_user_id),
+) -> SessionHistoryItemResponse:
+    result = await uc.execute(session_id=session_id, user_id=user_id)
+    if isinstance(result, Failure):
+        raise result.failure()
+    return SessionHistoryItemResponse.from_dto(result.unwrap())
 
 
 @router.post(

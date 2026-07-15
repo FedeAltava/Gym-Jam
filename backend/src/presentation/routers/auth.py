@@ -90,9 +90,9 @@ async def register(
     _rate: None = Depends(register_limiter.dependency),
 ) -> UserResponse:
     result = await uc.execute(RegisterUserCommand(email=body.email, password=body.password))
-    await session.commit()
     if isinstance(result, Failure):
         raise HTTPException(status_code=409, detail=result.failure().message)
+    await session.commit()
     user = result.unwrap()
     return UserResponse(
         id=user.id,
@@ -138,11 +138,11 @@ async def refresh(
     if not raw_token:
         raise HTTPException(status_code=401, detail="Missing refresh token")
     result = await use_case.execute(raw_token)
-    await session.commit()
     if isinstance(result, Failure):
         resp = JSONResponse(status_code=401, content={"detail": "Invalid refresh token"})
         _clear_refresh_cookie(resp)
         return resp
+    await session.commit()
     pair = result.unwrap()
     response = JSONResponse(content={"access_token": pair.access_token, "token_type": "bearer"})
     _set_refresh_cookie(response, pair.refresh_token, settings.refresh_token_expire_days)
@@ -210,10 +210,10 @@ async def reset_password(
     _rate: None = Depends(reset_password_limiter.dependency),
 ) -> Response:
     result = await uc.execute(body.token, body.new_password)
-    await session.commit()
     if isinstance(result, Failure):
         error = result.failure()
         raise HTTPException(status_code=400, detail=error.message)
+    await session.commit()
     return Response(status_code=204)
 
 
@@ -227,8 +227,8 @@ async def change_password(
     _rate: None = Depends(change_password_limiter.dependency),
 ) -> Response:
     result = await uc.execute(user.id, body.current_password, body.new_password)
-    await session.commit()
     if isinstance(result, Failure):
         error = result.failure()
         raise HTTPException(status_code=400, detail=error.message)
+    await session.commit()
     return Response(status_code=204)

@@ -89,7 +89,9 @@ local count = redis.call('ZCARD', key)
 if count >= max_calls then
     return 0
 end
-redis.call('ZADD', key, now, tostring(now))
+local seq = redis.call('INCR', key .. ':seq')
+redis.call('EXPIRE', key .. ':seq', expire)
+redis.call('ZADD', key, now, tostring(now) .. ':' .. seq)
 redis.call('EXPIRE', key, expire)
 return 1
 """

@@ -1,6 +1,6 @@
 import { useParams, useNavigate } from 'react-router-dom';
 import { ArrowLeft } from 'lucide-react';
-import { useSessionHistory } from '../hooks/useSessionHistory';
+import { useSessionDetail, useSessionHistory } from '../hooks/useSessionHistory';
 import { Spinner } from '../components/Spinner';
 import { DAY_LABEL } from '../lib/days';
 import type { DayKey } from '../lib/days';
@@ -233,10 +233,13 @@ export function SessionDetailPage() {
   const { sessionId } = useParams<{ sessionId: string }>();
   const navigate = useNavigate();
 
-  const { data: historyData, isLoading } = useSessionHistory({ status: 'completed' });
+  const { data: session, isLoading } = useSessionDetail(sessionId);
 
+  // History is used ONLY to find the previous session of the same workout —
+  // never to resolve the session being viewed (that comes from useSessionDetail
+  // so sessions older than the first history page still load).
+  const { data: historyData } = useSessionHistory({ status: 'completed' });
   const allSessions = historyData?.pages.flat() ?? [];
-  const session = allSessions.find((s) => s.id === sessionId);
 
   if (isLoading && !session) return <Spinner />;
 

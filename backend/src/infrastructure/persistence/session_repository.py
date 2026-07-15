@@ -87,6 +87,26 @@ class SqlAlchemySessionRepository(SessionRepository):
             return None
         return WorkoutSessionMapper.to_domain(model)
 
+    async def get_in_progress_for_day(
+        self,
+        user_id: str,
+        training_day_id: TrainingDayId,
+    ) -> WorkoutSession | None:
+        stmt = (
+            select(WorkoutSessionModel)
+            .where(
+                WorkoutSessionModel.user_id == user_id,
+                WorkoutSessionModel.training_day_id == str(training_day_id.value),
+                WorkoutSessionModel.completed_at.is_(None),
+            )
+            .options(selectinload(WorkoutSessionModel.logs))
+        )
+        result = await self._session.execute(stmt)
+        model = result.scalars().first()
+        if model is None:
+            return None
+        return WorkoutSessionMapper.to_domain(model)
+
     async def delete(self, session_id: WorkoutSessionId) -> None:
         stmt = select(WorkoutSessionModel).where(
             WorkoutSessionModel.id == str(session_id.value)
@@ -121,6 +141,28 @@ class SqlAlchemySessionRepository(SessionRepository):
         models = result.scalars().all()
         return [WorkoutSessionMapper.to_domain(m) for m in models]
 
+    async def get_history_item_for_user(
+        self,
+        user_id: str,
+        session_id: str,
+    ) -> SessionHistoryItemDTO | None:
+        # Single-session read model, scoped by user_id so one user cannot fetch
+        # another user's session. Reuses list_history_for_user's enriched query
+        # (workout name, day-of-week, exercise names, PR count) instead of the
+        # bare aggregate — the detail page needs those joined fields.
+        items = await self.list_history_for_user(
+            user_id=user_id,
+            workout_id=None,
+            day_id=None,
+            status=None,
+            date_from=None,
+            date_to=None,
+            limit=1,
+            offset=0,
+            session_id=session_id,
+        )
+        return items[0] if items else None
+
     async def list_history_for_user(
         self,
         user_id: str,
@@ -131,6 +173,7 @@ class SqlAlchemySessionRepository(SessionRepository):
         date_to: date | None,
         limit: int,
         offset: int,
+        session_id: str | None = None,
     ) -> list[SessionHistoryItemDTO]:
         # Exactly two queries, zero N+1.
         #
@@ -170,6 +213,8 @@ class SqlAlchemySessionRepository(SessionRepository):
             .limit(limit)
             .offset(offset)
         )
+        if session_id is not None:
+            stmt = stmt.where(WorkoutSessionModel.id == session_id)
         if workout_id is not None:
             stmt = stmt.where(WorkoutSessionModel.workout_id == workout_id)
         if day_id is not None:

@@ -7,7 +7,7 @@ import { useAuthStore } from '../store/authStore';
 import { useUserStats } from '../hooks/useStats';
 import { useActiveWorkout } from '../hooks/useActiveWorkout';
 import { useSessionHistory } from '../hooks/useSessionHistory';
-import { DAYS, mondayFirstIndex, type DayKey } from '../lib/days';
+import { DAYS, type DayKey } from '../lib/days';
 import type { SessionHistoryItemResponse } from '../types/api';
 
 function firstNameFromEmail(email: string): string {
@@ -15,12 +15,24 @@ function firstNameFromEmail(email: string): string {
   return prefix.charAt(0).toUpperCase() + prefix.slice(1);
 }
 
-/** Start of the current week: Monday 00:00 local time. */
-function currentWeekStart(now: Date): Date {
-  const start = new Date(now);
-  start.setDate(now.getDate() - mondayFirstIndex(now));
-  start.setHours(0, 0, 0, 0);
-  return start;
+/**
+ * Start of the current week: Monday 00:00 UTC.
+ *
+ * The backend computes streak/weekly stats on UTC week boundaries, so the
+ * dashboard MUST bucket sessions the same way — otherwise users at non-UTC
+ * offsets see dashboard segments that disagree with the backend streak.
+ */
+function currentWeekStartUTC(now: Date): Date {
+  const dayOfWeek = now.getUTCDay(); // 0 = Sunday … 6 = Saturday
+  const daysFromMonday = (dayOfWeek + 6) % 7; // Mon=0 … Sun=6
+  return new Date(
+    Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate() - daysFromMonday),
+  );
+}
+
+/** Monday-first (Mon=0 … Sun=6) day index of a date, computed in UTC. */
+function mondayFirstIndexUTC(date: Date): number {
+  return (date.getUTCDay() + 6) % 7;
 }
 
 function sessionVolumeKg(session: SessionHistoryItemResponse): number {
@@ -39,7 +51,7 @@ export function DashboardPage() {
   });
 
   const now = new Date();
-  const todayIdx = mondayFirstIndex(now);
+  const todayIdx = mondayFirstIndexUTC(now);
   const firstName = user ? firstNameFromEmail(user.email) : '';
   const avatarLetter = firstName ? firstName[0].toUpperCase() : '?';
 
@@ -49,17 +61,17 @@ export function DashboardPage() {
     : [];
   const recentSessions = completedSessions.slice(0, 2);
 
-  const weekStart = currentWeekStart(now);
+  const weekStart = currentWeekStartUTC(now);
   const thisWeekSessions = completedSessions.filter(
     (s) => new Date(s.started_at) >= weekStart,
   );
 
   const completedDays = new Set(
-    thisWeekSessions.map((s) => mondayFirstIndex(new Date(s.started_at))),
+    thisWeekSessions.map((s) => mondayFirstIndexUTC(new Date(s.started_at))),
   );
   const volumes = Array.from({ length: 7 }, () => 0);
   for (const session of thisWeekSessions) {
-    volumes[mondayFirstIndex(new Date(session.started_at))] += sessionVolumeKg(session);
+    volumes[mondayFirstIndexUTC(new Date(session.started_at))] += sessionVolumeKg(session);
   }
 
   const planDays = new Set(

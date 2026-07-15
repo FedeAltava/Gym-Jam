@@ -139,6 +139,17 @@ class SessionAlreadyCompletedError(ApplicationError):
 
 
 @dataclass
+class SessionAlreadyInProgressError(ApplicationError):
+    training_day_id: str
+
+    def __init__(self, training_day_id: str) -> None:
+        object.__setattr__(self, "training_day_id", training_day_id)
+        super().__init__(
+            f"An in-progress session already exists for training day '{training_day_id}'."
+        )
+
+
+@dataclass
 class SetExceedsPlanError(ApplicationError):
     set_number: int
     max_sets: int

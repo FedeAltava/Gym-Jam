@@ -1,4 +1,4 @@
-import { useInfiniteQuery } from '@tanstack/react-query';
+import { useInfiniteQuery, useQuery } from '@tanstack/react-query';
 import { apiFetch } from '../lib/api';
 import type { SessionHistoryItemResponse } from '../types/api';
 
@@ -44,5 +44,21 @@ export function useSessionHistory(filters: SessionHistoryFilters = {}) {
       lastPage: SessionHistoryItemResponse[],
       allPages: SessionHistoryItemResponse[][],
     ) => (lastPage.length === PAGE_SIZE ? allPages.length * PAGE_SIZE : undefined),
+  });
+}
+
+/**
+ * Fetch a single session by id directly from the backend.
+ *
+ * The detail page can be reached for any session, including ones older than
+ * the first history page — so it must NOT rely on the paginated history list
+ * to resolve the session.
+ */
+export function useSessionDetail(sessionId: string | undefined) {
+  return useQuery({
+    queryKey: ['sessions', 'detail', sessionId],
+    queryFn: () =>
+      apiFetch<SessionHistoryItemResponse>(`/sessions/${sessionId}`),
+    enabled: sessionId !== undefined,
   });
 }

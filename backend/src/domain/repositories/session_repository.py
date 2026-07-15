@@ -17,6 +17,13 @@ class SessionRepository(ABC):
     async def get_by_id(self, id: WorkoutSessionId) -> WorkoutSession | None: ...
 
     @abstractmethod
+    async def get_in_progress_for_day(
+        self,
+        user_id: str,
+        training_day_id: TrainingDayId,
+    ) -> WorkoutSession | None: ...
+
+    @abstractmethod
     async def delete(self, session_id: WorkoutSessionId) -> None: ...
 
     @abstractmethod
@@ -26,6 +33,13 @@ class SessionRepository(ABC):
         workout_id: WorkoutId,
         training_day_id: TrainingDayId,
     ) -> list[WorkoutSession]: ...
+
+    @abstractmethod
+    async def get_history_item_for_user(
+        self,
+        user_id: str,
+        session_id: str,
+    ) -> SessionHistoryItemDTO | None: ...
 
     @abstractmethod
     async def list_history_for_user(

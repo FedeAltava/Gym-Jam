@@ -9,6 +9,7 @@ from backend.src.application.commands import StartWorkoutSessionCommand
 from backend.src.application.dtos import WorkoutSessionDTO
 from backend.src.application.errors import (
     ApplicationError,
+    SessionAlreadyInProgressError,
     UnauthorizedError,
     WorkoutNotFoundError,
 )
@@ -53,6 +54,14 @@ class StartWorkoutSessionUseCase:
 
         if matching_day is None:
             return Failure(WorkoutNotFoundError(workout_id=cmd.workout_id))
+
+        # 3b. Reject a second concurrent session for the same day. Two tabs
+        # would otherwise both create zombie in-progress sessions.
+        existing = await self._session_repo.get_in_progress_for_day(
+            cmd.user_id, training_day_id
+        )
+        if existing is not None:
+            return Failure(SessionAlreadyInProgressError(training_day_id=cmd.training_day_id))
 
         # 4. Create session
         session = WorkoutSession(

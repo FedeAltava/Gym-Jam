@@ -57,6 +57,7 @@ from backend.src.application.use_cases.delete_exercise_log import DeleteExercise
 from backend.src.application.use_cases.delete_workout_session import DeleteWorkoutSessionUseCase
 from backend.src.application.use_cases.get_sessions_for_day import GetSessionsForDayUseCase
 from backend.src.application.use_cases.get_session_history import GetSessionHistoryUseCase
+from backend.src.application.use_cases.get_workout_session import GetWorkoutSessionUseCase
 from backend.src.application.use_cases.get_user_stats import GetUserStatsUseCase
 from backend.src.application.use_cases.forgot_password import ForgotPasswordUseCase
 from backend.src.application.use_cases.reset_password import ResetPasswordUseCase
@@ -270,6 +271,12 @@ def get_session_history_uc(
     session_repo: SessionRepository = Depends(get_session_repository),
 ) -> GetSessionHistoryUseCase:
     return GetSessionHistoryUseCase(session_repo)
+
+
+def get_get_workout_session_uc(
+    session_repo: SessionRepository = Depends(get_session_repository),
+) -> GetWorkoutSessionUseCase:
+    return GetWorkoutSessionUseCase(session_repo)
 
 
 def get_stats_repository(session: AsyncSession = Depends(get_session)) -> StatsRepository:

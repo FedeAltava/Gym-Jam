@@ -11,7 +11,7 @@ logger = logging.getLogger(__name__)
 
 async def send_reset_email(to_email: str, reset_url: str) -> None:
     if not settings.smtp_host:
-        logger.info("SMTP not configured — reset URL: %s", reset_url)
+        logger.info("SMTP not configured — skipping password reset email")
         return
 
     message = MIMEMultipart("alternative")

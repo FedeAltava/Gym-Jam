@@ -29,6 +29,10 @@ class ForgotPasswordUseCase:
         if user is None:
             return Success(None)
 
+        # Invalidate any still-unused tokens so only the freshly issued one is
+        # valid — prevents multiple simultaneously active reset tokens.
+        await self._token_repo.invalidate_unused_for_user(user.id)
+
         raw_token = secrets.token_urlsafe(32)
         token_hash = hashlib.sha256(raw_token.encode()).hexdigest()
         await self._token_repo.create(

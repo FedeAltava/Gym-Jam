@@ -421,6 +421,8 @@ interface ExerciseBlockProps {
   sessionCompleted: boolean;
   units: 'kg' | 'lb';
   onDoneSetsChange: (delta: number) => void;
+  extraSets: number;
+  onAddExtraSet: () => void;
 }
 
 function ExerciseBlock({
@@ -436,8 +438,9 @@ function ExerciseBlock({
   sessionCompleted,
   units,
   onDoneSetsChange,
+  extraSets,
+  onAddExtraSet,
 }: ExerciseBlockProps) {
-  const [extraSets, setExtraSets] = useState(0);
   const logsBySet = new Map(logs.map((l) => [l.set_number, l]));
   const totalSets = exercise.sets + extraSets;
 
@@ -475,7 +478,7 @@ function ExerciseBlock({
       {!sessionCompleted && (
         <button
           type="button"
-          onClick={() => setExtraSets((n) => n + 1)}
+          onClick={onAddExtraSet}
           className="mt-3 text-xs text-muted bg-transparent border-none cursor-pointer p-0"
         >
           + Serie extra
@@ -557,6 +560,11 @@ export function WorkoutSessionPage() {
     setDoneSets((prev) => Math.max(0, prev + delta));
   }, []);
 
+  const [extraSetsMap, setExtraSetsMap] = useState<Record<string, number>>({});
+  const handleAddExtraSet = useCallback((exerciseId: string) => {
+    setExtraSetsMap((prev) => ({ ...prev, [exerciseId]: (prev[exerciseId] ?? 0) + 1 }));
+  }, []);
+
   if (workoutLoading) return <Spinner />;
   if (workoutError || !workout)
     return (
@@ -626,8 +634,8 @@ export function WorkoutSessionPage() {
     ]),
   );
 
-  // Progress bar stats
-  const totalSets = sortedExercises.reduce((sum, ex) => sum + ex.sets, 0);
+  // Progress bar stats — includes extra sets added during this session
+  const totalSets = sortedExercises.reduce((sum, ex) => sum + ex.sets + (extraSetsMap[ex.id] ?? 0), 0);
   const progressPct = totalSets > 0 ? Math.min(100, (doneSets / totalSets) * 100) : 0;
 
   return (
@@ -813,6 +821,8 @@ export function WorkoutSessionPage() {
                   sessionCompleted={session.status === 'completed'}
                   units={units}
                   onDoneSetsChange={handleDoneSetsChange}
+                  extraSets={extraSetsMap[exercise.id] ?? 0}
+                  onAddExtraSet={() => handleAddExtraSet(exercise.id)}
                 />
               );
             })}

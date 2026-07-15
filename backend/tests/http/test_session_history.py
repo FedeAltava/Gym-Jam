@@ -195,7 +195,13 @@ async def test_history_filters_by_date_range(client) -> None:
 
 async def test_history_pagination(client) -> None:
     wid, day_id = await create_workout_with_day(client, "SUNDAY")
-    ids = {await start_session(client, wid, day_id) for _ in range(3)}
+    # Complete each session before starting the next: only one in-progress
+    # session per day is allowed.
+    ids = set()
+    for _ in range(3):
+        sid = await start_session(client, wid, day_id)
+        await complete_session(client, sid)
+        ids.add(sid)
 
     r = await client.get(f"/sessions?workout_id={wid}&limit=2")
     assert r.status_code == 200
@@ -247,6 +253,9 @@ async def test_history_fires_exactly_two_queries(client, engine) -> None:
             json={"workout_exercise_id": ex_id, "set_number": 1, "reps_completed": 5},
         )
         assert r.status_code == 201
+        # Complete before the next iteration: only one in-progress session per
+        # day is allowed.
+        await complete_session(client, session_id)
 
     statements: list[str] = []
 
