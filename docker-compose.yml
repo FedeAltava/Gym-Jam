@@ -1,4 +1,27 @@
 services:
+  traefik:
+    image: traefik:v3
+    command:
+      - --log.level=ERROR
+      - --providers.docker=true
+      - --providers.docker.exposedbydefault=false
+      - --entrypoints.web.address=:80
+      - --entrypoints.web.http.redirections.entrypoint.to=websecure
+      - --entrypoints.web.http.redirections.entrypoint.scheme=https
+      - --entrypoints.websecure.address=:443
+      - --certificatesresolvers.letsencrypt.acme.tlschallenge=true
+      - --certificatesresolvers.letsencrypt.acme.email=${ACME_EMAIL:?Set ACME_EMAIL in .env}
+      - --certificatesresolvers.letsencrypt.acme.storage=/letsencrypt/acme.json
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+      - traefik-certs:/letsencrypt
+    networks:
+      - gymjam
+    restart: unless-stopped
+
   postgres:
     image: postgres:16-alpine
     environment:
@@ -14,6 +37,7 @@ services:
       retries: 5
     networks:
       - gymjam
+    restart: unless-stopped
 
   redis:
     image: redis:7-alpine
@@ -34,7 +58,7 @@ services:
       DATABASE_URL: postgresql+asyncpg://${POSTGRES_USER:-gymjam}:${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD in .env (e.g. openssl rand -hex 16)}@postgres:5432/${POSTGRES_DB:-gymjam}
       SECRET_KEY: ${SECRET_KEY:?Set SECRET_KEY in .env (openssl rand -hex 32)}
       ENVIRONMENT: production
-      CORS_ORIGINS: '["http://localhost"]'
+      CORS_ORIGINS: ${CORS_ORIGINS:?Set CORS_ORIGINS in .env — e.g. ["https://yourdomain.com"]}
       REDIS_URL: redis://redis:6379
     depends_on:
       postgres:
@@ -49,21 +73,28 @@ services:
       start_period: 20s
     networks:
       - gymjam
+    restart: unless-stopped
 
   frontend:
     build:
       context: .
       dockerfile: Dockerfile.frontend
-    ports:
-      - "80:80"
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.gymjam.rule=Host(`${DOMAIN:?Set DOMAIN in .env}`)"
+      - "traefik.http.routers.gymjam.entrypoints=websecure"
+      - "traefik.http.routers.gymjam.tls.certresolver=letsencrypt"
+      - "traefik.http.services.gymjam.loadbalancer.server.port=80"
     depends_on:
       backend:
         condition: service_healthy
     networks:
       - gymjam
+    restart: unless-stopped
 
 volumes:
   postgres_data:
+  traefik-certs:
 
 networks:
   gymjam:
