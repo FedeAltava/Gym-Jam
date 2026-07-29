@@ -1,4 +1,3 @@
-import { Bell } from 'lucide-react';
 import { Link } from 'react-router-dom';
 
 export function AppHeader() {
@@ -18,14 +17,6 @@ export function AppHeader() {
         <span className="text-accent">Jam</span>
       </Link>
       <span className="hidden md:block text-sm font-semibold text-muted">GymJam</span>
-      <button
-        aria-label="Notifications"
-        className="relative flex items-center justify-center rounded-btn text-muted"
-        style={{ width: '36px', height: '36px' }}
-      >
-        <Bell size={20} />
-        <span className="absolute top-1 right-1 w-2 h-2 rounded-full bg-accent" />
-      </button>
     </header>
   );
 }
