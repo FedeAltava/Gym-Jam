@@ -1,24 +1,26 @@
-"""Standard exercise catalog seed data.
+"""Expand exercise catalog to 15 exercises per muscle group.
 
-Used by test fixtures: tests create the schema via metadata.create_all, so
-the migration seed never runs there and fixtures must insert these rows.
+Revision ID: 013
+Revises: 012
+Create Date: 2026-07-29
 
-Note: alembic migrations carry their own frozen copies of rows — migrations
-must never import mutable app modules.
-
-created_at is a deterministic literal so the seed is reproducible.
+Adds 58 new exercises across all muscle groups. Existing rows are untouched.
 """
 from datetime import UTC, datetime
+from typing import Sequence, Union
+
+from alembic import op
+import sqlalchemy as sa
+
+revision: str = "013"
+down_revision: Union[str, None] = "012"
+branch_labels: Union[str, Sequence[str], None] = None
+depends_on: Union[str, Sequence[str], None] = None
 
 _SEED_CREATED_AT = datetime(2026, 1, 1, tzinfo=UTC)
 
-_CATALOG: list[dict[str, object]] = [
-    # Pecho (15)
-    {"id": "bench-press", "name": "Press de banca", "muscle_group": "Pecho", "is_bodyweight": False},
-    {"id": "chest-press-machine", "name": "Press pecho en máquina", "muscle_group": "Pecho", "is_bodyweight": False},
-    {"id": "incline-press-machine", "name": "Press inclinado en máquina", "muscle_group": "Pecho", "is_bodyweight": False},
-    {"id": "chest-fly-machine", "name": "Aperturas en máquina", "muscle_group": "Pecho", "is_bodyweight": False},
-    {"id": "cable-crossover", "name": "Cruce de poleas", "muscle_group": "Pecho", "is_bodyweight": False},
+_NEW_ROWS = [
+    # Pecho
     {"id": "incline-bench-press", "name": "Press inclinado con barra", "muscle_group": "Pecho", "is_bodyweight": False},
     {"id": "dumbbell-bench-press", "name": "Press con mancuernas", "muscle_group": "Pecho", "is_bodyweight": False},
     {"id": "incline-dumbbell-press", "name": "Press inclinado con mancuernas", "muscle_group": "Pecho", "is_bodyweight": False},
@@ -29,12 +31,7 @@ _CATALOG: list[dict[str, object]] = [
     {"id": "cable-fly-low", "name": "Cruce de poleas bajo", "muscle_group": "Pecho", "is_bodyweight": False},
     {"id": "chest-dip", "name": "Fondos en paralelas", "muscle_group": "Pecho", "is_bodyweight": True},
     {"id": "pec-deck", "name": "Pec deck", "muscle_group": "Pecho", "is_bodyweight": False},
-    # Espalda (15)
-    {"id": "lat-pulldown", "name": "Jalón al pecho", "muscle_group": "Espalda", "is_bodyweight": False},
-    {"id": "gironda-row", "name": "Remo Gironda", "muscle_group": "Espalda", "is_bodyweight": False},
-    {"id": "pullover", "name": "Pull-over", "muscle_group": "Espalda", "is_bodyweight": False},
-    {"id": "machine-row", "name": "Remo en máquina", "muscle_group": "Espalda", "is_bodyweight": False},
-    {"id": "deadlift", "name": "Peso muerto", "muscle_group": "Espalda", "is_bodyweight": False},
+    # Espalda
     {"id": "pull-up", "name": "Dominadas", "muscle_group": "Espalda", "is_bodyweight": True},
     {"id": "barbell-row", "name": "Remo con barra", "muscle_group": "Espalda", "is_bodyweight": False},
     {"id": "dumbbell-row", "name": "Remo con mancuerna", "muscle_group": "Espalda", "is_bodyweight": False},
@@ -45,15 +42,7 @@ _CATALOG: list[dict[str, object]] = [
     {"id": "rack-pull", "name": "Rack pull", "muscle_group": "Espalda", "is_bodyweight": False},
     {"id": "good-morning", "name": "Good morning", "muscle_group": "Espalda", "is_bodyweight": False},
     {"id": "hyperextension", "name": "Hiperextensión lumbar", "muscle_group": "Espalda", "is_bodyweight": True},
-    # Piernas (15)
-    {"id": "leg-press", "name": "Prensa de piernas", "muscle_group": "Piernas", "is_bodyweight": False},
-    {"id": "hack-squat", "name": "Sentadilla hack", "muscle_group": "Piernas", "is_bodyweight": False},
-    {"id": "leg-extension", "name": "Extensión de cuádriceps", "muscle_group": "Piernas", "is_bodyweight": False},
-    {"id": "leg-curl", "name": "Curl femoral", "muscle_group": "Piernas", "is_bodyweight": False},
-    {"id": "abductor", "name": "Abductor", "muscle_group": "Piernas", "is_bodyweight": False},
-    {"id": "adductor", "name": "Aductor", "muscle_group": "Piernas", "is_bodyweight": False},
-    {"id": "glute-kickback", "name": "Patada de glúteo", "muscle_group": "Piernas", "is_bodyweight": False},
-    {"id": "smith-squat", "name": "Sentadilla Smith", "muscle_group": "Piernas", "is_bodyweight": False},
+    # Piernas
     {"id": "squat", "name": "Sentadilla", "muscle_group": "Piernas", "is_bodyweight": False},
     {"id": "romanian-deadlift", "name": "Peso muerto rumano", "muscle_group": "Piernas", "is_bodyweight": False},
     {"id": "hip-thrust", "name": "Hip thrust", "muscle_group": "Piernas", "is_bodyweight": False},
@@ -61,13 +50,7 @@ _CATALOG: list[dict[str, object]] = [
     {"id": "lunge", "name": "Zancadas", "muscle_group": "Piernas", "is_bodyweight": False},
     {"id": "calf-raise", "name": "Elevación de gemelos", "muscle_group": "Piernas", "is_bodyweight": False},
     {"id": "step-up", "name": "Step up", "muscle_group": "Piernas", "is_bodyweight": False},
-    # Hombros (15)
-    {"id": "shoulder-press-machine", "name": "Press hombros en máquina", "muscle_group": "Hombros", "is_bodyweight": False},
-    {"id": "front-raise", "name": "Elevación frontal", "muscle_group": "Hombros", "is_bodyweight": False},
-    {"id": "lateral-raise", "name": "Elevación lateral", "muscle_group": "Hombros", "is_bodyweight": False},
-    {"id": "face-pull", "name": "Face pull", "muscle_group": "Hombros", "is_bodyweight": False},
-    {"id": "rear-delt-machine", "name": "Pájaros", "muscle_group": "Hombros", "is_bodyweight": False},
-    {"id": "overhead-press", "name": "Press militar", "muscle_group": "Hombros", "is_bodyweight": False},
+    # Hombros
     {"id": "dumbbell-shoulder-press", "name": "Press de hombros con mancuernas", "muscle_group": "Hombros", "is_bodyweight": False},
     {"id": "arnold-press", "name": "Press Arnold", "muscle_group": "Hombros", "is_bodyweight": False},
     {"id": "cable-lateral-raise", "name": "Elevación lateral en polea", "muscle_group": "Hombros", "is_bodyweight": False},
@@ -77,13 +60,7 @@ _CATALOG: list[dict[str, object]] = [
     {"id": "landmine-press", "name": "Press landmine", "muscle_group": "Hombros", "is_bodyweight": False},
     {"id": "push-press", "name": "Push press", "muscle_group": "Hombros", "is_bodyweight": False},
     {"id": "rear-delt-fly", "name": "Aperturas posteriores", "muscle_group": "Hombros", "is_bodyweight": False},
-    # Brazos (15)
-    {"id": "cable-bicep-curl", "name": "Curl de bíceps en cable", "muscle_group": "Brazos", "is_bodyweight": False},
-    {"id": "dumbbell-bicep-curl", "name": "Curl de bíceps con mancuerna", "muscle_group": "Brazos", "is_bodyweight": False},
-    {"id": "barbell-bicep-curl", "name": "Curl de bíceps con barra", "muscle_group": "Brazos", "is_bodyweight": False},
-    {"id": "hammer-curl", "name": "Curl martillo", "muscle_group": "Brazos", "is_bodyweight": False},
-    {"id": "triceps-pushdown", "name": "Extensión de tríceps en polea", "muscle_group": "Brazos", "is_bodyweight": False},
-    {"id": "triceps-overhead", "name": "Extensión de tríceps tras nuca", "muscle_group": "Brazos", "is_bodyweight": False},
+    # Brazos
     {"id": "preacher-curl", "name": "Curl en banco Scott", "muscle_group": "Brazos", "is_bodyweight": False},
     {"id": "concentration-curl", "name": "Curl de concentración", "muscle_group": "Brazos", "is_bodyweight": False},
     {"id": "incline-dumbbell-curl", "name": "Curl inclinado con mancuernas", "muscle_group": "Brazos", "is_bodyweight": False},
@@ -93,9 +70,7 @@ _CATALOG: list[dict[str, object]] = [
     {"id": "diamond-push-up", "name": "Flexiones en diamante", "muscle_group": "Brazos", "is_bodyweight": True},
     {"id": "close-grip-bench-press", "name": "Press agarre cerrado", "muscle_group": "Brazos", "is_bodyweight": False},
     {"id": "cable-overhead-triceps", "name": "Extensión de tríceps en polea alta", "muscle_group": "Brazos", "is_bodyweight": False},
-    # Core (15)
-    {"id": "crunch-machine", "name": "Crunch abdominal", "muscle_group": "Core", "is_bodyweight": False},
-    {"id": "woodchopper", "name": "Woodchopper", "muscle_group": "Core", "is_bodyweight": False},
+    # Core
     {"id": "plank", "name": "Plancha", "muscle_group": "Core", "is_bodyweight": True},
     {"id": "leg-raise", "name": "Elevación de piernas", "muscle_group": "Core", "is_bodyweight": True},
     {"id": "russian-twist", "name": "Giro ruso", "muscle_group": "Core", "is_bodyweight": True},
@@ -111,6 +86,37 @@ _CATALOG: list[dict[str, object]] = [
     {"id": "dragon-flag", "name": "Dragon flag", "muscle_group": "Core", "is_bodyweight": True},
 ]
 
-EXERCISE_SEED: list[dict[str, object]] = [
-    {**row, "created_at": _SEED_CREATED_AT} for row in _CATALOG
-]
+
+def upgrade() -> None:
+    conn = op.get_bind()
+    exercises = sa.table(
+        "exercises",
+        sa.column("id", sa.String),
+        sa.column("name", sa.String),
+        sa.column("muscle_group", sa.String),
+        sa.column("is_bodyweight", sa.Boolean),
+        sa.column("created_at", sa.DateTime(timezone=True)),
+    )
+
+    for row in _NEW_ROWS:
+        exists = conn.execute(
+            sa.text("SELECT 1 FROM exercises WHERE id = :id"),
+            {"id": row["id"]},
+        ).fetchone()
+        if not exists:
+            conn.execute(exercises.insert().values(**row, created_at=_SEED_CREATED_AT))
+
+
+def downgrade() -> None:
+    conn = op.get_bind()
+    ids = [row["id"] for row in _NEW_ROWS]
+    for exercise_id in ids:
+        in_use = conn.execute(
+            sa.text("SELECT 1 FROM workout_exercises WHERE exercise_id = :id LIMIT 1"),
+            {"id": exercise_id},
+        ).fetchone()
+        if not in_use:
+            conn.execute(
+                sa.text("DELETE FROM exercises WHERE id = :id"),
+                {"id": exercise_id},
+            )
