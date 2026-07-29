@@ -7,8 +7,8 @@ import { useCreateWorkout } from '../../hooks/useWorkouts';
 import { DAYS, DAY_LABEL, DAY_SHORT } from '../../lib/days';
 
 const schema = z.object({
-  name: z.string().min(1, 'El nombre es obligatorio').max(100),
-  description: z.string().max(500).optional(),
+  name: z.string().trim().min(1, 'El nombre es obligatorio').max(100),
+  description: z.string().trim().max(500).optional(),
   training_days: z.array(z.string()).min(1, 'Selecciona al menos un día'),
 });
 type FormValues = z.infer<typeof schema>;
