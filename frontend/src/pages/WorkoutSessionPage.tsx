@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { CheckCircle2 } from 'lucide-react';
 import { useWorkout } from '../hooks/useWorkouts';
@@ -543,6 +543,85 @@ export function WorkoutSessionPage() {
     setExtraSetsMap((prev) => ({ ...prev, [exerciseId]: (prev[exerciseId] ?? 0) + 1 }));
   }, []);
 
+  // ---------------------------------------------------------------------------
+  // Rest timer state
+  // ---------------------------------------------------------------------------
+  const [timerOpen, setTimerOpen] = useState(false);
+  const [tMode, setTMode] = useState<'rest' | 'up'>('rest');
+  const [tRunning, setTRunning] = useState(false);
+  const [tDone, setTDone] = useState(false);
+  const [tElapsed, setTElapsed] = useState(0);
+  const [tLeft, setTLeft] = useState(90);
+  const [tPreset, setTPreset] = useState(90);
+  const ivRef = useRef<ReturnType<typeof setInterval> | null>(null);
+
+  // Cleanup interval on unmount
+  useEffect(() => () => { if (ivRef.current) clearInterval(ivRef.current); }, []);
+
+  // Interval effect — starts/stops when tRunning or tMode changes
+  useEffect(() => {
+    if (!tRunning) return;
+    const iv = setInterval(() => {
+      if (tMode === 'rest') {
+        setTLeft((prev) => {
+          if (prev <= 1) {
+            setTRunning(false);
+            setTDone(true);
+            if (navigator.vibrate) navigator.vibrate(400);
+            return 0;
+          }
+          return prev - 1;
+        });
+      } else {
+        setTElapsed((prev) => prev + 1);
+      }
+    }, 1000);
+    ivRef.current = iv;
+    return () => { clearInterval(iv); ivRef.current = null; };
+  }, [tRunning, tMode]);
+
+  function toggleTimer() {
+    if (tRunning) {
+      setTRunning(false);
+    } else if (tDone) {
+      setTDone(false);
+      setTElapsed(0);
+      setTLeft(tPreset);
+      setTRunning(true);
+    } else {
+      setTRunning(true);
+    }
+  }
+
+  function resetTimer() {
+    setTRunning(false);
+    setTDone(false);
+    setTElapsed(0);
+    setTLeft(tPreset);
+  }
+
+  function setTimerMode(mode: 'rest' | 'up') {
+    setTRunning(false);
+    setTDone(false);
+    setTElapsed(0);
+    setTLeft(tPreset);
+    setTMode(mode);
+  }
+
+  function setPreset(secs: number) {
+    setTRunning(false);
+    setTDone(false);
+    setTPreset(secs);
+    setTLeft(secs);
+    setTMode('rest');
+  }
+
+  function fmtTimer(s: number) {
+    const m = Math.floor(s / 60);
+    const r = s % 60;
+    return `${m}:${String(r).padStart(2, '0')}`;
+  }
+
   if (workoutLoading) return <Spinner />;
   if (workoutError || !workout)
     return (
@@ -565,6 +644,28 @@ export function WorkoutSessionPage() {
 
   const dayLabel =
     DAY_LABEL[day.day_of_week as keyof typeof DAY_LABEL] ?? day.day_of_week;
+
+  // ---------------------------------------------------------------------------
+  // Rest timer derived values
+  // ---------------------------------------------------------------------------
+  const timeLabel = tMode === 'rest' ? fmtTimer(tLeft) : fmtTimer(tElapsed);
+  const timeCol = tDone ? '#C6F24E' : '#EAF0EA';
+  const playLabel = tRunning ? 'Pausar' : (tDone ? 'Reiniciar' : 'Iniciar');
+  const playIcon = tRunning
+    ? 'M6 4h4v16H6zM14 4h4v16h-4z'
+    : 'M8 5v14l11-7z';
+  const statusText = tDone ? '¡Descanso completo!' : (tRunning ? 'En marcha' : 'En pausa');
+  const statusCol = tDone ? '#C6F24E' : (tRunning ? '#2BE581' : '#7E8A7E');
+  const ringPct = tMode === 'rest' && tPreset
+    ? `${(2 * Math.PI * 88 * (1 - tLeft / tPreset)).toFixed(1)} 999`
+    : '0 999';
+  const presets = [60, 90, 120, 180].map((s) => ({
+    label: fmtTimer(s),
+    pick: () => setPreset(s),
+    bg: tPreset === s && tMode === 'rest' ? 'rgba(43,229,129,0.14)' : '#0f130f',
+    border: tPreset === s && tMode === 'rest' ? 'rgba(43,229,129,0.5)' : 'rgba(255,255,255,0.08)',
+    col: tPreset === s && tMode === 'rest' ? '#2BE581' : '#9fb0a2',
+  }));
 
   function doStart() {
     startSession.mutate(
@@ -676,6 +777,26 @@ export function WorkoutSessionPage() {
               {formatElapsed(elapsedSeconds)}
             </span>
           </div>
+        )}
+        {session && (
+          <button
+            onClick={() => setTimerOpen(true)}
+            style={{
+              width: 44, height: 44, flexShrink: 0, borderRadius: 14,
+              background: 'rgba(43,229,129,0.10)',
+              border: '1px solid rgba(43,229,129,0.3)',
+              color: '#2BE581', cursor: 'pointer',
+              display: 'flex', alignItems: 'center', justifyContent: 'center',
+            }}
+            aria-label="Abrir cronómetro"
+          >
+            <svg width="21" height="21" viewBox="0 0 24 24" fill="none"
+              stroke="currentColor" strokeWidth="2"
+              strokeLinecap="round" strokeLinejoin="round">
+              <circle cx="12" cy="13" r="8"/>
+              <path d="M12 9.5V13l2.5 1.5M9 2h6M18.5 6.5l1.5-1.5"/>
+            </svg>
+          </button>
         )}
       </div>
 
@@ -891,6 +1012,181 @@ export function WorkoutSessionPage() {
             </p>
           )}
         </>
+      )}
+
+      {/* Rest timer bottom sheet */}
+      {timerOpen && (
+        <div style={{ position: 'fixed', inset: 0, zIndex: 60 }}>
+          {/* Scrim */}
+          <div
+            onClick={() => setTimerOpen(false)}
+            style={{ position: 'absolute', inset: 0, background: 'rgba(0,0,0,0.55)', backdropFilter: 'blur(4px)' }}
+          />
+          {/* Panel */}
+          <div
+            style={{
+              position: 'absolute', bottom: 0, left: 0, right: 0,
+              background: '#0a0f0a',
+              border: '1px solid rgba(255,255,255,0.08)',
+              borderRadius: '28px 28px 0 0',
+              padding: '0 0 40px',
+              maxHeight: '92dvh',
+              overflowY: 'auto',
+            }}
+          >
+            {/* Drag handle */}
+            <div style={{ display: 'flex', justifyContent: 'center', paddingTop: '12px', paddingBottom: '4px' }}>
+              <div style={{ width: 40, height: 4, borderRadius: 2, background: 'rgba(255,255,255,0.12)' }} />
+            </div>
+
+            {/* Header */}
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '12px 20px 16px' }}>
+              <div>
+                <div style={{ fontSize: '18px', fontWeight: 700, color: '#EAF0EA', fontFamily: "'Barlow Semi Condensed', sans-serif" }}>
+                  Cronómetro
+                </div>
+                <div style={{ fontSize: '12px', color: '#7E8A7E', fontWeight: 500, marginTop: '2px' }}>
+                  {dayLabel}
+                </div>
+              </div>
+              <button
+                onClick={() => setTimerOpen(false)}
+                style={{
+                  width: 36, height: 36, borderRadius: 10,
+                  background: 'rgba(255,255,255,0.06)',
+                  border: '1px solid rgba(255,255,255,0.08)',
+                  color: '#7E8A7E', cursor: 'pointer',
+                  display: 'flex', alignItems: 'center', justifyContent: 'center',
+                }}
+                aria-label="Cerrar cronómetro"
+              >
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                  <path d="M18 6L6 18M6 6l12 12"/>
+                </svg>
+              </button>
+            </div>
+
+            {/* Mode selector */}
+            <div style={{ display: 'flex', gap: '8px', padding: '0 20px 20px' }}>
+              {(['rest', 'up'] as const).map((mode) => (
+                <button
+                  key={mode}
+                  onClick={() => setTimerMode(mode)}
+                  style={{
+                    flex: 1, height: 38, borderRadius: 10,
+                    background: tMode === mode ? 'rgba(43,229,129,0.14)' : 'rgba(255,255,255,0.04)',
+                    border: tMode === mode ? '1px solid rgba(43,229,129,0.5)' : '1px solid rgba(255,255,255,0.08)',
+                    color: tMode === mode ? '#2BE581' : '#7E8A7E',
+                    fontSize: '13px', fontWeight: 600, cursor: 'pointer',
+                    fontFamily: "'Barlow', sans-serif",
+                  }}
+                >
+                  {mode === 'rest' ? 'Descanso' : 'Ascendente'}
+                </button>
+              ))}
+            </div>
+
+            {/* Ring + digits */}
+            <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', padding: '0 20px 20px' }}>
+              <div style={{ position: 'relative', width: 200, height: 200 }}>
+                <svg width="200" height="200" viewBox="0 0 200 200" style={{ transform: 'rotate(-90deg)' }}>
+                  {/* Track */}
+                  <circle cx="100" cy="100" r="88" fill="none" stroke="rgba(255,255,255,0.06)" strokeWidth="10"/>
+                  {/* Progress */}
+                  <circle
+                    cx="100" cy="100" r="88"
+                    fill="none"
+                    stroke={tDone ? '#C6F24E' : '#2BE581'}
+                    strokeWidth="10"
+                    strokeLinecap="round"
+                    strokeDasharray={ringPct}
+                    style={{ transition: 'stroke-dasharray 0.5s linear' }}
+                  />
+                </svg>
+                {/* Centered text */}
+                <div style={{
+                  position: 'absolute', inset: 0,
+                  display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center',
+                }}>
+                  <span style={{
+                    fontSize: '48px', fontWeight: 700, color: timeCol,
+                    fontFamily: "'Barlow Semi Condensed', sans-serif",
+                    fontVariantNumeric: 'tabular-nums',
+                    lineHeight: 1,
+                  }}>
+                    {timeLabel}
+                  </span>
+                  <span style={{ fontSize: '12px', color: statusCol, fontWeight: 600, marginTop: '6px' }}>
+                    {statusText}
+                  </span>
+                </div>
+              </div>
+            </div>
+
+            {/* Presets — only in rest mode */}
+            {tMode === 'rest' && (
+              <div style={{ display: 'flex', gap: '8px', padding: '0 20px 20px' }}>
+                {presets.map((p) => (
+                  <button
+                    key={p.label}
+                    onClick={p.pick}
+                    style={{
+                      flex: 1, height: 36, borderRadius: 10,
+                      background: p.bg,
+                      border: `1px solid ${p.border}`,
+                      color: p.col,
+                      fontSize: '13px', fontWeight: 600, cursor: 'pointer',
+                      fontFamily: "'Barlow', sans-serif",
+                    }}
+                  >
+                    {p.label}
+                  </button>
+                ))}
+              </div>
+            )}
+
+            {/* Controls */}
+            <div style={{ display: 'flex', gap: '12px', padding: '0 20px' }}>
+              {/* Reset */}
+              <button
+                onClick={resetTimer}
+                style={{
+                  width: 52, height: 52, borderRadius: 14, flexShrink: 0,
+                  background: 'rgba(255,255,255,0.06)',
+                  border: '1px solid rgba(255,255,255,0.08)',
+                  color: '#9fb0a2', cursor: 'pointer',
+                  display: 'flex', alignItems: 'center', justifyContent: 'center',
+                }}
+                aria-label="Reiniciar cronómetro"
+              >
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                  <path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"/>
+                  <path d="M3 3v5h5"/>
+                </svg>
+              </button>
+
+              {/* Play / Pause */}
+              <button
+                onClick={toggleTimer}
+                style={{
+                  flex: 1, height: 52, borderRadius: 14,
+                  background: tDone ? 'rgba(198,242,78,0.15)' : 'rgba(43,229,129,0.15)',
+                  border: tDone ? '1px solid rgba(198,242,78,0.4)' : '1px solid rgba(43,229,129,0.4)',
+                  color: tDone ? '#C6F24E' : '#2BE581',
+                  fontSize: '15px', fontWeight: 700, cursor: 'pointer',
+                  display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px',
+                  fontFamily: "'Barlow', sans-serif",
+                }}
+                aria-label={playLabel}
+              >
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor">
+                  <path d={playIcon}/>
+                </svg>
+                {playLabel}
+              </button>
+            </div>
+          </div>
+        </div>
       )}
     </div>
   );
