@@ -771,7 +771,7 @@ export function WorkoutSessionPage() {
             <>
               <button
                 type="button"
-                onClick={handleStart}
+                onClick={() => handleStart()}
                 disabled={startSession.isPending}
                 style={{
                   width: '100%',
