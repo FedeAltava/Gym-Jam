@@ -31,31 +31,46 @@ function formatElapsed(seconds: number): string {
 }
 
 // ---------------------------------------------------------------------------
-// Stepper
+// Numeric input
 // ---------------------------------------------------------------------------
 
-interface StepperProps {
+interface NumericInputProps {
   value: number;
-  step: number;
   min: number;
   onChange: (v: number) => void;
   disabled?: boolean;
   'aria-label'?: string;
-  /** When true the pill stretches (flex:1) and the value span also stretches */
   flex1?: boolean;
-  /** Label suffix appended after the numeric value (e.g. " kg") */
   suffix?: string;
+  integer?: boolean;
 }
 
-function Stepper({ value, step, min, onChange, disabled, 'aria-label': ariaLabel, flex1, suffix }: StepperProps) {
-  function decrement() {
-    onChange(Math.max(min, +(value - step).toFixed(4)));
-  }
-  function increment() {
-    onChange(+(value + step).toFixed(4));
-  }
+function NumericInput({
+  value,
+  min,
+  onChange,
+  disabled,
+  'aria-label': ariaLabel,
+  flex1,
+  suffix,
+  integer = false,
+}: NumericInputProps) {
+  const fmt = (v: number) =>
+    integer ? String(Math.round(v)) : Number.isInteger(v) ? String(v) : v.toFixed(1);
 
-  const displayValue = Number.isInteger(value) ? value : value.toFixed(1);
+  const [raw, setRaw] = useState(() => fmt(value));
+
+  useEffect(() => {
+    setRaw(fmt(value));
+  }, [value]);
+
+  function commit() {
+    const parsed = parseFloat(raw);
+    const valid = Number.isFinite(parsed) && parsed >= min;
+    const committed = valid ? (integer ? Math.round(parsed) : parsed) : value;
+    setRaw(fmt(committed));
+    if (valid) onChange(committed);
+  }
 
   return (
     <div
@@ -67,70 +82,47 @@ function Stepper({ value, step, min, onChange, disabled, 'aria-label': ariaLabel
         gap: '4px',
         background: 'rgba(255,255,255,0.05)',
         borderRadius: '10px',
-        padding: '3px',
+        padding: '4px 10px',
         ...(flex1 ? { flex: 1 } : {}),
       }}
     >
-      <button
-        type="button"
-        onClick={decrement}
-        disabled={disabled || value <= min}
-        aria-label="Reducir"
-        style={{
-          width: '26px',
-          height: '26px',
-          border: 'none',
-          borderRadius: '8px',
-          background: 'transparent',
-          color: 'var(--text-muted)',
-          fontSize: '18px',
-          fontWeight: 700,
-          cursor: 'pointer',
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'center',
-          opacity: disabled || value <= min ? 0.4 : 1,
-          flexShrink: 0,
+      <input
+        type="text"
+        inputMode={integer ? 'numeric' : 'decimal'}
+        value={raw}
+        onChange={(e) => setRaw(e.target.value)}
+        onBlur={commit}
+        onKeyDown={(e) => {
+          if (e.key === 'Enter') (e.target as HTMLInputElement).blur();
         }}
-      >
-        −
-      </button>
-      <span
-        className="w-10 tabular-nums"
+        onFocus={(e) => e.target.select()}
+        disabled={disabled}
         style={{
-          textAlign: 'center',
+          background: 'transparent',
+          border: 'none',
+          outline: 'none',
+          color: disabled ? 'var(--text-muted)' : 'var(--text)',
           fontSize: flex1 ? '14px' : '15px',
           fontWeight: 700,
-          color: 'var(--text)',
-          ...(flex1 ? { flex: 1 } : { minWidth: '34px' }),
+          textAlign: 'center',
+          width: flex1 ? '100%' : '34px',
+          minWidth: 0,
+          fontVariantNumeric: 'tabular-nums',
+          cursor: disabled ? 'not-allowed' : 'text',
         }}
-      >
-        {displayValue}{suffix ?? ''}
-      </span>
-      <button
-        type="button"
-        onClick={increment}
-        disabled={disabled}
-        aria-label="Aumentar"
-        style={{
-          width: '26px',
-          height: '26px',
-          border: 'none',
-          borderRadius: '8px',
-          background: 'transparent',
-          color: 'var(--neon-green)',
-          fontSize: '18px',
-          fontWeight: 700,
-          cursor: 'pointer',
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'center',
-          opacity: disabled ? 0.4 : 1,
-          flexShrink: 0,
-        }}
-      >
-        +
-      </button>
+      />
+      {suffix && (
+        <span
+          style={{
+            fontSize: '13px',
+            color: 'var(--text-muted)',
+            fontWeight: 600,
+            flexShrink: 0,
+          }}
+        >
+          {suffix}
+        </span>
+      )}
     </div>
   );
 }
@@ -186,12 +178,8 @@ function SetRow({
   const isPending = logSet.isPending || updateLog.isPending || deleteLog.isPending;
   const isDisabled = sessionCompleted || isPending;
 
-  const weightStep = units === 'lb' ? 5 : 2.5;
-
-  // Weight is stored always in kg (ADR 9). Display convert only for steppers.
+  // Weight is stored always in kg (ADR 9). Display convert only for inputs.
   const displayWeight = units === 'lb' ? weight * 2.20462 : weight;
-  const stepperDisplayWeight =
-    units === 'lb' ? Math.round(displayWeight / 5) * 5 : weight;
 
   function toStorageKg(displayVal: number): number {
     return units === 'lb' ? displayVal / 2.20462 : displayVal;
@@ -339,27 +327,26 @@ function SetRow({
         Serie {setNumber}
       </span>
 
-      {/* Reps stepper — fixed size */}
-      <Stepper
+      {/* Reps input */}
+      <NumericInput
         value={reps}
-        step={1}
-        min={0}
+        min={1}
         onChange={handleRepsChange}
         disabled={isDisabled}
         aria-label={`Repeticiones, serie ${setNumber}`}
+        integer
       />
 
-      {/* Weight stepper — expands to fill remaining space */}
+      {/* Weight input — expands to fill remaining space */}
       {!isBodyweight && (
-        <Stepper
-          value={stepperDisplayWeight}
-          step={weightStep}
+        <NumericInput
+          value={displayWeight}
           min={0}
           onChange={handleWeightChange}
           disabled={isDisabled}
           aria-label={`Peso ${units}, serie ${setNumber}`}
           flex1
-          suffix={` ${units}`}
+          suffix={units}
         />
       )}
       {isBodyweight && (
