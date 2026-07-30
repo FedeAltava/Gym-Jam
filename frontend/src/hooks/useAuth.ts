@@ -4,6 +4,9 @@ import { apiFetch } from '../lib/api';
 import { useAuthStore } from '../store/authStore';
 import type { TokenResponse, UserResponse } from '../types/api';
 
+interface ForgotPasswordPayload { email: string; }
+interface ResetPasswordPayload { token: string; new_password: string; }
+
 interface LoginPayload { email: string; password: string; }
 interface RegisterPayload { email: string; password: string; }
 
@@ -39,5 +42,39 @@ export function useRegisterMutation() {
         body: JSON.stringify(data),
       }),
     onSuccess: () => navigate('/login'),
+  });
+}
+
+export function useLogout() {
+  const logout = useAuthStore((s) => s.logout);
+  const navigate = useNavigate();
+
+  return useMutation({
+    mutationFn: () => apiFetch<void>('/auth/logout', { method: 'POST' }),
+    onSettled: () => {
+      // Clear auth store and redirect regardless of API success/failure
+      logout();
+      navigate('/login');
+    },
+  });
+}
+
+export function useForgotPassword() {
+  return useMutation({
+    mutationFn: (data: ForgotPasswordPayload) =>
+      apiFetch<void>('/auth/forgot-password', {
+        method: 'POST',
+        body: JSON.stringify(data),
+      }),
+  });
+}
+
+export function useResetPassword() {
+  return useMutation({
+    mutationFn: (data: ResetPasswordPayload) =>
+      apiFetch<void>('/auth/reset-password', {
+        method: 'POST',
+        body: JSON.stringify(data),
+      }),
   });
 }

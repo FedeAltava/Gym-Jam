@@ -1,11 +1,11 @@
 import { useState, useCallback, useRef } from 'react';
-import { useNavigate } from 'react-router-dom';
 import { LogOut, Calendar, Clock, ChevronDown } from 'lucide-react';
-import { apiFetch } from '../lib/api';
 import { useAuthStore } from '../store/authStore';
 import { useUserStats } from '../hooks/useStats';
 import { useUserPreferences, useUpdatePreferences } from '../hooks/useUserPreferences';
 import { useActiveWorkout } from '../hooks/useActiveWorkout';
+import { useChangePassword } from '../hooks/useProfile';
+import { useLogout } from '../hooks/useAuth';
 import { Spinner } from '../components/Spinner';
 import { DAY_SHORT } from '../lib/days';
 import type { DayKey } from '../lib/days';
@@ -81,13 +81,14 @@ function StatTile({ value, label }: StatTileProps) {
 // ---------------------------------------------------------------------------
 
 export function ProfilePage() {
-  const { user, logout } = useAuthStore();
-  const navigate = useNavigate();
+  const { user } = useAuthStore();
 
   const { data: stats, isLoading: statsLoading } = useUserStats();
   const { data: prefs, isLoading: prefsLoading } = useUserPreferences();
   const updatePrefs = useUpdatePreferences();
   const { activeWorkout } = useActiveWorkout();
+  const changePasswordMutation = useChangePassword();
+  const logoutMutation = useLogout();
 
   // Derive display name from email (before the @), capitalize words
   const displayName = user?.email
@@ -137,9 +138,8 @@ export function ProfilePage() {
   const [confirmNewPassword, setConfirmNewPassword] = useState('');
   const [pwSuccess, setPwSuccess] = useState('');
   const [pwError, setPwError] = useState('');
-  const [pwLoading, setPwLoading] = useState(false);
 
-  async function handleChangePassword(e: React.FormEvent) {
+  function handleChangePassword(e: React.FormEvent) {
     e.preventDefault();
     setPwSuccess('');
     setPwError('');
@@ -149,35 +149,20 @@ export function ProfilePage() {
       return;
     }
 
-    setPwLoading(true);
-    try {
-      await apiFetch<void>('/auth/password', {
-        method: 'PATCH',
-        body: JSON.stringify({
-          current_password: currentPassword,
-          new_password: newPassword,
-        }),
-      });
-      setPwSuccess('Contraseña actualizada.');
-      setCurrentPassword('');
-      setNewPassword('');
-      setConfirmNewPassword('');
-    } catch {
-      setPwError('La contraseña actual es incorrecta.');
-    } finally {
-      setPwLoading(false);
-    }
-  }
-
-  // ------------- Logout -------------
-  async function handleLogout() {
-    try {
-      await apiFetch<void>('/auth/logout', { method: 'POST' });
-    } catch {
-      // ignore — local logout happens regardless
-    }
-    logout();
-    navigate('/login');
+    changePasswordMutation.mutate(
+      { current_password: currentPassword, new_password: newPassword },
+      {
+        onSuccess: () => {
+          setPwSuccess('Contraseña actualizada.');
+          setCurrentPassword('');
+          setNewPassword('');
+          setConfirmNewPassword('');
+        },
+        onError: () => {
+          setPwError('La contraseña actual es incorrecta.');
+        },
+      },
+    );
   }
 
   return (
@@ -469,11 +454,11 @@ export function ProfilePage() {
 
             <button
               type="submit"
-              disabled={pwLoading}
+              disabled={changePasswordMutation.isPending}
               className="w-full font-semibold transition-all duration-200 disabled:opacity-60 rounded-btn bg-accent text-bg"
               style={{ height: '44px', fontSize: '14px', border: 'none', cursor: 'pointer' }}
             >
-              {pwLoading ? 'Guardando…' : 'Actualizar contraseña'}
+              {changePasswordMutation.isPending ? 'Guardando…' : 'Actualizar contraseña'}
             </button>
           </form>
         )}
@@ -481,7 +466,8 @@ export function ProfilePage() {
 
       {/* ─── Logout ─── */}
       <button
-        onClick={handleLogout}
+        onClick={() => logoutMutation.mutate()}
+        disabled={logoutMutation.isPending}
         style={{
           width: '100%',
           height: '52px',

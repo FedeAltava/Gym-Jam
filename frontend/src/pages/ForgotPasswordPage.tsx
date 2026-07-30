@@ -1,28 +1,23 @@
 import { useState } from 'react';
 import { Link } from 'react-router-dom';
-import { apiFetch } from '../lib/api';
+import { useForgotPassword } from '../hooks/useAuth';
 
 export function ForgotPasswordPage() {
   const [email, setEmail] = useState('');
   const [submitted, setSubmitted] = useState(false);
   const [error, setError] = useState('');
-  const [loading, setLoading] = useState(false);
+  const forgotPasswordMutation = useForgotPassword();
 
-  async function handleSubmit(e: React.FormEvent) {
+  function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     setError('');
-    setLoading(true);
-    try {
-      await apiFetch<void>('/auth/forgot-password', {
-        method: 'POST',
-        body: JSON.stringify({ email }),
-      });
-      setSubmitted(true);
-    } catch {
-      setError('Ocurrió un error. Intenta nuevamente.');
-    } finally {
-      setLoading(false);
-    }
+    forgotPasswordMutation.mutate(
+      { email },
+      {
+        onSuccess: () => setSubmitted(true),
+        onError: () => setError('Ocurrió un error. Intenta nuevamente.'),
+      },
+    );
   }
 
   return (
@@ -73,7 +68,7 @@ export function ForgotPasswordPage() {
 
               <button
                 type="submit"
-                disabled={loading}
+                disabled={forgotPasswordMutation.isPending}
                 className="w-full font-semibold transition-all duration-200 disabled:opacity-60 rounded-btn bg-accent text-bg"
                 style={{
                   height: '48px',
@@ -84,7 +79,7 @@ export function ForgotPasswordPage() {
                   boxShadow: '0 0 16px var(--neon-glow)',
                 }}
               >
-                {loading ? 'Enviando…' : 'Enviar enlace'}
+                {forgotPasswordMutation.isPending ? 'Enviando…' : 'Enviar enlace'}
               </button>
             </form>
           )}

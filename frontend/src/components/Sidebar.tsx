@@ -1,7 +1,6 @@
 import { Link, useLocation } from 'react-router-dom';
 import { useAuthStore } from '../store/authStore';
-import { useNavigate } from 'react-router-dom';
-import { apiFetch } from '../lib/api';
+import { useLogout } from '../hooks/useAuth';
 import { LayoutDashboard, PlusCircle, History, LogOut, User } from 'lucide-react';
 
 const NAV = [
@@ -12,8 +11,8 @@ const NAV = [
 ];
 
 export function Sidebar() {
-  const { user, logout } = useAuthStore();
-  const navigate = useNavigate();
+  const { user } = useAuthStore();
+  const logoutMutation = useLogout();
   const location = useLocation();
 
   return (
@@ -59,17 +58,8 @@ export function Sidebar() {
           <p className="text-xs truncate flex-1 text-muted">{user?.email}</p>
         </div>
         <button
-          onClick={() => {
-            void (async () => {
-              try {
-                await apiFetch<void>('/auth/logout', { method: 'POST' });
-              } catch {
-                // ignore — local logout happens regardless
-              }
-              logout();
-              navigate('/login');
-            })();
-          }}
+          onClick={() => logoutMutation.mutate()}
+          disabled={logoutMutation.isPending}
           className="w-full flex items-center gap-3 px-3 py-2.5 rounded-btn text-sm font-semibold transition-colors text-muted hover:text-danger"
           style={{ backgroundColor: 'transparent' }}
         >

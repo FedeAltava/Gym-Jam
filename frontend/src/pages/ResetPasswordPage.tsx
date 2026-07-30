@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { Link, useSearchParams } from 'react-router-dom';
-import { apiFetch } from '../lib/api';
+import { useResetPassword } from '../hooks/useAuth';
 
 export function ResetPasswordPage() {
   const [searchParams] = useSearchParams();
@@ -11,9 +11,9 @@ export function ResetPasswordPage() {
   const [success, setSuccess] = useState(false);
   const [error, setError] = useState('');
   const [validationError, setValidationError] = useState('');
-  const [loading, setLoading] = useState(false);
+  const resetPasswordMutation = useResetPassword();
 
-  async function handleSubmit(e: React.FormEvent) {
+  function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     setError('');
     setValidationError('');
@@ -23,18 +23,13 @@ export function ResetPasswordPage() {
       return;
     }
 
-    setLoading(true);
-    try {
-      await apiFetch<void>('/auth/reset-password', {
-        method: 'POST',
-        body: JSON.stringify({ token, new_password: newPassword }),
-      });
-      setSuccess(true);
-    } catch {
-      setError('El enlace es inválido o ya expiró.');
-    } finally {
-      setLoading(false);
-    }
+    resetPasswordMutation.mutate(
+      { token, new_password: newPassword },
+      {
+        onSuccess: () => setSuccess(true),
+        onError: () => setError('El enlace es inválido o ya expiró.'),
+      },
+    );
   }
 
   return (
@@ -122,7 +117,7 @@ export function ResetPasswordPage() {
 
               <button
                 type="submit"
-                disabled={loading}
+                disabled={resetPasswordMutation.isPending}
                 className="w-full font-semibold transition-all duration-200 disabled:opacity-60 rounded-btn bg-accent text-bg"
                 style={{
                   height: '48px',
@@ -133,7 +128,7 @@ export function ResetPasswordPage() {
                   boxShadow: '0 0 16px var(--neon-glow)',
                 }}
               >
-                {loading ? 'Guardando…' : 'Cambiar contraseña'}
+                {resetPasswordMutation.isPending ? 'Guardando…' : 'Cambiar contraseña'}
               </button>
             </form>
           )}
