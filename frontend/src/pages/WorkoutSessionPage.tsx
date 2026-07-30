@@ -10,6 +10,7 @@ import {
   useCompleteSession,
   useSessionsForDay,
   useDeleteExerciseLog,
+  useDeleteSession,
 } from '../hooks/useSessions';
 import { useUserPreferences } from '../hooks/useUserPreferences';
 import { Spinner } from '../components/Spinner';
@@ -500,6 +501,7 @@ export function WorkoutSessionPage() {
 
   const startSession = useStartSession();
   const completeSession = useCompleteSession();
+  const deleteSession = useDeleteSession();
 
   // Existing sessions for this day — resume an in_progress session instead of
   // creating a zombie duplicate on every page visit.
@@ -575,20 +577,32 @@ export function WorkoutSessionPage() {
   const dayLabel =
     DAY_LABEL[day.day_of_week as keyof typeof DAY_LABEL] ?? day.day_of_week;
 
-  function handleStart() {
-    startSession.mutate(
-      { workoutId, dayId },
-      {
-        onSuccess: (data) => {
-          setNewSession({
-            id: data.id,
-            status: data.status,
-            logs: data.logs,
-            started_at: data.started_at,
-          });
+  function handleStart(abandonSessionId?: string) {
+    function doStart() {
+      startSession.mutate(
+        { workoutId, dayId },
+        {
+          onSuccess: (data) => {
+            setNewSession({
+              id: data.id,
+              status: data.status,
+              logs: data.logs,
+              started_at: data.started_at,
+            });
+          },
         },
-      },
-    );
+      );
+    }
+
+    if (abandonSessionId) {
+      if (!window.confirm('Se eliminará la sesión en progreso. ¿Continuar?')) return;
+      deleteSession.mutate(
+        { sessionId: abandonSessionId, workoutId, dayId },
+        { onSuccess: doStart },
+      );
+    } else {
+      doStart();
+    }
   }
 
   function handleComplete() {
@@ -730,11 +744,11 @@ export function WorkoutSessionPage() {
             </button>
             <button
               type="button"
-              onClick={handleStart}
-              disabled={startSession.isPending}
+              onClick={() => handleStart(inProgressFromHistory.id)}
+              disabled={startSession.isPending || deleteSession.isPending}
               className="text-sm font-semibold rounded-btn bg-transparent border border-border text-text cursor-pointer px-4 h-9 disabled:opacity-60"
             >
-              {startSession.isPending ? 'Iniciando…' : 'Nueva sesión'}
+              {startSession.isPending || deleteSession.isPending ? 'Iniciando…' : 'Nueva sesión'}
             </button>
           </div>
           {startSession.isError && (
