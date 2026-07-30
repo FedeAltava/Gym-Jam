@@ -222,6 +222,9 @@ async def test_get_sessions_for_day_newest_first(session) -> None:
     base = datetime(2026, 1, 1, tzinfo=UTC)
 
     older = _make_session(user_id="user-order", workout_id=wid, training_day_id=td_id, started_at=base)
+    # Complete the older session before saving so the partial unique index
+    # (one in-progress per day) allows inserting the newer session.
+    older.complete()
     newer = _make_session(
         user_id="user-order", workout_id=wid, training_day_id=td_id, started_at=base + timedelta(hours=2)
     )

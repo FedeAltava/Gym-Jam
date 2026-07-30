@@ -56,9 +56,14 @@ class CompleteWorkoutSessionUseCase:
 
         # 5. PR detection — NON-FATAL: completing the session must succeed
         # even if the PR pass fails.
+        # Wrap in a savepoint so that an IntegrityError (e.g. concurrent upsert)
+        # only rolls back the nested transaction and does NOT taint the outer
+        # SQLAlchemy session. SQL repos override savepoint() with begin_nested();
+        # in-memory repos use the default no-op context manager.
         if not was_completed:
             try:
-                await self._detect_personal_records(session)
+                async with self._pr_repo.savepoint():
+                    await self._detect_personal_records(session)
             except Exception:
                 logger.warning(
                     "PR detection failed for session %s — session completion unaffected",

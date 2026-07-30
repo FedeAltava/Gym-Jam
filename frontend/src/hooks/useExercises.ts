@@ -53,6 +53,29 @@ export function useRemoveExercise(workoutId: string) {
   });
 }
 
+interface BatchAddExercisesPayload {
+  dayId: string;
+  exerciseIds: string[];
+}
+
+export function useBatchAddExercises(workoutId: string) {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async ({ dayId, exerciseIds }: BatchAddExercisesPayload) => {
+      for (const exerciseId of exerciseIds) {
+        await apiFetch<WorkoutExerciseResponse>(
+          `/workouts/${workoutId}/training-days/${dayId}/exercises`,
+          {
+            method: 'POST',
+            body: JSON.stringify({ exercise_id: exerciseId }),
+          },
+        );
+      }
+    },
+    onSuccess: () => qc.invalidateQueries({ queryKey: ['workouts', workoutId] }),
+  });
+}
+
 interface ReorderExercisesPayload {
   orderedExerciseIds: string[];
 }

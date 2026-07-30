@@ -2,7 +2,9 @@
 from __future__ import annotations
 
 import uuid
+from contextlib import asynccontextmanager
 from datetime import datetime
+from typing import AsyncIterator
 
 from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -21,6 +23,11 @@ from backend.src.infrastructure.persistence.models import (
 class SqlAlchemyPersonalRecordRepository(PersonalRecordRepository):
     def __init__(self, session: AsyncSession) -> None:
         self._session = session
+
+    @asynccontextmanager
+    async def savepoint(self) -> AsyncIterator[None]:
+        async with self._session.begin_nested():
+            yield
 
     async def get_catalog_exercise_ids(
         self, workout_exercise_ids: list[str]

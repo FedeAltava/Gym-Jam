@@ -1,8 +1,8 @@
-import { useState } from 'react';
+import { useState, useRef } from 'react';
 import { useParams, Link, useNavigate } from 'react-router-dom';
 import { ArrowLeft } from 'lucide-react';
-import { useQuery, useQueryClient } from '@tanstack/react-query';
-import { useExercises } from '../hooks/useExercises';
+import { useQuery } from '@tanstack/react-query';
+import { useExercises, useBatchAddExercises } from '../hooks/useExercises';
 import { apiFetch } from '../lib/api';
 import { Spinner } from '../components/Spinner';
 import type { WorkoutResponse } from '../types/api';
@@ -20,15 +20,17 @@ const DAY_LABEL: Record<string, string> = {
 export function AddExercisesPage() {
   const { workoutId, day } = useParams<{ workoutId: string; day: string }>();
   const navigate = useNavigate();
-  const queryClient = useQueryClient();
+  const submittingRef = useRef(false);
 
   const [selectedMuscleGroup, setSelectedMuscleGroup] = useState<string | null>(null);
   const [selected, setSelected] = useState<Set<string>>(new Set());
-  const [isPending, setIsPending] = useState(false);
   const [addError, setAddError] = useState<string | null>(null);
+  const [isSubmitting, setIsSubmitting] = useState(false);
+
+  const batchAddMutation = useBatchAddExercises(workoutId ?? '');
 
   const { data: exercises, isLoading, isError } = useExercises();
-  const { data: workout } = useQuery({
+  const { data: workout } = useQuery<WorkoutResponse>({
     queryKey: ['workouts', workoutId],
     queryFn: () => apiFetch<WorkoutResponse>(`/workouts/${workoutId}`),
     enabled: Boolean(workoutId),
@@ -60,40 +62,19 @@ export function AddExercisesPage() {
   }
 
   async function handleAdd() {
-    if (!workoutId || !day || selected.size === 0 || isPending) return;
-    setIsPending(true);
+    if (!workoutId || !day || selected.size === 0 || submittingRef.current) return;
+    submittingRef.current = true;
+    setIsSubmitting(true);
     setAddError(null);
 
-    let succeeded = 0;
-    let failed = 0;
-    for (const id of selected) {
-      try {
-        await apiFetch(`/workouts/${workoutId}/training-days/${day}/exercises`, {
-          method: 'POST',
-          body: JSON.stringify({ exercise_id: id }),
-        });
-        succeeded++;
-      } catch {
-        failed++;
-        break;
-      }
-    }
-
-    await queryClient.invalidateQueries({ queryKey: ['workouts', workoutId] });
-
-    setIsPending(false);
-
-    if (failed === 0) {
+    try {
+      await batchAddMutation.mutateAsync({ dayId: day, exerciseIds: [...selected] });
       navigate(`/workouts/${workoutId}`);
-    } else if (succeeded > 0) {
-      // Partial success: some exercises were added; navigate back and show error.
-      setAddError(
-        `Se añadieron ${succeeded} ejercicio${succeeded !== 1 ? 's' : ''}, pero ${failed} no se pudo${failed !== 1 ? 'n' : ''} añadir. Inténtalo de nuevo.`,
-      );
-      navigate(`/workouts/${workoutId}`);
-    } else {
-      // All failed: stay on page so the user can retry.
+    } catch {
       setAddError('No se pudieron añadir los ejercicios. Inténtalo de nuevo.');
+    } finally {
+      submittingRef.current = false;
+      setIsSubmitting(false);
     }
   }
 
@@ -214,20 +195,20 @@ export function AddExercisesPage() {
         )}
         <button
           onClick={() => void handleAdd()}
-          disabled={selected.size === 0 || isPending}
+          disabled={selected.size === 0 || isSubmitting || batchAddMutation.isPending}
           className={`w-full text-sm rounded-btn ${
-            selected.size === 0 || isPending ? 'opacity-50 cursor-not-allowed' : ''
+            selected.size === 0 || isSubmitting || batchAddMutation.isPending ? 'opacity-50 cursor-not-allowed' : ''
           }`}
           style={{
             height: '48px',
             border: 'none',
-            cursor: selected.size === 0 || isPending ? 'not-allowed' : 'pointer',
+            cursor: selected.size === 0 || isSubmitting || batchAddMutation.isPending ? 'not-allowed' : 'pointer',
             backgroundColor: 'var(--neon-green)',
             color: 'var(--bg)',
             fontWeight: 600,
           }}
         >
-          {isPending
+          {isSubmitting || batchAddMutation.isPending
             ? 'Añadiendo…'
             : `Añadir ${selected.size} ejercicio${selected.size !== 1 ? 's' : ''}`}
         </button>

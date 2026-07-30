@@ -1,6 +1,6 @@
 from __future__ import annotations
 from datetime import datetime, UTC
-from sqlalchemy import String, Boolean, Integer, Float, ForeignKey, UniqueConstraint, Index, DateTime, func
+from sqlalchemy import String, Boolean, Integer, Float, ForeignKey, UniqueConstraint, Index, DateTime, func, text
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column, relationship
 
 
@@ -103,6 +103,18 @@ class WorkoutSessionModel(Base):
         # Serves GET /sessions history: filter by user + ORDER BY started_at.
         # Kept in sync with migration 009.
         Index("ix_workout_sessions_user_started", "user_id", "started_at"),
+        # Prevents two concurrent POST /sessions from creating two in-progress
+        # sessions for the same (user, training_day). Partial index: only one
+        # NULL completed_at row per (user_id, training_day_id) is allowed.
+        # Kept in sync with migration 014.
+        Index(
+            "uix_one_inprogress_per_day",
+            "user_id",
+            "training_day_id",
+            unique=True,
+            postgresql_where=text("completed_at IS NULL"),
+            sqlite_where=text("completed_at IS NULL"),
+        ),
     )
     id: Mapped[str] = mapped_column(String(36), primary_key=True)
     user_id: Mapped[str] = mapped_column(String(36), ForeignKey("users.id"), nullable=False)

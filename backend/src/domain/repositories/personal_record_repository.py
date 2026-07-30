@@ -1,9 +1,15 @@
 """PersonalRecordRepository ABC — port for personal record persistence."""
 from abc import ABC, abstractmethod
+from contextlib import asynccontextmanager
 from datetime import datetime
+from typing import AsyncIterator
 
 
 class PersonalRecordRepository(ABC):
+    @asynccontextmanager
+    async def savepoint(self) -> AsyncIterator[None]:
+        """Override in SQL repos to wrap in a DB savepoint. Default: no-op."""
+        yield
     @abstractmethod
     async def get_catalog_exercise_ids(
         self, workout_exercise_ids: list[str]
