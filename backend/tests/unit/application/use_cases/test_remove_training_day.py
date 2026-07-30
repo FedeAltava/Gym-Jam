@@ -90,7 +90,7 @@ async def test_remove_training_day_not_in_workout_returns_domain_violation(
     assert isinstance(result.failure(), DomainViolationError)
 
 
-async def test_remove_training_day_with_exercises_returns_domain_violation(
+async def test_remove_training_day_with_exercises_succeeds(
     use_case: RemoveTrainingDayUseCase, repo: InMemoryWorkoutRepository
 ) -> None:
     day = DayOfWeek("MONDAY")
@@ -104,5 +104,7 @@ async def test_remove_training_day_with_exercises_returns_domain_violation(
         day_of_week="MONDAY",
     )
     result = await use_case.execute(cmd)
-    assert isinstance(result, Failure)
-    assert isinstance(result.failure(), DomainViolationError)
+    assert isinstance(result, Success)
+    saved = await repo.get_by_id(workout.id)
+    assert saved is not None
+    assert DayOfWeek("MONDAY") not in saved.get_training_days_list()

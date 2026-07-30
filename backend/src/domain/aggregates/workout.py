@@ -9,7 +9,6 @@ from returns.result import Failure, Result, Success
 from backend.src.domain.entities.training_day import TrainingDay
 from backend.src.domain.entities.workout_exercise import WorkoutExercise
 from backend.src.domain.errors.training_day_errors import (
-    CannotRemoveDayWithExercisesError,
     DayAlreadyInWorkoutError,
     DayNotInWorkoutError,
 )
@@ -88,9 +87,6 @@ class Workout:
     def remove_training_day(self, day: DayOfWeek) -> None:
         if day not in self._training_days:
             raise DayNotInWorkoutError(day=day.value, workout_id=str(self.id.value))
-        td = self._training_days[day]
-        if td.exercises:
-            raise CannotRemoveDayWithExercisesError(day=day.value, exercise_count=len(td.exercises))
         del self._training_days[day]
 
     def add_exercise_to_day(

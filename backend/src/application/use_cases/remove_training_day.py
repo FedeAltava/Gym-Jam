@@ -9,10 +9,7 @@ from backend.src.application.errors import (
     WorkoutNotFoundError,
 )
 from backend.src.application.validators import DayOfWeekValidator
-from backend.src.domain.errors.training_day_errors import (
-    CannotRemoveDayWithExercisesError,
-    DayNotInWorkoutError,
-)
+from backend.src.domain.errors.training_day_errors import DayNotInWorkoutError
 from backend.src.domain.repositories.workout_repository import WorkoutRepository
 from backend.src.domain.value_objects import WorkoutId
 
@@ -45,7 +42,7 @@ class RemoveTrainingDayUseCase:
         # 4. Mutate
         try:
             workout.remove_training_day(day)
-        except (DayNotInWorkoutError, CannotRemoveDayWithExercisesError) as e:
+        except DayNotInWorkoutError as e:
             return Failure(DomainViolationError(domain_error=e, message=str(e)))
 
         # 5. Save

@@ -666,9 +666,7 @@ export function WorkoutDetailPage() {
 
       {removeDayMutation.isError && (
         <p className="mt-3 text-xs text-danger">
-          {(removeDayMutation.error as Error).message.includes('exercise')
-            ? 'Elimina todos los ejercicios de este día antes de eliminarlo.'
-            : (removeDayMutation.error as Error).message}
+          {(removeDayMutation.error as Error).message}
         </p>
       )}
 

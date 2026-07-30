@@ -6,7 +6,6 @@ from returns.result import Failure, Success
 
 from backend.src.domain.aggregates.workout import Workout
 from backend.src.domain.errors.training_day_errors import (
-    CannotRemoveDayWithExercisesError,
     DayAlreadyInWorkoutError,
     DayNotInWorkoutError,
 )
@@ -123,15 +122,15 @@ def test_remove_nonexistent_training_day_raises_error():
         workout.remove_training_day(DayOfWeek.FRIDAY)
 
 
-def test_remove_training_day_with_exercises_raises_error():
+def test_remove_training_day_with_exercises_succeeds():
     workout = Workout.create(
         user_id="u",
         name="Test Workout",
         training_days=[DayOfWeek.MONDAY],
     ).unwrap()
     workout.add_exercise_to_day(DayOfWeek.MONDAY, "exercise-abc")
-    with pytest.raises(CannotRemoveDayWithExercisesError):
-        workout.remove_training_day(DayOfWeek.MONDAY)
+    workout.remove_training_day(DayOfWeek.MONDAY)
+    assert DayOfWeek.MONDAY not in workout.get_training_days_list()
 
 
 def test_remove_training_day_does_not_affect_other_days():
@@ -141,11 +140,10 @@ def test_remove_training_day_does_not_affect_other_days():
         training_days=[DayOfWeek.MONDAY, DayOfWeek.TUESDAY],
     ).unwrap()
     workout.add_exercise_to_day(DayOfWeek.MONDAY, "exercise-xyz")
-    with pytest.raises(CannotRemoveDayWithExercisesError):
-        workout.remove_training_day(DayOfWeek.MONDAY)
+    workout.remove_training_day(DayOfWeek.MONDAY)
     days = workout.get_training_days_list()
+    assert DayOfWeek.MONDAY not in days
     assert DayOfWeek.TUESDAY in days
-    assert len(workout.get_exercises_for_day(DayOfWeek.MONDAY)) == 1
 
 
 # ---------------------------------------------------------------------------
