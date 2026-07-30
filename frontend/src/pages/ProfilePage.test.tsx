@@ -82,34 +82,6 @@ describe('ProfilePage', () => {
     expect(await screen.findByText(/90s/)).toBeInTheDocument();
   });
 
-  it('shows the active unit highlighted via aria-pressed', async () => {
-    mockApi();
-    renderWithProviders(<ProfilePage />);
-
-    const kgBtn = await screen.findByRole('button', { name: 'kg' });
-    const lbBtn = screen.getByRole('button', { name: 'lb' });
-
-    expect(kgBtn).toHaveAttribute('aria-pressed', 'true');
-    expect(lbBtn).toHaveAttribute('aria-pressed', 'false');
-  });
-
-  it('clicking the lb unit toggle calls PATCH /users/me/preferences with units=lb', async () => {
-    const user = userEvent.setup();
-    mockApi();
-    renderWithProviders(<ProfilePage />);
-
-    const lbBtn = await screen.findByRole('button', { name: 'lb' });
-    await user.click(lbBtn);
-
-    expect(mockApiFetch).toHaveBeenCalledWith(
-      '/users/me/preferences',
-      expect.objectContaining({
-        method: 'PATCH',
-        body: JSON.stringify({ units: 'lb' }),
-      }),
-    );
-  });
-
   it('editing rest seconds and blurring calls PATCH /users/me/preferences', async () => {
     const user = userEvent.setup();
     mockApi();

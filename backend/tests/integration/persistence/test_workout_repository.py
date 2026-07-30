@@ -1,11 +1,19 @@
 """Integration tests for SqlAlchemyWorkoutRepository — 17 tests."""
+from datetime import UTC, datetime
 from uuid import uuid4
+
+from sqlalchemy import select
 
 from backend.src.domain.aggregates.workout import Workout
 from backend.src.domain.value_objects import (
     WorkoutId,
     WorkoutName,
     DayOfWeek,
+)
+from backend.src.infrastructure.persistence.models import (
+    TrainingDayModel,
+    WorkoutModel,
+    WorkoutSessionModel,
 )
 from backend.src.infrastructure.persistence.workout_repository import SqlAlchemyWorkoutRepository
 
@@ -406,3 +414,65 @@ async def test_resave_reordered_exercises_persists_new_order(session):
     exercises = loaded.get_exercises_for_day(DayOfWeek.MONDAY)
     assert [e.exercise_id for e in exercises] == ["ex-c", "ex-a", "ex-b"]
     assert [e.order for e in exercises] == [1, 2, 3]
+
+
+# ─── DB-level FK cascade: deleting a TrainingDay removes its sessions ───────
+
+
+async def test_deleting_training_day_cascades_to_workout_sessions(session):
+    """With PRAGMA foreign_keys=ON, the ON DELETE CASCADE on
+    workout_sessions.training_day_id must fire: deleting a TrainingDay row
+    removes any WorkoutSession that referenced it, preventing orphans."""
+    wid = str(uuid4())
+    td_id = str(uuid4())
+    session_id = str(uuid4())
+
+    session.add(
+        WorkoutModel(
+            id=wid,
+            user_id="user-1",
+            name="Cascade FK",
+            description=None,
+            is_active=True,
+            created_at=datetime.now(UTC),
+            updated_at=datetime.now(UTC),
+        )
+    )
+    day = TrainingDayModel(
+        id=td_id,
+        workout_id=wid,
+        day_of_week="MONDAY",
+        created_at=datetime.now(UTC),
+    )
+    session.add(day)
+    # Flush parent rows (workout + training day) before inserting the session so
+    # the FK targets exist at insert time regardless of unit-of-work ordering.
+    await session.flush()
+
+    session.add(
+        WorkoutSessionModel(
+            id=session_id,
+            user_id="user-1",
+            workout_id=wid,
+            training_day_id=td_id,
+            started_at=datetime.now(UTC),
+            created_at=datetime.now(UTC),
+        )
+    )
+    await session.flush()
+
+    # Sanity: the session exists before the delete.
+    exists = await session.scalar(
+        select(WorkoutSessionModel).where(WorkoutSessionModel.id == session_id)
+    )
+    assert exists is not None
+
+    # Delete the training day — DB-level cascade must remove the session.
+    await session.delete(day)
+    await session.flush()
+    session.expire_all()
+
+    orphan = await session.scalar(
+        select(WorkoutSessionModel).where(WorkoutSessionModel.id == session_id)
+    )
+    assert orphan is None

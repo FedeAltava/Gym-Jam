@@ -243,7 +243,7 @@ describe('remove training day (TrainingDayCard)', () => {
     });
   });
 
-  it('shows the Spanish exercise error message when removal fails because exercises exist', async () => {
+  it('shows the API error message when day removal fails', async () => {
     mockApiFetch.mockImplementation((path: string, options?: RequestInit) => {
       const method = options?.method ?? 'GET';
 
@@ -253,7 +253,7 @@ describe('remove training day (TrainingDayCard)', () => {
 
       if (path === '/workouts/w1/training-days/MONDAY' && method === 'DELETE') {
         return Promise.reject(
-          new ApiError('Cannot remove day — it still has 2 exercise(s).', 422),
+          new ApiError('No se pudo eliminar el día. Inténtalo de nuevo.', 500),
         );
       }
 
@@ -273,7 +273,7 @@ describe('remove training day (TrainingDayCard)', () => {
     await userEvent.click(within(mondayCard).getByRole('button', { name: 'Eliminar día' }));
     await userEvent.click(await screen.findByRole('button', { name: 'Sí, eliminar' }));
 
-    await screen.findByText('Elimina todos los ejercicios de este día antes de eliminarlo.');
+    await screen.findByText('No se pudo eliminar el día. Inténtalo de nuevo.');
   });
 });
 

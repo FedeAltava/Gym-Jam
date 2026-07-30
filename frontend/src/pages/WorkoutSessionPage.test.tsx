@@ -1,4 +1,4 @@
-import { screen, waitFor } from '@testing-library/react';
+import { screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { renderWithProviders } from '../test/test-utils';
 import { WorkoutSessionPage } from './WorkoutSessionPage';
@@ -172,48 +172,40 @@ describe('WorkoutSessionPage', () => {
     expect(screen.getByRole('progressbar')).toHaveAttribute('aria-valuemax', '5');
   });
 
-  it('increments reps stepper by 1 on + click', async () => {
+  it('updates reps on typing a new value into the input', async () => {
     const user = await startSession();
 
-    // Find the reps stepper group for Serie 1 of the first exercise
+    // Find the reps input group for Serie 1 of the first exercise
     const repsGroups = screen.getAllByRole('group', {
       name: /Repeticiones, serie 1/,
     });
     expect(repsGroups.length).toBeGreaterThan(0);
 
-    const firstGroup = repsGroups[0];
-    const incrementBtn = firstGroup.querySelector(
-      'button[aria-label="Aumentar"]',
-    ) as HTMLElement;
-    const valueSpan = firstGroup.querySelector('span.w-10') as HTMLElement;
+    const repsInput = within(repsGroups[0]).getByRole('textbox') as HTMLInputElement;
 
-    const before = parseInt(valueSpan.textContent ?? '0', 10);
-    await user.click(incrementBtn);
-    const after = parseInt(valueSpan.textContent ?? '0', 10);
+    await user.clear(repsInput);
+    await user.type(repsInput, '12');
+    await user.tab(); // blur to commit
 
-    expect(after).toBe(before + 1);
+    expect(repsInput.value).toBe('12');
   });
 
-  it('increments weight stepper by 2.5 on + click (default units kg)', async () => {
+  it('updates weight on typing a new value into the input (default units kg)', async () => {
     const user = await startSession();
 
-    // Find the weight stepper group for Serie 1 of the non-bodyweight exercise
+    // Find the weight input group for Serie 1 of the non-bodyweight exercise
     const weightGroups = screen.getAllByRole('group', {
       name: /Peso kg, serie 1/,
     });
     expect(weightGroups.length).toBeGreaterThan(0);
 
-    const firstWeightGroup = weightGroups[0];
-    const incrementBtn = firstWeightGroup.querySelector(
-      'button[aria-label="Aumentar"]',
-    ) as HTMLElement;
-    const valueSpan = firstWeightGroup.querySelector('span.w-10') as HTMLElement;
+    const weightInput = within(weightGroups[0]).getByRole('textbox') as HTMLInputElement;
 
-    const before = parseFloat(valueSpan.textContent ?? '0');
-    await user.click(incrementBtn);
-    const after = parseFloat(valueSpan.textContent ?? '0');
+    await user.clear(weightInput);
+    await user.type(weightInput, '20');
+    await user.tab(); // blur to commit
 
-    expect(after - before).toBeCloseTo(2.5, 1);
+    expect(weightInput.value).toBe('20');
   });
 
   it('hides the weight stepper for bodyweight exercises', async () => {

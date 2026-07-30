@@ -1,6 +1,6 @@
 import { useState, useCallback, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { LogOut, Calendar, Clock, Globe, ChevronDown } from 'lucide-react';
+import { LogOut, Calendar, Clock, ChevronDown } from 'lucide-react';
 import { apiFetch } from '../lib/api';
 import { useAuthStore } from '../store/authStore';
 import { useUserStats } from '../hooks/useStats';
@@ -128,13 +128,6 @@ export function ProfilePage() {
   function handleRestKeyDown(e: React.KeyboardEvent<HTMLInputElement>) {
     if (e.key === 'Enter') commitRestEdit();
     if (e.key === 'Escape') setEditingRest(false);
-  }
-
-  // ------------- Units toggle -------------
-  function handleUnitsToggle(units: 'kg' | 'lb') {
-    if (units !== prefs?.units) {
-      updatePrefs.mutate({ units });
-    }
   }
 
   // ------------- Change password state -------------
@@ -323,7 +316,6 @@ export function ProfilePage() {
                 alignItems: 'center',
                 gap: '14px',
                 padding: '16px',
-                borderBottom: '1px solid rgba(255,255,255,0.05)',
               }}
             >
               <Clock size={18} style={{ color: 'var(--text-muted)', flexShrink: 0 }} />
@@ -378,53 +370,6 @@ export function ProfilePage() {
                     : '90s'}
                 </button>
               )}
-            </div>
-
-            {/* Units row */}
-            <div
-              style={{
-                display: 'flex',
-                alignItems: 'center',
-                gap: '14px',
-                padding: '16px',
-              }}
-            >
-              <Globe size={18} style={{ color: 'var(--text-muted)', flexShrink: 0 }} />
-              <span
-                style={{
-                  flex: 1,
-                  fontSize: '15px',
-                  fontWeight: 600,
-                  color: 'var(--text)',
-                }}
-              >
-                Unidades
-              </span>
-              <div role="group" aria-label="Unidades de peso" style={{ display: 'flex' }}>
-                {(['kg', 'lb'] as const).map((unit) => {
-                  const active = prefs?.units === unit;
-                  return (
-                    <button
-                      key={unit}
-                      onClick={() => handleUnitsToggle(unit)}
-                      aria-pressed={active}
-                      style={{
-                        fontSize: '12px',
-                        fontWeight: 700,
-                        padding: '4px 12px',
-                        border: 'none',
-                        cursor: 'pointer',
-                        background: active ? 'var(--neon-green)' : 'transparent',
-                        color: active ? 'rgb(6,33,15)' : 'var(--text-muted)',
-                        borderRadius: active ? '8px' : 0,
-                        transition: 'background 0.15s, color 0.15s',
-                      }}
-                    >
-                      {unit}
-                    </button>
-                  );
-                })}
-              </div>
             </div>
           </>
         )}

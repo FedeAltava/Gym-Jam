@@ -12,7 +12,6 @@ import {
   useDeleteExerciseLog,
   useDeleteSession,
 } from '../hooks/useSessions';
-import { useUserPreferences } from '../hooks/useUserPreferences';
 import { Spinner } from '../components/Spinner';
 import { DAY_LABEL } from '../lib/days';
 import type {
@@ -60,10 +59,11 @@ function NumericInput({
     integer ? String(Math.round(v)) : Number.isInteger(v) ? String(v) : v.toFixed(1);
 
   const [raw, setRaw] = useState(() => fmt(value));
-
-  useEffect(() => {
+  const [prevValue, setPrevValue] = useState(value);
+  if (prevValue !== value) {
+    setPrevValue(value);
     setRaw(fmt(value));
-  }, [value]);
+  }
 
   function commit() {
     const parsed = parseFloat(raw);
@@ -143,7 +143,6 @@ interface SetRowProps {
   workoutId: string;
   dayId: string;
   sessionCompleted: boolean;
-  units: 'kg' | 'lb';
   onDoneSetsChange: (delta: number) => void;
 }
 
@@ -158,7 +157,6 @@ function SetRow({
   workoutId,
   dayId,
   sessionCompleted,
-  units,
   onDoneSetsChange,
 }: SetRowProps) {
   // Seed stepper values from existing log or suggestions.
@@ -178,13 +176,6 @@ function SetRow({
   const isLogged = !!log;
   const isPending = logSet.isPending || updateLog.isPending || deleteLog.isPending;
   const isDisabled = sessionCompleted || isPending;
-
-  // Weight is stored always in kg (ADR 9). Display convert only for inputs.
-  const displayWeight = units === 'lb' ? weight * 2.20462 : weight;
-
-  function toStorageKg(displayVal: number): number {
-    return units === 'lb' ? displayVal / 2.20462 : displayVal;
-  }
 
   // Read-only summary once the session is completed.
   if (sessionCompleted && log) {
@@ -239,10 +230,9 @@ function SetRow({
       // NaN / negative guard — never let bad values through
       const weightKg: number | null = isBodyweight
         ? null
-        : (() => {
-            const kg = toStorageKg(weight);
-            return Number.isFinite(kg) && kg >= 0 ? kg : 0;
-          })();
+        : Number.isFinite(weight) && weight >= 0
+          ? weight
+          : 0;
 
       logSet.mutate(
         {
@@ -282,12 +272,11 @@ function SetRow({
     }
   }
 
-  function handleWeightChange(newDisplayWeight: number) {
-    const kg = toStorageKg(newDisplayWeight);
-    setWeight(kg);
+  function handleWeightChange(newWeight: number) {
+    setWeight(newWeight);
     // If already logged, PATCH immediately
     if (isLogged && log) {
-      const weightKg = Number.isFinite(kg) && kg >= 0 ? kg : 0;
+      const weightKg = Number.isFinite(newWeight) && newWeight >= 0 ? newWeight : 0;
       updateLog.mutate(
         {
           sessionId,
@@ -341,13 +330,13 @@ function SetRow({
       {/* Weight input — expands to fill remaining space */}
       {!isBodyweight && (
         <NumericInput
-          value={displayWeight}
+          value={weight}
           min={0}
           onChange={handleWeightChange}
           disabled={isDisabled}
-          aria-label={`Peso ${units}, serie ${setNumber}`}
+          aria-label={`Peso kg, serie ${setNumber}`}
           flex1
-          suffix={units}
+          suffix="kg"
         />
       )}
       {isBodyweight && (
@@ -407,7 +396,6 @@ interface ExerciseBlockProps {
   workoutId: string;
   dayId: string;
   sessionCompleted: boolean;
-  units: 'kg' | 'lb';
   onDoneSetsChange: (delta: number) => void;
   extraSets: number;
   onAddExtraSet: () => void;
@@ -424,7 +412,6 @@ function ExerciseBlock({
   workoutId,
   dayId,
   sessionCompleted,
-  units,
   onDoneSetsChange,
   extraSets,
   onAddExtraSet,
@@ -457,7 +444,6 @@ function ExerciseBlock({
               workoutId={workoutId}
               dayId={dayId}
               sessionCompleted={sessionCompleted}
-              units={units}
               onDoneSetsChange={onDoneSetsChange}
             />
           );
@@ -496,9 +482,6 @@ export function WorkoutSessionPage() {
   const { data: exercises } = useExercises();
   const exerciseById = new Map((exercises ?? []).map((e) => [e.id, e]));
 
-  const { data: prefs } = useUserPreferences();
-  const units = prefs?.units ?? 'kg';
-
   const startSession = useStartSession();
   const completeSession = useCompleteSession();
   const deleteSession = useDeleteSession();
@@ -520,6 +503,12 @@ export function WorkoutSessionPage() {
 
   const inProgressFromHistory =
     pastSessions?.find((s) => s.status === 'in_progress') ?? null;
+
+  // When the user picks "Nueva sesión", the old in-progress session is deleted
+  // BEFORE the new one is created (non-atomic). If the delete succeeds but the
+  // POST fails, the old session is already gone — so we remember that we already
+  // abandoned it and offer a retry that only re-runs the start (no re-delete).
+  const [abandonedSessionId, setAbandonedSessionId] = useState<string | null>(null);
 
   const session = newSession;
 
@@ -577,28 +566,37 @@ export function WorkoutSessionPage() {
   const dayLabel =
     DAY_LABEL[day.day_of_week as keyof typeof DAY_LABEL] ?? day.day_of_week;
 
-  function handleStart(abandonSessionId?: string) {
-    function doStart() {
-      startSession.mutate(
-        { workoutId, dayId },
-        {
-          onSuccess: (data) => {
-            setNewSession({
-              id: data.id,
-              status: data.status,
-              logs: data.logs,
-              started_at: data.started_at,
-            });
-          },
+  function doStart() {
+    startSession.mutate(
+      { workoutId, dayId },
+      {
+        onSuccess: (data) => {
+          setNewSession({
+            id: data.id,
+            status: data.status,
+            logs: data.logs,
+            started_at: data.started_at,
+          });
+          // Start succeeded — clear any abandoned-retry state.
+          setAbandonedSessionId(null);
         },
-      );
-    }
+      },
+    );
+  }
 
+  function handleStart(abandonSessionId?: string) {
     if (abandonSessionId) {
       if (!window.confirm('Se eliminará la sesión en progreso. ¿Continuar?')) return;
       deleteSession.mutate(
         { sessionId: abandonSessionId, workoutId, dayId },
-        { onSuccess: doStart },
+        {
+          onSuccess: () => {
+            // The old session is now gone. Record that so a failed start can be
+            // retried without deleting again, then start the new session.
+            setAbandonedSessionId(abandonSessionId);
+            doStart();
+          },
+        },
       );
     } else {
       doStart();
@@ -712,7 +710,7 @@ export function WorkoutSessionPage() {
       {!session && sessionsLoading && <Spinner />}
 
       {/* Resume confirmation */}
-      {!newSession && inProgressFromHistory && !sessionsLoading && (
+      {!newSession && inProgressFromHistory && !sessionsLoading && !(abandonedSessionId !== null && (startSession.isError || startSession.isPending)) && (
         <div
           className="rounded-card border border-border bg-surface p-4 mb-4"
           role="alert"
@@ -751,7 +749,16 @@ export function WorkoutSessionPage() {
               {startSession.isPending || deleteSession.isPending ? 'Iniciando…' : 'Nueva sesión'}
             </button>
           </div>
-          {startSession.isError && (
+          {deleteSession.isError && (
+            <p className="mt-2 text-xs text-danger">
+              No se pudo eliminar la sesión anterior:{' '}
+              {(deleteSession.error as Error).message}
+            </p>
+          )}
+          {/* Start error while the in-progress session still exists (delete
+              hasn't run or failed) — the abandoned-retry recovery block below
+              handles the delete-succeeded-but-start-failed case. */}
+          {abandonedSessionId === null && startSession.isError && (
             <p className="mt-2 text-xs text-danger">
               {(startSession.error as Error).message}
             </p>
@@ -759,8 +766,34 @@ export function WorkoutSessionPage() {
         </div>
       )}
 
+      {/* Abandoned-session recovery — rendered independently of
+          inProgressFromHistory. When "Nueva sesión" deletes the old session but
+          the subsequent start fails, the old session is already gone, so
+          inProgressFromHistory becomes null and its block unmounts. This block
+          survives that transition and lets the user retry the start (no
+          re-delete). */}
+      {abandonedSessionId !== null && (startSession.isError || startSession.isPending) && !newSession && (
+        <div
+          className="rounded-card border border-border bg-surface p-4 mb-4"
+          role="alert"
+        >
+          <p className="text-xs text-danger mb-2">
+            Se eliminó la sesión anterior pero no se pudo iniciar la nueva:{' '}
+            {(startSession.error as Error).message}
+          </p>
+          <button
+            type="button"
+            onClick={() => doStart()}
+            disabled={startSession.isPending}
+            className="text-sm font-semibold rounded-btn bg-accent text-bg border-none cursor-pointer px-4 h-9 disabled:opacity-60"
+          >
+            {startSession.isPending ? 'Iniciando…' : 'Intentar de nuevo'}
+          </button>
+        </div>
+      )}
+
       {/* Pre-start state */}
-      {!newSession && !sessionsLoading && !inProgressFromHistory && (
+      {!newSession && !sessionsLoading && !inProgressFromHistory && (abandonedSessionId === null || (!startSession.isError && !startSession.isPending)) && (
         <div className="rounded-card border-2 border-dashed border-border p-8 text-center">
           <p className="text-sm text-muted mb-4">
             {day.exercises.length === 0
@@ -820,7 +853,6 @@ export function WorkoutSessionPage() {
                   workoutId={workoutId}
                   dayId={dayId}
                   sessionCompleted={session.status === 'completed'}
-                  units={units}
                   onDoneSetsChange={handleDoneSetsChange}
                   extraSets={extraSetsMap[exercise.id] ?? 0}
                   onAddExtraSet={() => handleAddExtraSet(exercise.id)}
