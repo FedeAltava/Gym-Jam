@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback, useRef } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { CheckCircle2 } from 'lucide-react';
 import { useWorkout } from '../hooks/useWorkouts';
@@ -553,11 +553,6 @@ export function WorkoutSessionPage() {
   const [tElapsed, setTElapsed] = useState(0);
   const [tLeft, setTLeft] = useState(90);
   const [tPreset, setTPreset] = useState(90);
-  const ivRef = useRef<ReturnType<typeof setInterval> | null>(null);
-
-  // Cleanup interval on unmount
-  useEffect(() => () => { if (ivRef.current) clearInterval(ivRef.current); }, []);
-
   // Interval effect — starts/stops when tRunning or tMode changes
   useEffect(() => {
     if (!tRunning) return;
@@ -565,9 +560,6 @@ export function WorkoutSessionPage() {
       if (tMode === 'rest') {
         setTLeft((prev) => {
           if (prev <= 1) {
-            setTRunning(false);
-            setTDone(true);
-            if (navigator.vibrate) navigator.vibrate(400);
             return 0;
           }
           return prev - 1;
@@ -576,9 +568,17 @@ export function WorkoutSessionPage() {
         setTElapsed((prev) => prev + 1);
       }
     }, 1000);
-    ivRef.current = iv;
-    return () => { clearInterval(iv); ivRef.current = null; };
+    return () => { clearInterval(iv); };
   }, [tRunning, tMode]);
+
+  // Completion side-effect effect — fires when countdown hits zero
+  useEffect(() => {
+    if (tLeft === 0 && !tDone && tMode === 'rest') {
+      setTRunning(false);
+      setTDone(true);
+      if (navigator.vibrate) navigator.vibrate(400);
+    }
+  }, [tLeft, tDone, tMode]);
 
   function toggleTimer() {
     if (tRunning) {
@@ -780,6 +780,7 @@ export function WorkoutSessionPage() {
         )}
         {session && (
           <button
+            type="button"
             onClick={() => setTimerOpen(true)}
             style={{
               width: 44, height: 44, flexShrink: 0, borderRadius: 14,
@@ -1024,6 +1025,11 @@ export function WorkoutSessionPage() {
           />
           {/* Panel */}
           <div
+            role="dialog"
+            aria-modal={true}
+            aria-labelledby="timer-dialog-heading"
+            tabIndex={-1}
+            onKeyDown={(e) => { if (e.key === 'Escape') setTimerOpen(false); }}
             style={{
               position: 'absolute', bottom: 0, left: 0, right: 0,
               background: '#0a0f0a',
@@ -1042,7 +1048,7 @@ export function WorkoutSessionPage() {
             {/* Header */}
             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '12px 20px 16px' }}>
               <div>
-                <div style={{ fontSize: '18px', fontWeight: 700, color: '#EAF0EA', fontFamily: "'Barlow Semi Condensed', sans-serif" }}>
+                <div id="timer-dialog-heading" style={{ fontSize: '18px', fontWeight: 700, color: '#EAF0EA', fontFamily: "'Barlow Semi Condensed', sans-serif" }}>
                   Cronómetro
                 </div>
                 <div style={{ fontSize: '12px', color: '#7E8A7E', fontWeight: 500, marginTop: '2px' }}>
@@ -1050,6 +1056,7 @@ export function WorkoutSessionPage() {
                 </div>
               </div>
               <button
+                type="button"
                 onClick={() => setTimerOpen(false)}
                 style={{
                   width: 36, height: 36, borderRadius: 10,
@@ -1071,6 +1078,7 @@ export function WorkoutSessionPage() {
               {(['rest', 'up'] as const).map((mode) => (
                 <button
                   key={mode}
+                  type="button"
                   onClick={() => setTimerMode(mode)}
                   style={{
                     flex: 1, height: 38, borderRadius: 10,
@@ -1108,12 +1116,15 @@ export function WorkoutSessionPage() {
                   position: 'absolute', inset: 0,
                   display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center',
                 }}>
-                  <span style={{
-                    fontSize: '48px', fontWeight: 700, color: timeCol,
-                    fontFamily: "'Barlow Semi Condensed', sans-serif",
-                    fontVariantNumeric: 'tabular-nums',
-                    lineHeight: 1,
-                  }}>
+                  <span
+                    aria-label="Tiempo del cronómetro"
+                    style={{
+                      fontSize: '48px', fontWeight: 700, color: timeCol,
+                      fontFamily: "'Barlow Semi Condensed', sans-serif",
+                      fontVariantNumeric: 'tabular-nums',
+                      lineHeight: 1,
+                    }}
+                  >
                     {timeLabel}
                   </span>
                   <span style={{ fontSize: '12px', color: statusCol, fontWeight: 600, marginTop: '6px' }}>
@@ -1129,6 +1140,7 @@ export function WorkoutSessionPage() {
                 {presets.map((p) => (
                   <button
                     key={p.label}
+                    type="button"
                     onClick={p.pick}
                     style={{
                       flex: 1, height: 36, borderRadius: 10,
@@ -1149,6 +1161,7 @@ export function WorkoutSessionPage() {
             <div style={{ display: 'flex', gap: '12px', padding: '0 20px' }}>
               {/* Reset */}
               <button
+                type="button"
                 onClick={resetTimer}
                 style={{
                   width: 52, height: 52, borderRadius: 14, flexShrink: 0,
@@ -1167,6 +1180,7 @@ export function WorkoutSessionPage() {
 
               {/* Play / Pause */}
               <button
+                type="button"
                 onClick={toggleTimer}
                 style={{
                   flex: 1, height: 52, borderRadius: 14,

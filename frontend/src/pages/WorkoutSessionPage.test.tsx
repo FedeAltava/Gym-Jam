@@ -1,4 +1,4 @@
-import { screen, waitFor, within } from '@testing-library/react';
+import { screen, waitFor, within, act } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { renderWithProviders } from '../test/test-utils';
 import { WorkoutSessionPage } from './WorkoutSessionPage';
@@ -26,8 +26,8 @@ const mockApiFetch = apiFetch as ReturnType<typeof vi.fn>;
 // Fixtures
 // ---------------------------------------------------------------------------
 
-// started_at exactly 75 seconds ago
-const STARTED_AT = new Date(Date.now() - 75_000).toISOString();
+// started_at is set fresh in beforeEach so it always reflects the current test run time
+let STARTED_AT: string;
 
 const WORKOUT_FIXTURE = {
   id: 'w1',
@@ -63,15 +63,17 @@ const WORKOUT_FIXTURE = {
   ],
 };
 
-const SESSION_FIXTURE = {
-  id: 'sess1',
-  workout_id: 'w1',
-  training_day_id: 'day1',
-  started_at: STARTED_AT,
-  status: 'in_progress',
-  completed_at: null,
-  logs: [],
-};
+function makeSessionFixture() {
+  return {
+    id: 'sess1',
+    workout_id: 'w1',
+    training_day_id: 'day1',
+    started_at: STARTED_AT,
+    status: 'in_progress',
+    completed_at: null,
+    logs: [],
+  };
+}
 
 const EXERCISES_FIXTURE = [
   { id: 'e1', name: 'Press banca', muscle_group: 'Pecho', is_bodyweight: false },
@@ -99,7 +101,7 @@ function mockApi(
     }
     if (path.startsWith('/workouts/w1/days/day1/sessions')) {
       if (options?.method === 'POST') {
-        return Promise.resolve(overrides.postSession ?? SESSION_FIXTURE);
+        return Promise.resolve(overrides.postSession ?? makeSessionFixture());
       }
       // GET — returns history (empty by default so we see the pre-start state)
       return Promise.resolve(overrides.sessions ?? []);
@@ -130,6 +132,7 @@ async function startSession() {
 }
 
 beforeEach(() => {
+  STARTED_AT = new Date(Date.now() - 75_000).toISOString();
   useAuthStore.setState({
     token: 'token',
     user: { id: 'u1', email: 'test@example.com', created_at: '2026-01-01T00:00:00Z', rest_seconds: 90, units: 'kg' as const },
@@ -230,7 +233,7 @@ describe('WorkoutSessionPage', () => {
     mockApiFetch.mockImplementation((path: string, options?: RequestInit) => {
       if (path === '/auth/me') return Promise.resolve(PREFS_FIXTURE);
       if (path.startsWith('/workouts/w1/days/day1/sessions')) {
-        if (options?.method === 'POST') return Promise.resolve(SESSION_FIXTURE);
+        if (options?.method === 'POST') return Promise.resolve(makeSessionFixture());
         return Promise.resolve([]);
       }
       if (path.startsWith('/workouts')) {
@@ -267,5 +270,172 @@ describe('WorkoutSessionPage', () => {
     expect(pressIndex).toBeGreaterThanOrEqual(0);
     expect(dominadasIndex).toBeGreaterThanOrEqual(0);
     expect(pressIndex).toBeLessThan(dominadasIndex);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Rest timer
+// ---------------------------------------------------------------------------
+
+/** Opens the rest timer panel (assumes session is already active). */
+async function openTimer(user: ReturnType<typeof userEvent.setup>) {
+  const clockBtn = await screen.findByRole('button', { name: 'Abrir cronómetro' });
+  await user.click(clockBtn);
+  await screen.findByText('Cronómetro');
+}
+
+describe('Rest Timer — panel open/close', () => {
+  it('clock button is not visible before session starts', async () => {
+    mockApi();
+    renderWithProviders(<WorkoutSessionPage />);
+    await screen.findByRole('button', { name: /Iniciar sesión/ });
+    expect(screen.queryByRole('button', { name: 'Abrir cronómetro' })).not.toBeInTheDocument();
+  });
+
+  it('clock button appears after session starts', async () => {
+    await startSession();
+    expect(screen.getByRole('button', { name: 'Abrir cronómetro' })).toBeInTheDocument();
+  });
+
+  it('opens the timer panel on clock button click', async () => {
+    const user = await startSession();
+    await openTimer(user);
+    expect(screen.getByText('Cronómetro')).toBeInTheDocument();
+  });
+
+  it('closes the panel with the X button', async () => {
+    const user = await startSession();
+    await openTimer(user);
+    await user.click(screen.getByRole('button', { name: 'Cerrar cronómetro' }));
+    expect(screen.queryByText('Cronómetro')).not.toBeInTheDocument();
+  });
+});
+
+describe('Rest Timer — initial state', () => {
+  it('shows 1:30 as default time (90 s preset)', async () => {
+    const user = await startSession();
+    await openTimer(user);
+    expect(screen.getByLabelText('Tiempo del cronómetro')).toHaveTextContent('1:30');
+  });
+
+  it('shows "En pausa" status initially', async () => {
+    const user = await startSession();
+    await openTimer(user);
+    expect(screen.getByText('En pausa')).toBeInTheDocument();
+  });
+
+  it('shows Iniciar button initially', async () => {
+    const user = await startSession();
+    await openTimer(user);
+    expect(screen.getByRole('button', { name: 'Iniciar' })).toBeInTheDocument();
+  });
+
+  it('renders the four preset buttons in rest mode', async () => {
+    const user = await startSession();
+    await openTimer(user);
+    for (const label of ['1:00', '1:30', '2:00', '3:00']) {
+      expect(screen.getByRole('button', { name: label })).toBeInTheDocument();
+    }
+  });
+});
+
+describe('Rest Timer — controls', () => {
+  it('toggles to Pausar and "En marcha" when started', async () => {
+    const user = await startSession();
+    await openTimer(user);
+    await user.click(screen.getByRole('button', { name: 'Iniciar' }));
+    expect(screen.getByRole('button', { name: 'Pausar' })).toBeInTheDocument();
+    expect(screen.getByText('En marcha')).toBeInTheDocument();
+  });
+
+  it('pauses the timer and shows Iniciar again', async () => {
+    const user = await startSession();
+    await openTimer(user);
+    await user.click(screen.getByRole('button', { name: 'Iniciar' }));
+    await user.click(screen.getByRole('button', { name: 'Pausar' }));
+    expect(screen.getByRole('button', { name: 'Iniciar' })).toBeInTheDocument();
+    expect(screen.getByText('En pausa')).toBeInTheDocument();
+  });
+
+  it('preset button changes the timer display', async () => {
+    const user = await startSession();
+    await openTimer(user);
+    await user.click(screen.getByRole('button', { name: '2:00' }));
+    expect(screen.getByLabelText('Tiempo del cronómetro')).toHaveTextContent('2:00');
+  });
+
+  it('reset button restores preset time and stops the timer', async () => {
+    const user = await startSession();
+    await openTimer(user);
+    await user.click(screen.getByRole('button', { name: '2:00' }));
+    await user.click(screen.getByRole('button', { name: 'Iniciar' }));
+    await user.click(screen.getByRole('button', { name: 'Reiniciar cronómetro' }));
+    expect(screen.getByRole('button', { name: 'Iniciar' })).toBeInTheDocument();
+    expect(screen.getByLabelText('Tiempo del cronómetro')).toHaveTextContent('2:00');
+  });
+
+  it('switching to Ascendente hides preset buttons and shows 0:00', async () => {
+    const user = await startSession();
+    await openTimer(user);
+    await user.click(screen.getByRole('button', { name: 'Ascendente' }));
+    expect(screen.queryByRole('button', { name: '1:00' })).not.toBeInTheDocument();
+    expect(screen.getByLabelText('Tiempo del cronómetro')).toHaveTextContent('0:00');
+  });
+});
+
+// NOTE: vi.useFakeTimers fakes setInterval/clearInterval only (not setTimeout, so waitFor still works).
+// Advancing fake time fires BOTH the rest timer interval AND the session elapsed-timer interval.
+// Tests assert only on rest-timer state — elapsed-timer interference is harmless but present.
+// Future changes to session-elapsed timer logic must account for this dual-interval behavior.
+describe('Rest Timer — countdown (fake timers)', () => {
+  // Only fake setInterval/clearInterval so setTimeout (used by waitFor/findBy) stays real.
+  beforeEach(() => { vi.useFakeTimers({ toFake: ['setInterval', 'clearInterval'] }); });
+  afterEach(() => { vi.useRealTimers(); });
+
+  it('counts down after starting', async () => {
+    const user = await startSession();
+    await openTimer(user);
+    await user.click(screen.getByRole('button', { name: 'Iniciar' }));
+    act(() => { vi.advanceTimersByTime(5000); });
+    await waitFor(() => {
+      expect(screen.getByLabelText('Tiempo del cronómetro')).toHaveTextContent('1:25');
+    });
+  });
+
+  it('shows "¡Descanso completo!" and Reiniciar when countdown ends', async () => {
+    const user = await startSession();
+    await openTimer(user);
+    await user.click(screen.getByRole('button', { name: '1:00' }));
+    await user.click(screen.getByRole('button', { name: 'Iniciar' }));
+    act(() => { vi.advanceTimersByTime(60_000); });
+    await waitFor(() => {
+      expect(screen.getByText('¡Descanso completo!')).toBeInTheDocument();
+    });
+    expect(screen.getByRole('button', { name: 'Reiniciar' })).toBeInTheDocument();
+  });
+
+  it('"Reiniciar" after completion resets and starts again', async () => {
+    const user = await startSession();
+    await openTimer(user);
+    await user.click(screen.getByRole('button', { name: '1:00' }));
+    await user.click(screen.getByRole('button', { name: 'Iniciar' }));
+    act(() => { vi.advanceTimersByTime(60_000); });
+    await waitFor(() => screen.getByText('¡Descanso completo!'));
+    await user.click(screen.getByRole('button', { name: 'Reiniciar' }));
+    await waitFor(() => {
+      expect(screen.getByRole('button', { name: 'Pausar' })).toBeInTheDocument();
+    });
+    expect(screen.getByLabelText('Tiempo del cronómetro')).toHaveTextContent('1:00');
+  });
+
+  it('ascending mode counts up', async () => {
+    const user = await startSession();
+    await openTimer(user);
+    await user.click(screen.getByRole('button', { name: 'Ascendente' }));
+    await user.click(screen.getByRole('button', { name: 'Iniciar' }));
+    act(() => { vi.advanceTimersByTime(5000); });
+    await waitFor(() => {
+      expect(screen.getByLabelText('Tiempo del cronómetro')).toHaveTextContent('0:05');
+    });
   });
 });
