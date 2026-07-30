@@ -28,7 +28,7 @@ class ReorderTrainingDaysUseCase:
         workout_id = workout_id_result.unwrap()
 
         # 2. Load workout
-        workout = await self._repo.get_by_id(workout_id)
+        workout = await self._repo.get_by_id_locked(workout_id)
         if workout is None:
             return Failure(WorkoutNotFoundError(workout_id=cmd.workout_id))
 

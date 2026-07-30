@@ -34,7 +34,7 @@ class RemoveTrainingDayUseCase:
         if isinstance(id_result, Failure):
             return Failure(WorkoutNotFoundError(workout_id=cmd.workout_id))
         workout_id = id_result.unwrap()
-        workout = await self._repo.get_by_id(workout_id)
+        workout = await self._repo.get_by_id_locked(workout_id)
         if workout is None:
             return Failure(WorkoutNotFoundError(workout_id=cmd.workout_id))
 
