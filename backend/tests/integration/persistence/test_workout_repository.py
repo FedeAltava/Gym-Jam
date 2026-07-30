@@ -351,6 +351,40 @@ async def test_resave_preserves_unchanged_exercise_rows(session):
     assert exercises[0].exercise_id == "ex-keep"
 
 
+# ─── 20. get_by_id_locked returns same aggregate (SQLite: FOR UPDATE is no-op) ───
+
+async def test_get_by_id_locked_returns_same_aggregate_as_get_by_id(session):
+    """get_by_id_locked must return the same aggregate as get_by_id.
+
+    On SQLite (the test engine) .with_for_update() compiles to a no-op, so
+    the call must succeed without raising. On Postgres the row-level lock
+    would be acquired and held for the transaction (ADR-4).
+    """
+    repo = SqlAlchemyWorkoutRepository(session)
+    workout = _make_workout(name="Lock Test")
+    workout.add_training_day(DayOfWeek.MONDAY)
+    workout.add_exercise_to_day(DayOfWeek.MONDAY, "ex-lock")
+    await repo.save(workout)
+
+    locked = await repo.get_by_id_locked(workout.id)
+
+    assert locked is not None
+    assert str(locked.name.value) == "Lock Test"
+    exercises = locked.get_exercises_for_day(DayOfWeek.MONDAY)
+    assert len(exercises) == 1
+    assert exercises[0].exercise_id == "ex-lock"
+
+
+async def test_get_by_id_locked_returns_none_for_unknown_id(session):
+    """get_by_id_locked must return None for a non-existent workout (same contract as get_by_id)."""
+    repo = SqlAlchemyWorkoutRepository(session)
+    unknown = WorkoutId(uuid4())
+
+    result = await repo.get_by_id_locked(unknown)
+
+    assert result is None
+
+
 # ─── 19. re-save persists reordered exercises (approval: no UNIQUE error) ──
 
 async def test_resave_reordered_exercises_persists_new_order(session):

@@ -64,17 +64,20 @@ export function AddExercisesPage() {
     setIsPending(true);
     setAddError(null);
 
-    const results = await Promise.allSettled(
-      [...selected].map((id) =>
-        apiFetch(`/workouts/${workoutId}/training-days/${day}/exercises`, {
+    let succeeded = 0;
+    let failed = 0;
+    for (const id of selected) {
+      try {
+        await apiFetch(`/workouts/${workoutId}/training-days/${day}/exercises`, {
           method: 'POST',
           body: JSON.stringify({ exercise_id: id }),
-        }),
-      ),
-    );
-
-    const failed = results.filter((r) => r.status === 'rejected').length;
-    const succeeded = results.filter((r) => r.status === 'fulfilled').length;
+        });
+        succeeded++;
+      } catch {
+        failed++;
+        break;
+      }
+    }
 
     await queryClient.invalidateQueries({ queryKey: ['workouts', workoutId] });
 

@@ -1,5 +1,6 @@
 """Tests for AddExerciseToWorkoutUseCase — TDD RED phase."""
 import uuid
+from unittest.mock import AsyncMock, patch
 
 import pytest
 from returns.result import Failure, Success
@@ -164,3 +165,56 @@ async def test_add_exercise_duplicate_returns_domain_violation(
     result = await use_case.execute(cmd)
     assert isinstance(result, Failure)
     assert isinstance(result.failure(), DomainViolationError)
+
+
+# ── T1: execute() calls get_by_id_locked, not get_by_id directly ─────────────
+
+async def test_execute_calls_get_by_id_locked_not_get_by_id(
+    repo: InMemoryWorkoutRepository, exercise_repo: InMemoryExerciseRepository
+) -> None:
+    """T1: use case must delegate the workout load to get_by_id_locked.
+
+    We spy on get_by_id_locked to confirm the use case calls the locked
+    variant. We do not assert that get_by_id is not called because
+    InMemoryWorkoutRepository.get_by_id_locked is a thin alias over
+    get_by_id — that internal delegation is an implementation detail of
+    the test double, not the use case.
+    """
+    workout = _make_workout(days=["MONDAY"])
+    await repo.save(workout)
+
+    repo.get_by_id_locked = AsyncMock(wraps=repo.get_by_id_locked)  # type: ignore[method-assign]
+
+    use_case = AddExerciseToWorkoutUseCase(repo, exercise_repo)
+    cmd = AddExerciseToWorkoutCommand(
+        workout_id=str(workout.id.value),
+        user_id="user-1",
+        day_of_week="MONDAY",
+        exercise_id="ex-abc",
+    )
+    result = await use_case.execute(cmd)
+
+    assert isinstance(result, Success)
+    repo.get_by_id_locked.assert_awaited_once()
+
+
+# ── T2: get_by_id_locked returns None → WorkoutNotFoundError ─────────────────
+
+async def test_execute_returns_workout_not_found_when_locked_load_returns_none(
+    repo: InMemoryWorkoutRepository, exercise_repo: InMemoryExerciseRepository
+) -> None:
+    """T2: when get_by_id_locked returns None, execute must return Failure(WorkoutNotFoundError)."""
+    repo.get_by_id_locked = AsyncMock(return_value=None)  # type: ignore[method-assign]
+
+    use_case = AddExerciseToWorkoutUseCase(repo, exercise_repo)
+    cmd = AddExerciseToWorkoutCommand(
+        workout_id=str(uuid.uuid4()),
+        user_id="user-1",
+        day_of_week="MONDAY",
+        exercise_id="ex-abc",
+    )
+    result = await use_case.execute(cmd)
+
+    assert isinstance(result, Failure)
+    assert isinstance(result.failure(), WorkoutNotFoundError)
+    repo.get_by_id_locked.assert_awaited_once()

@@ -14,9 +14,12 @@ class SqlAlchemyWorkoutRepository(WorkoutRepository):
         self._session = session
 
     async def save(self, workout: Workout) -> None:
-        # Selective diff + upsert instead of DELETE-then-INSERT: wholesale
-        # deletion is racy under concurrent saves (a second save's DELETE
+        # Selective diff + upsert instead of DELETE-then-INSERT: this guards
+        # the narrow DELETE-then-INSERT slot-reuse race (a second save's DELETE
         # wipes rows the first save just inserted before either commits).
+        # Serialization of concurrent WRITERS (the diff-computation race where
+        # two sessions read the same stale aggregate) is provided by callers
+        # using get_by_id_locked at load time, NOT by this diff algorithm.
         workout_id_str = str(workout.id.value)
         model = WorkoutMapper.to_model(workout)
 
@@ -72,6 +75,21 @@ class SqlAlchemyWorkoutRepository(WorkoutRepository):
             .options(
                 selectinload(WorkoutModel.training_days).selectinload(TrainingDayModel.exercises)
             )
+        )
+        result = await self._session.execute(stmt)
+        model = result.scalar_one_or_none()
+        if model is None:
+            return None
+        return WorkoutMapper.to_domain(model)
+
+    async def get_by_id_locked(self, workout_id: WorkoutId) -> Workout | None:
+        stmt = (
+            select(WorkoutModel)
+            .where(WorkoutModel.id == str(workout_id.value))
+            .options(
+                selectinload(WorkoutModel.training_days).selectinload(TrainingDayModel.exercises)
+            )
+            .with_for_update()
         )
         result = await self._session.execute(stmt)
         model = result.scalar_one_or_none()

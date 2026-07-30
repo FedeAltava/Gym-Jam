@@ -12,6 +12,9 @@ class WorkoutRepository(ABC):
     async def get_by_id(self, workout_id: WorkoutId) -> Workout | None: ...
 
     @abstractmethod
+    async def get_by_id_locked(self, workout_id: WorkoutId) -> Workout | None: ...
+
+    @abstractmethod
     async def get_by_user(self, user_id: str, limit: int = 50, offset: int = 0) -> list[Workout]: ...
 
     @abstractmethod
