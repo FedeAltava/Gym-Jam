@@ -236,16 +236,16 @@ describe('AddExercisesPage', () => {
 
     // useBatchAddExercises posts one apiFetch per exercise
     await waitFor(() => {
-      const postCalls = mockApiFetch.mock.calls.filter(
-        ([, opts]: [string, RequestInit]) => opts?.method === 'POST',
+      const postCalls = (mockApiFetch.mock.calls as [string, RequestInit?][]).filter(
+        ([, opts]) => opts?.method === 'POST',
       );
       expect(postCalls).toHaveLength(2);
     });
 
     // Both exercise IDs should appear in the POST payloads
-    const postPayloads = mockApiFetch.mock.calls
-      .filter(([, opts]: [string, RequestInit]) => opts?.method === 'POST')
-      .map(([, opts]: [string, RequestInit]) => JSON.parse(opts.body as string));
+    const postPayloads = (mockApiFetch.mock.calls as [string, RequestInit?][])
+      .filter(([, opts]) => opts?.method === 'POST')
+      .map(([, opts]) => JSON.parse(opts!.body as string));
 
     expect(postPayloads).toEqual(
       expect.arrayContaining([
@@ -290,8 +290,8 @@ describe('AddExercisesPage', () => {
     await user.click(screen.getByRole('button', { name: 'Añadiendo…' }));
 
     // Only 1 POST should have been fired (the first click)
-    const postCalls = mockApiFetch.mock.calls.filter(
-      ([, opts]: [string, RequestInit]) => opts?.method === 'POST',
+    const postCalls = (mockApiFetch.mock.calls as [string, RequestInit?][]).filter(
+      ([, opts]) => opts?.method === 'POST',
     );
     expect(postCalls).toHaveLength(1);
 

@@ -320,7 +320,7 @@ describe('SessionDetailPage — duration formatting', () => {
   });
 
   it('formats null duration as "—"', async () => {
-    mockApi({ ...SESSION_WITH_PR, duration_seconds: null });
+    mockApi({ ...SESSION_WITH_PR, duration_seconds: null as unknown as number });
     renderWithProviders(<SessionDetailPage />);
     await screen.findByText('Push A');
     // "—" appears for null duration in the stats bar
