@@ -81,7 +81,7 @@ async def get_current_user(
     token: str = Depends(oauth2_scheme),
     user_repo: SqlAlchemyUserRepository = Depends(get_user_repository),
 ) -> UserModel:
-    from datetime import datetime as _datetime
+    from datetime import datetime as _datetime, timezone as _tz
     payload = decode_access_token_payload(token)
     user_id: str = payload["sub"]  # type: ignore[assignment]
     user = await user_repo.find_by_id(user_id)
@@ -94,7 +94,10 @@ async def get_current_user(
     pca_str: str | None = payload.get("pca")  # type: ignore[assignment]
     if pca_str is not None and user.password_changed_at is not None:
         token_pca = _datetime.fromisoformat(pca_str)
-        if token_pca < user.password_changed_at:
+        pca = user.password_changed_at
+        if pca.tzinfo is None:
+            pca = pca.replace(tzinfo=_tz.utc)
+        if token_pca < pca:
             raise HTTPException(
                 status_code=status.HTTP_401_UNAUTHORIZED,
                 detail="Token invalidated by password change",

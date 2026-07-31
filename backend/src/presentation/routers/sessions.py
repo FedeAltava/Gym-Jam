@@ -73,7 +73,11 @@ async def start_session(
     result = await uc.execute(cmd)
     if isinstance(result, Failure):
         raise result.failure()
-    await session.commit()
+    try:
+        await session.commit()
+    except IntegrityError:
+        await session.rollback()
+        raise HTTPException(status_code=409, detail="Session already in progress for this training day")
     return WorkoutSessionResponse.from_dto(result.unwrap())
 
 
