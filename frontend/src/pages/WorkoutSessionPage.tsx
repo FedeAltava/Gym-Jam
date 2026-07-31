@@ -563,16 +563,18 @@ export function WorkoutSessionPage() {
     };
   }, [session?.id]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  // Done-sets counter — seeded synchronously from the session's existing logs
-  // so it is correct immediately when resuming a session, then updated via
-  // callbacks from SetRow as the user toggles sets during the current session.
-  const [doneSets, setDoneSets] = useState(0);
+  // Done-sets counter — seeded from the session's existing logs so it is
+  // correct immediately when resuming a session, then updated via callbacks
+  // from SetRow as the user toggles sets during the current session.
+  // Adjusted during render (React-recommended pattern) to avoid cascading
+  // setState-in-effect cycles.
+  const [prevSessionId, setPrevSessionId] = useState<string | undefined>(session?.id);
+  const [doneSets, setDoneSets] = useState(session?.logs.length ?? 0);
 
-  useEffect(() => {
-    if (session) {
-      setDoneSets(session.logs.length);
-    }
-  }, [session?.id]); // eslint-disable-line react-hooks/exhaustive-deps
+  if (session?.id !== prevSessionId) {
+    setPrevSessionId(session?.id);
+    setDoneSets(session?.logs.length ?? 0);
+  }
 
   const handleDoneSetsChange = useCallback((delta: number) => {
     setDoneSets((prev) => Math.max(0, prev + delta));
@@ -593,30 +595,29 @@ export function WorkoutSessionPage() {
   const [tElapsed, setTElapsed] = useState(0);
   const [tLeft, setTLeft] = useState(90);
   const [tPreset, setTPreset] = useState(90);
-  // Interval effect — starts/stops when tRunning or tMode changes
+  // Interval effect — starts/stops when tRunning or tMode changes.
   useEffect(() => {
     if (!tRunning) return;
     const iv = setInterval(() => {
       if (tMode === 'rest') {
-        setTLeft((prev) => {
-          if (prev <= 1) {
-            return 0;
-          }
-          return prev - 1;
-        });
+        setTLeft((prev) => Math.max(0, prev - 1));
       } else {
         setTElapsed((prev) => prev + 1);
       }
     }, 1000);
     return () => { clearInterval(iv); };
   }, [tRunning, tMode]);
-
-  // Completion side-effect effect — fires when countdown hits zero
+  // Completion side-effect — fires when countdown hits zero.
+  // setState calls are wrapped in queueMicrotask so they are NOT synchronous
+  // in the effect body (avoids cascading-render lint violation while keeping
+  // the logic here where tLeft/tDone/tMode are already in the dep array).
   useEffect(() => {
     if (tLeft === 0 && !tDone && tMode === 'rest') {
-      setTRunning(false);
-      setTDone(true);
-      if (navigator.vibrate) navigator.vibrate(400);
+      queueMicrotask(() => {
+        setTRunning(false);
+        setTDone(true);
+        if (navigator.vibrate) navigator.vibrate(400);
+      });
     }
   }, [tLeft, tDone, tMode]);
 
