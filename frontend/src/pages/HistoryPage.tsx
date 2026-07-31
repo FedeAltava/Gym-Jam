@@ -248,7 +248,7 @@ export function HistoryPage() {
   // Deduplicate sessions across pages
   const allSessions = data
     ? Array.from(
-        new Map(data.pages.flat().map((s) => [s.id, s])).values(),
+        new Map(data.pages.flatMap((p) => p.items).map((s) => [s.id, s])).values(),
       )
     : undefined;
 

@@ -84,6 +84,13 @@ export interface SessionHistoryLogResponse {
   weight_kg: number | null;
 }
 
+export interface SessionHistoryResponse {
+  items: SessionHistoryItemResponse[];
+  total: number;
+  page: number;
+  page_size: number;
+}
+
 export interface SessionHistoryItemResponse {
   id: string;
   workout_id: string;

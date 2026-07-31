@@ -8,6 +8,7 @@ from datetime import UTC, datetime
 from returns.result import Failure, Result, Success
 
 from backend.src.application.errors import ApplicationError, DomainViolationError
+from backend.src.application.validators import PasswordValidator
 from backend.src.domain.repositories.password_reset_token_repository import PasswordResetTokenRepository
 from backend.src.domain.repositories.refresh_token_repository import RefreshTokenRepository
 from backend.src.domain.repositories.user_repository import UserRepository
@@ -29,6 +30,10 @@ class ResetPasswordUseCase:
         self._hash_password = hash_password
 
     async def execute(self, raw_token: str, new_password: str) -> Result[None, ApplicationError]:
+        pwd_result = PasswordValidator.validate(new_password)
+        if isinstance(pwd_result, Failure):
+            return pwd_result
+
         token_hash = hashlib.sha256(raw_token.encode()).hexdigest()
         record = await self._token_repo.find_by_hash(token_hash)
 

@@ -7,6 +7,7 @@ from datetime import UTC, datetime
 from returns.result import Failure, Result, Success
 
 from backend.src.application.errors import ApplicationError, DomainViolationError
+from backend.src.application.validators import PasswordValidator
 from backend.src.domain.repositories.refresh_token_repository import RefreshTokenRepository
 from backend.src.domain.repositories.user_repository import UserRepository
 
@@ -27,6 +28,10 @@ class ChangePasswordUseCase:
     async def execute(
         self, user_id: str, current_password: str, new_password: str
     ) -> Result[None, ApplicationError]:
+        pwd_result = PasswordValidator.validate(new_password)
+        if isinstance(pwd_result, Failure):
+            return pwd_result
+
         user = await self._user_repo.find_by_id(user_id)
         if user is None:
             return Failure(DomainViolationError(

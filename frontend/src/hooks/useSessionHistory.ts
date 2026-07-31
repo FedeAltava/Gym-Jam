@@ -1,6 +1,6 @@
 import { useInfiniteQuery, useQuery } from '@tanstack/react-query';
 import { apiFetch } from '../lib/api';
-import type { SessionHistoryItemResponse } from '../types/api';
+import type { SessionHistoryItemResponse, SessionHistoryResponse } from '../types/api';
 
 const PAGE_SIZE = 20;
 
@@ -35,15 +35,13 @@ export function useSessionHistory(filters: SessionHistoryFilters = {}) {
     queryFn: ({ pageParam }: { pageParam: number }) => {
       const base = buildQueryString(filters);
       const sep = base ? '&' : '?';
-      return apiFetch<SessionHistoryItemResponse[]>(
-        `/sessions${base}${sep}limit=${PAGE_SIZE}&offset=${pageParam}`,
+      return apiFetch<SessionHistoryResponse>(
+        `/sessions${base}${sep}page=${pageParam}&page_size=${PAGE_SIZE}`,
       );
     },
-    initialPageParam: 0,
-    getNextPageParam: (
-      lastPage: SessionHistoryItemResponse[],
-      allPages: SessionHistoryItemResponse[][],
-    ) => (lastPage.length === PAGE_SIZE ? allPages.length * PAGE_SIZE : undefined),
+    initialPageParam: 1,
+    getNextPageParam: (lastPage: SessionHistoryResponse) =>
+      lastPage.items.length === PAGE_SIZE ? lastPage.page + 1 : undefined,
   });
 }
 

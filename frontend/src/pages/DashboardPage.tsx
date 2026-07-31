@@ -55,9 +55,9 @@ export function DashboardPage() {
   const firstName = user ? firstNameFromEmail(user.email) : '';
   const avatarLetter = firstName ? firstName[0].toUpperCase() : '?';
 
-  // Offset pagination can repeat items between pages — dedupe by id.
+  // Deduplicate sessions across pages.
   const completedSessions = historyData
-    ? Array.from(new Map(historyData.pages.flat().map((s) => [s.id, s])).values())
+    ? Array.from(new Map(historyData.pages.flatMap((p) => p.items).map((s) => [s.id, s])).values())
     : [];
   const recentSessions = completedSessions.slice(0, 2);
 

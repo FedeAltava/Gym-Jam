@@ -71,10 +71,10 @@ async def test_register_user_duplicate_email_returns_failure() -> None:
     repo = InMemoryUserRepository()
     uc = _make_use_case(repo)
 
-    await uc.execute(RegisterUserCommand(email="alice@example.com", password="first"))
+    await uc.execute(RegisterUserCommand(email="alice@example.com", password="first-password"))
     repo.saved.clear()  # reset saved tracker for the second call check
 
-    result = await uc.execute(RegisterUserCommand(email="alice@example.com", password="second"))
+    result = await uc.execute(RegisterUserCommand(email="alice@example.com", password="second-password"))
 
     assert isinstance(result, Failure)
     assert isinstance(result.failure(), DomainViolationError)
@@ -122,13 +122,13 @@ async def test_register_user_create_user_receives_correct_args() -> None:
         hash_password=lambda p: f"hashed({p})",
     )
 
-    await uc.execute(RegisterUserCommand(email="carol@example.com", password="pw"))
+    await uc.execute(RegisterUserCommand(email="carol@example.com", password="password1"))
 
     assert len(captured) == 1
     uid, email, hashed = captured[0]
     assert uid != ""
     assert email == "carol@example.com"
-    assert hashed == "hashed(pw)"
+    assert hashed == "hashed(password1)"
 
 
 # 5. UUID is generated per call — two registrations produce different IDs
@@ -146,8 +146,8 @@ async def test_register_user_uuid_is_unique_per_call() -> None:
         hash_password=lambda p: p,
     )
 
-    await uc.execute(RegisterUserCommand(email="dave@example.com", password="pw1"))
-    await uc.execute(RegisterUserCommand(email="eve@example.com", password="pw2"))
+    await uc.execute(RegisterUserCommand(email="dave@example.com", password="password1"))
+    await uc.execute(RegisterUserCommand(email="eve@example.com", password="password2"))
 
     assert len(ids) == 2
     assert ids[0] != ids[1]

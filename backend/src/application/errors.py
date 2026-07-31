@@ -170,3 +170,12 @@ class SetAlreadyLoggedError(ApplicationError):
         object.__setattr__(self, "set_number", set_number)
         super().__init__(f"Set {set_number} for exercise '{workout_exercise_id}' has already been logged.")
 
+
+@dataclass
+class WeakPasswordError(ApplicationError):
+    message: str = "Password must be at least 8 characters long"
+
+    def __init__(self, message: str = "Password must be at least 8 characters long") -> None:
+        object.__setattr__(self, "message", message)
+        super().__init__(message)
+

@@ -485,12 +485,13 @@ interface ExerciseCardProps {
   name: string;
   muscleGroup: string | null;
   sets: SessionHistoryLogResponse[];
-  hasPrs: boolean;
+  /** Max weight (kg) across ALL exercises in the session; -1 when no PRs. */
+  sessionMaxWeight: number;
   onOpenProgress: () => void;
 }
 
-function ExerciseCard({ name, muscleGroup, sets, hasPrs, onOpenProgress }: ExerciseCardProps) {
-  const maxWeight = hasPrs ? Math.max(...sets.map((s) => s.weight_kg ?? 0)) : -1;
+function ExerciseCard({ name, muscleGroup, sets, sessionMaxWeight, onOpenProgress }: ExerciseCardProps) {
+  const maxWeight = sessionMaxWeight;
 
   return (
     <div
@@ -581,7 +582,7 @@ function ExerciseCard({ name, muscleGroup, sets, hasPrs, onOpenProgress }: Exerc
 
       <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
         {sets.map((set) => {
-          const isPr = hasPrs && set.weight_kg != null && set.weight_kg === maxWeight;
+          const isPr = sessionMaxWeight > 0 && set.weight_kg != null && set.weight_kg === maxWeight;
           return (
             <div
               key={set.id}
@@ -650,7 +651,7 @@ export function SessionDetailPage() {
   // History is used ONLY to find the previous session of the same workout and
   // to provide data for the per-exercise progress chart.
   const { data: historyData } = useSessionHistory({ status: 'completed' });
-  const allSessions = historyData?.pages.flat() ?? [];
+  const allSessions = historyData?.pages.flatMap((p) => p.items) ?? [];
 
   if (isLoading && !session) return <Spinner />;
 
@@ -683,6 +684,11 @@ export function SessionDetailPage() {
 
   const volume = computeVolume(session.logs);
   const exercises = groupByExercise(session.logs);
+  // Session-wide max weight used for PR badge heuristic. -1 when no PRs recorded.
+  const sessionMaxWeight =
+    session.pr_count > 0
+      ? Math.max(...session.logs.map((l) => l.weight_kg ?? 0))
+      : -1;
   const dayLabel = toDayLabel(session.day_of_week);
   const dateLabel = formatLongDate(session.started_at);
   const durationLabel = formatDuration(session.duration_seconds);
@@ -797,7 +803,7 @@ export function SessionDetailPage() {
               name={ex.name}
               muscleGroup={ex.muscleGroup}
               sets={ex.sets}
-              hasPrs={session.pr_count > 0}
+              sessionMaxWeight={sessionMaxWeight}
               onOpenProgress={() => setSheetExercise(ex.name)}
             />
           ))}

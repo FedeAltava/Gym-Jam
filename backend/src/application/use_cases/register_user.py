@@ -9,6 +9,7 @@ from returns.result import Failure, Result, Success
 
 from backend.src.application.commands import RegisterUserCommand
 from backend.src.application.errors import ApplicationError, DomainViolationError
+from backend.src.application.validators import PasswordValidator
 from backend.src.domain.repositories.user_repository import UserRepository
 
 
@@ -24,6 +25,10 @@ class RegisterUserUseCase:
         self._hash_password = hash_password
 
     async def execute(self, cmd: RegisterUserCommand) -> Result[Any, ApplicationError]:
+        pwd_result = PasswordValidator.validate(cmd.password)
+        if isinstance(pwd_result, Failure):
+            return pwd_result
+
         existing = await self._user_repo.find_by_email(cmd.email)
         if existing is not None:
             return Failure(DomainViolationError(

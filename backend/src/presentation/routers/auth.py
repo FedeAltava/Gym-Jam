@@ -8,6 +8,7 @@ from returns.result import Failure
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from backend.src.application.commands import RegisterUserCommand
+from backend.src.application.errors import WeakPasswordError
 from backend.src.application.services.token_issuer import TokenIssuer
 from backend.src.application.use_cases.change_password import ChangePasswordUseCase
 from backend.src.application.use_cases.forgot_password import ForgotPasswordUseCase
@@ -91,7 +92,10 @@ async def register(
 ) -> UserResponse:
     result = await uc.execute(RegisterUserCommand(email=body.email, password=body.password))
     if isinstance(result, Failure):
-        raise HTTPException(status_code=409, detail=result.failure().message)
+        error = result.failure()
+        if isinstance(error, WeakPasswordError):
+            raise HTTPException(status_code=422, detail=error.message)
+        raise HTTPException(status_code=409, detail=error.message)
     await session.commit()
     user = result.unwrap()
     return UserResponse(
@@ -214,6 +218,8 @@ async def reset_password(
     result = await uc.execute(body.token, body.new_password)
     if isinstance(result, Failure):
         error = result.failure()
+        if isinstance(error, WeakPasswordError):
+            raise HTTPException(status_code=422, detail=error.message)
         raise HTTPException(status_code=400, detail=error.message)
     await session.commit()
     return Response(status_code=204)
@@ -231,6 +237,8 @@ async def change_password(
     result = await uc.execute(user.id, body.current_password, body.new_password)
     if isinstance(result, Failure):
         error = result.failure()
+        if isinstance(error, WeakPasswordError):
+            raise HTTPException(status_code=422, detail=error.message)
         raise HTTPException(status_code=400, detail=error.message)
     await session.commit()
     return Response(status_code=204)
