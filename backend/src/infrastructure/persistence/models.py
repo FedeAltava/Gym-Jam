@@ -127,7 +127,6 @@ class WorkoutSessionModel(Base):
     started_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
     completed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
     duration_minutes: Mapped[int | None] = mapped_column(Integer, nullable=True)
-    notes: Mapped[str | None] = mapped_column(String(1000), nullable=True)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=lambda: datetime.now(UTC))
     logs: Mapped[list["WorkoutLogModel"]] = relationship(
         "WorkoutLogModel", back_populates="session", cascade="all, delete-orphan", lazy="selectin"
@@ -147,8 +146,6 @@ class WorkoutLogModel(Base):
     set_number: Mapped[int] = mapped_column(Integer, nullable=False)
     reps_completed: Mapped[int] = mapped_column(Integer, nullable=False)
     weight_kg: Mapped[float | None] = mapped_column(Float, nullable=True)
-    difficulty_rating: Mapped[int | None] = mapped_column(Integer, nullable=True)
-    notes: Mapped[str | None] = mapped_column(String(500), nullable=True)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=lambda: datetime.now(UTC))
     session: Mapped["WorkoutSessionModel"] = relationship("WorkoutSessionModel", back_populates="logs")
 

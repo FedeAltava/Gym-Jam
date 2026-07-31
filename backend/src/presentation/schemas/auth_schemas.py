@@ -25,11 +25,21 @@ def _validate_password_complexity(value: str) -> str:
     return value
 
 
+def _normalize_email(value: str) -> str:
+    """Shared validator: normalize email to lowercase and strip whitespace."""
+    return value.lower().strip()
+
+
 class RegisterRequest(BaseModel):
     email: EmailStr
     # bcrypt silently truncates at 72 BYTES (not characters) — enforce the
     # UTF-8 encoded byte length as the upper bound via the validator below.
     password: str = Field(min_length=8)
+
+    @field_validator("email")
+    @classmethod
+    def normalize_email(cls, value: str) -> str:
+        return _normalize_email(value)
 
     @field_validator("password")
     @classmethod
@@ -38,8 +48,13 @@ class RegisterRequest(BaseModel):
 
 
 class LoginRequest(BaseModel):
-    email: str
+    email: EmailStr
     password: str
+
+    @field_validator("email")
+    @classmethod
+    def normalize_email(cls, value: str) -> str:
+        return _normalize_email(value)
 
 
 class TokenResponse(BaseModel):

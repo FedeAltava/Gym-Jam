@@ -29,7 +29,8 @@ class RegisterUserUseCase:
         if isinstance(pwd_result, Failure):
             return pwd_result
 
-        existing = await self._user_repo.find_by_email(cmd.email)
+        email = cmd.email.lower().strip()
+        existing = await self._user_repo.find_by_email(email)
         if existing is not None:
             return Failure(DomainViolationError(
                 domain_error=ValueError("Email already registered"),
@@ -37,7 +38,7 @@ class RegisterUserUseCase:
             ))
         user = self._create_user(
             str(uuid.uuid4()),
-            cmd.email,
+            email,
             self._hash_password(cmd.password),
         )
         await self._user_repo.save(user)

@@ -36,6 +36,25 @@ class SqlAlchemySessionRepository(SessionRepository):
         session_id_str = str(session.id.value)
         model = WorkoutSessionMapper.to_model(session)
 
+        # merge() writes the FULL object state back to the row. The mapper does
+        # not carry created_at or duration_minutes (the app never writes them
+        # through this path), so a naive merge would overwrite the existing
+        # row's values with NULL/defaults, destroying persisted data. Load the
+        # existing row's values and copy them onto the model before merging so
+        # merge preserves them. For a brand-new session (no existing row) the
+        # model's own defaults apply on INSERT.
+        existing_row = (
+            await self._session.execute(
+                select(
+                    WorkoutSessionModel.created_at,
+                    WorkoutSessionModel.duration_minutes,
+                ).where(WorkoutSessionModel.id == session_id_str)
+            )
+        ).one_or_none()
+        if existing_row is not None:
+            model.created_at = existing_row.created_at
+            model.duration_minutes = existing_row.duration_minutes
+
         new_set_numbers = {log.id: log.set_number for log in model.logs}
         result = await self._session.execute(
             select(WorkoutLogModel.id, WorkoutLogModel.set_number).where(

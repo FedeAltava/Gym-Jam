@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from sqlalchemy import select
+from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from backend.src.domain.repositories.user_repository import UserRepository
@@ -16,7 +16,9 @@ class SqlAlchemyUserRepository(UserRepository):
         await self._session.flush()
 
     async def find_by_email(self, email: str) -> UserModel | None:
-        result = await self._session.execute(select(UserModel).where(UserModel.email == email))
+        result = await self._session.execute(
+            select(UserModel).where(func.lower(UserModel.email) == email.lower())
+        )
         return result.scalar_one_or_none()
 
     async def find_by_id(self, user_id: str) -> UserModel | None:

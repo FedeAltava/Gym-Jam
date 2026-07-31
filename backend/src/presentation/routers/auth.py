@@ -203,7 +203,7 @@ async def forgot_password(
         try:
             await send_reset_email(user_email, reset_url)
         except Exception:
-            logger.warning("Failed to send password reset email to %s", user_email)
+            logger.error("Failed to send password reset email to %s", user_email)
     return Response(status_code=204)
 
 
