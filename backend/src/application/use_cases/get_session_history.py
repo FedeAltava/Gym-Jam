@@ -27,6 +27,11 @@ def _to_dto(snap: SessionSnapshot) -> SessionHistoryItemDTO:
             dt = dt.replace(tzinfo=_tz.utc)
         return dt.isoformat()
 
+    def _fmt_required(dt: datetime) -> str:
+        if dt.tzinfo is None:
+            dt = dt.replace(tzinfo=_tz.utc)
+        return dt.isoformat()
+
     status = "completed" if snap.completed_at is not None else "in_progress"
 
     duration_seconds: int | None = None
@@ -37,7 +42,7 @@ def _to_dto(snap: SessionSnapshot) -> SessionHistoryItemDTO:
             started = started.replace(tzinfo=_tz.utc)
         if completed.tzinfo is None:
             completed = completed.replace(tzinfo=_tz.utc)
-        duration_seconds = int((completed - started).total_seconds())
+        duration_seconds = max(0, int((completed - started).total_seconds()))
 
     return SessionHistoryItemDTO(
         id=snap.id,
@@ -45,7 +50,7 @@ def _to_dto(snap: SessionSnapshot) -> SessionHistoryItemDTO:
         training_day_id=snap.training_day_id,
         workout_name=snap.workout_name,
         day_of_week=snap.day_of_week,
-        started_at=_fmt(snap.started_at) or "",
+        started_at=_fmt_required(snap.started_at),
         completed_at=_fmt(snap.completed_at),
         status=status,
         logs=tuple(
