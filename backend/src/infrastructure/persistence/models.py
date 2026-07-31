@@ -10,8 +10,10 @@ class Base(DeclarativeBase):
 
 class UserModel(Base):
     __tablename__ = "users"
+    __table_args__ = (
+        Index("uix_users_email_lower", func.lower(text("email")), unique=True),
+    )
     id: Mapped[str] = mapped_column(String(36), primary_key=True)
-    # Uniqueness enforced by functional index uix_users_email_lower on lower(email) — see migration 017.
     email: Mapped[str] = mapped_column(String(255), nullable=False)
     hashed_password: Mapped[str] = mapped_column(String(255), nullable=False)
     # Python-side default fills ORM instances pre-commit; server_default covers

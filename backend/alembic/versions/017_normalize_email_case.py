@@ -4,13 +4,13 @@ Revision ID: 017
 Revises: 016
 Create Date: 2026-07-31
 
-Three-step fix for the case-sensitive email regression introduced in 016:
-
-1. Normalize all existing email rows to lowercase so no two rows can match
-   the same lower(email) value before the unique index is created.
-2. Drop the old case-sensitive unique constraint (users_email_key).
-3. Create a functional unique index on lower(email), which:
-   - Enforces uniqueness case-insensitively at the DB level.
+1. Pre-flight: abort with a clear message if duplicate emails exist (must be
+   resolved manually before the migration can proceed).
+2. Drop the old case-sensitive unique constraint (users_email_key) BEFORE the
+   UPDATE so the normalization never collides with the still-active constraint.
+3. UPDATE users SET email = lower(email) to normalize existing rows.
+4. Create a functional unique index on lower(email), which:
+   - Enforces case-insensitive uniqueness at the DB level.
    - Allows PostgreSQL to use the index for queries that filter on
      lower(email) = ..., eliminating the sequential-scan risk on login.
 
@@ -19,6 +19,7 @@ After this migration, find_by_email queries
 are both safe (no MultipleResultsFound) and index-backed.
 """
 
+import sqlalchemy as sa
 from alembic import op
 
 revision = "017"
@@ -28,11 +29,19 @@ depends_on = None
 
 
 def upgrade() -> None:
-    op.execute("UPDATE users SET email = lower(email)")
+    bind = op.get_bind()
+    dupes = bind.execute(
+        sa.text("SELECT lower(email) FROM users GROUP BY 1 HAVING count(*) > 1")
+    ).fetchall()
+    if dupes:
+        raise RuntimeError(
+            f"Duplicate emails (case-insensitive) must be merged manually before "
+            f"this migration can run: {[row[0] for row in dupes]}"
+        )
+
     op.drop_constraint("users_email_key", "users", type_="unique")
-    op.execute(
-        "CREATE UNIQUE INDEX uix_users_email_lower ON users (lower(email))"
-    )
+    op.execute("UPDATE users SET email = lower(email)")
+    op.execute("CREATE UNIQUE INDEX uix_users_email_lower ON users (lower(email))")
 
 
 def downgrade() -> None:
