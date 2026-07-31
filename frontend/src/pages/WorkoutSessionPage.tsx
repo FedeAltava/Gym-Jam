@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { CheckCircle2 } from 'lucide-react';
 import { useWorkout } from '../hooks/useWorkouts';
@@ -516,17 +516,52 @@ export function WorkoutSessionPage() {
 
   const session = newSession;
 
-  // Live timer — elapsed seconds since session.started_at
+  // Live timer — tracks active time only (pauses when screen is locked or user
+  // navigates away). Accumulated seconds survive navigation via sessionStorage
+  // so resuming the session continues from where it left off, not from
+  // session.started_at (which would include hours of background time).
   const [elapsedSeconds, setElapsedSeconds] = useState(0);
+  const accumulatedRef = useRef(0);
 
   useEffect(() => {
     if (!session) return;
-    const startTime = new Date(session.started_at).getTime();
-    const tick = () => setElapsedSeconds(Math.floor((Date.now() - startTime) / 1000));
-    const initId = setTimeout(tick, 0);
-    const id = setInterval(tick, 1000);
-    return () => { clearTimeout(initId); clearInterval(id); };
-  }, [session]);
+
+    const storageKey = `gymjam:elapsed:${session.id}`;
+    accumulatedRef.current = parseInt(sessionStorage.getItem(storageKey) ?? '0', 10);
+
+    let periodStart = Date.now();
+    let intervalId: ReturnType<typeof setInterval>;
+
+    function tick() {
+      const periodElapsed = Math.floor((Date.now() - periodStart) / 1000);
+      setElapsedSeconds(accumulatedRef.current + periodElapsed);
+    }
+
+    function pause() {
+      accumulatedRef.current += Math.floor((Date.now() - periodStart) / 1000);
+      sessionStorage.setItem(storageKey, String(accumulatedRef.current));
+      clearInterval(intervalId);
+    }
+
+    function resume() {
+      periodStart = Date.now();
+      tick();
+      intervalId = setInterval(tick, 1000);
+    }
+
+    function handleVisibility() {
+      if (document.hidden) pause();
+      else resume();
+    }
+
+    document.addEventListener('visibilitychange', handleVisibility);
+    resume();
+
+    return () => {
+      document.removeEventListener('visibilitychange', handleVisibility);
+      pause();
+    };
+  }, [session?.id]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Done-sets counter — seeded synchronously from the session's existing logs
   // so it is correct immediately when resuming a session, then updated via
@@ -756,6 +791,7 @@ export function WorkoutSessionPage() {
       { sessionId: session.id, workoutId, dayId },
       {
         onSuccess: () => {
+          sessionStorage.removeItem(`gymjam:elapsed:${session.id}`);
           navigate(`/workouts/${workoutId}`);
         },
       },
