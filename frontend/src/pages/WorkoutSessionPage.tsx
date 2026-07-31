@@ -585,6 +585,36 @@ export function WorkoutSessionPage() {
     }
   }, [tLeft, tDone, tMode]);
 
+  // Screen Wake Lock — keep the screen on while the timer is running.
+  // The lock is automatically released by the browser when the tab goes to
+  // the background; the visibilitychange listener re-acquires it when the
+  // user returns. Fails silently on browsers that don't support the API.
+  useEffect(() => {
+    if (!tRunning || !timerOpen) return;
+    if (!('wakeLock' in navigator)) return;
+
+    let lock: WakeLockSentinel | null = null;
+
+    async function acquire() {
+      try {
+        lock = await navigator.wakeLock.request('screen');
+      } catch {
+        // Permission denied or feature unavailable — no action needed.
+      }
+    }
+
+    function handleVisibilityChange() {
+      if (document.visibilityState === 'visible') acquire();
+    }
+
+    acquire();
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+    return () => {
+      document.removeEventListener('visibilitychange', handleVisibilityChange);
+      lock?.release();
+    };
+  }, [tRunning, timerOpen]);
+
   function toggleTimer() {
     if (tRunning) {
       setTRunning(false);
