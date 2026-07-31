@@ -510,6 +510,10 @@ export function WorkoutSessionPage() {
   // abandoned it and offer a retry that only re-runs the start (no re-delete).
   const [abandonedSessionId, setAbandonedSessionId] = useState<string | null>(null);
 
+  // Inline confirmation state — replaces window.confirm for "Nueva sesión".
+  // Stores the session ID to abandon so the confirm/cancel handlers can close it.
+  const [confirmAbandonId, setConfirmAbandonId] = useState<string | null>(null);
+
   const session = newSession;
 
   // Live timer — elapsed seconds since session.started_at
@@ -524,13 +528,14 @@ export function WorkoutSessionPage() {
     return () => { clearTimeout(initId); clearInterval(id); };
   }, [session]);
 
-  // Done-sets counter — seeded from logs already in the session, then updated
-  // via callbacks from SetRow as the user toggles sets.
+  // Done-sets counter — seeded synchronously from the session's existing logs
+  // so it is correct immediately when resuming a session, then updated via
+  // callbacks from SetRow as the user toggles sets during the current session.
   const [doneSets, setDoneSets] = useState(0);
 
   useEffect(() => {
     if (session) {
-      setTimeout(() => setDoneSets(session.logs.length), 0);
+      setDoneSets(session.logs.length);
     }
   }, [session?.id]); // eslint-disable-line react-hooks/exhaustive-deps
 
@@ -687,21 +692,32 @@ export function WorkoutSessionPage() {
 
   function handleStart(abandonSessionId?: string) {
     if (abandonSessionId) {
-      if (!window.confirm('Se eliminará la sesión en progreso. ¿Continuar?')) return;
-      deleteSession.mutate(
-        { sessionId: abandonSessionId, workoutId, dayId },
-        {
-          onSuccess: () => {
-            // The old session is now gone. Record that so a failed start can be
-            // retried without deleting again, then start the new session.
-            setAbandonedSessionId(abandonSessionId);
-            doStart();
-          },
-        },
-      );
+      // Show the inline confirmation dialog instead of window.confirm.
+      setConfirmAbandonId(abandonSessionId);
     } else {
       doStart();
     }
+  }
+
+  function handleConfirmAbandon() {
+    const abandonSessionId = confirmAbandonId;
+    if (!abandonSessionId) return;
+    setConfirmAbandonId(null);
+    deleteSession.mutate(
+      { sessionId: abandonSessionId, workoutId, dayId },
+      {
+        onSuccess: () => {
+          // The old session is now gone. Record that so a failed start can be
+          // retried without deleting again, then start the new session.
+          setAbandonedSessionId(abandonSessionId);
+          doStart();
+        },
+      },
+    );
+  }
+
+  function handleCancelAbandon() {
+    setConfirmAbandonId(null);
   }
 
   function handleComplete() {
@@ -837,40 +853,73 @@ export function WorkoutSessionPage() {
           className="rounded-card border border-border bg-surface p-4 mb-4"
           role="alert"
         >
-          <p className="text-sm font-semibold text-text mb-1">
-            Sesión en progreso del{' '}
-            {new Date(inProgressFromHistory.started_at).toLocaleDateString(
-              'es',
-              { day: 'numeric', month: 'short', year: 'numeric' },
-            )}
-          </p>
-          <p className="text-xs text-muted mb-3">
-            ¿Deseas retomarla o iniciar una nueva sesión?
-          </p>
-          <div className="flex gap-2">
-            <button
-              type="button"
-              onClick={() =>
-                setNewSession({
-                  id: inProgressFromHistory.id,
-                  status: inProgressFromHistory.status,
-                  logs: inProgressFromHistory.logs,
-                  started_at: inProgressFromHistory.started_at,
-                })
-              }
-              className="text-sm font-semibold rounded-btn bg-accent text-bg border-none cursor-pointer px-4 h-9"
-            >
-              Retomar
-            </button>
-            <button
-              type="button"
-              onClick={() => handleStart(inProgressFromHistory.id)}
-              disabled={startSession.isPending || deleteSession.isPending}
-              className="text-sm font-semibold rounded-btn bg-transparent border border-border text-text cursor-pointer px-4 h-9 disabled:opacity-60"
-            >
-              {startSession.isPending || deleteSession.isPending ? 'Iniciando…' : 'Nueva sesión'}
-            </button>
-          </div>
+          {confirmAbandonId ? (
+            /* Inline confirmation — replaces window.confirm */
+            <>
+              <p className="text-sm font-semibold text-text mb-1">
+                ¿Eliminar sesión en progreso?
+              </p>
+              <p className="text-xs text-muted mb-3">
+                Se eliminará la sesión en progreso y se iniciará una nueva. Esta acción no se puede deshacer.
+              </p>
+              <div className="flex gap-2">
+                <button
+                  type="button"
+                  onClick={handleConfirmAbandon}
+                  disabled={deleteSession.isPending}
+                  className="text-sm font-semibold rounded-btn bg-danger text-white border-none cursor-pointer px-4 h-9 disabled:opacity-60"
+                >
+                  {deleteSession.isPending ? 'Eliminando…' : 'Sí, eliminar'}
+                </button>
+                <button
+                  type="button"
+                  onClick={handleCancelAbandon}
+                  disabled={deleteSession.isPending}
+                  className="text-sm font-semibold rounded-btn bg-transparent border border-border text-text cursor-pointer px-4 h-9 disabled:opacity-60"
+                >
+                  Cancelar
+                </button>
+              </div>
+            </>
+          ) : (
+            /* Normal resume / new session options */
+            <>
+              <p className="text-sm font-semibold text-text mb-1">
+                Sesión en progreso del{' '}
+                {new Date(inProgressFromHistory.started_at).toLocaleDateString(
+                  'es',
+                  { day: 'numeric', month: 'short', year: 'numeric' },
+                )}
+              </p>
+              <p className="text-xs text-muted mb-3">
+                ¿Deseas retomarla o iniciar una nueva sesión?
+              </p>
+              <div className="flex gap-2">
+                <button
+                  type="button"
+                  onClick={() =>
+                    setNewSession({
+                      id: inProgressFromHistory.id,
+                      status: inProgressFromHistory.status,
+                      logs: inProgressFromHistory.logs,
+                      started_at: inProgressFromHistory.started_at,
+                    })
+                  }
+                  className="text-sm font-semibold rounded-btn bg-accent text-bg border-none cursor-pointer px-4 h-9"
+                >
+                  Retomar
+                </button>
+                <button
+                  type="button"
+                  onClick={() => handleStart(inProgressFromHistory.id)}
+                  disabled={startSession.isPending || deleteSession.isPending}
+                  className="text-sm font-semibold rounded-btn bg-transparent border border-border text-text cursor-pointer px-4 h-9 disabled:opacity-60"
+                >
+                  {startSession.isPending || deleteSession.isPending ? 'Iniciando…' : 'Nueva sesión'}
+                </button>
+              </div>
+            </>
+          )}
           {deleteSession.isError && (
             <p className="mt-2 text-xs text-danger">
               No se pudo eliminar la sesión anterior:{' '}

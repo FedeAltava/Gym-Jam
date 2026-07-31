@@ -113,8 +113,13 @@ export async function apiFetch<T>(
   let response = await doFetch(path, options, token);
 
   if (response.status === 401 && !isAuthExemptPath(path)) {
-    // Only authenticated requests get one refresh-and-retry attempt.
-    if (token) {
+    // Attempt a silent refresh when:
+    //   a) we had an access token that just expired (normal flow), OR
+    //   b) we have no access token but the store knows a user (new-tab scenario
+    //      where the token was never rehydrated from storage — it lives in memory
+    //      only — but the httpOnly refresh cookie is still valid).
+    const { user } = useAuthStore.getState();
+    if (token || user) {
       let newToken: string;
       try {
         newToken = await getRefreshedToken();
