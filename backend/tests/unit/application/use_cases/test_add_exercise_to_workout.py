@@ -1,6 +1,6 @@
 """Tests for AddExerciseToWorkoutUseCase — TDD RED phase."""
 import uuid
-from unittest.mock import AsyncMock, patch
+from unittest.mock import AsyncMock
 
 import pytest
 from returns.result import Failure, Success

@@ -5,7 +5,7 @@ from fastapi.security import OAuth2PasswordBearer
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from backend.src.infrastructure.database import get_session
-from backend.src.infrastructure.auth.jwt import create_access_token, decode_access_token, decode_access_token_payload
+from backend.src.infrastructure.auth.jwt import create_access_token, decode_access_token_payload
 from backend.src.infrastructure.auth.password import hash_password, verify_password
 from backend.src.infrastructure.auth.refresh_tokens import (
     generate_refresh_token,

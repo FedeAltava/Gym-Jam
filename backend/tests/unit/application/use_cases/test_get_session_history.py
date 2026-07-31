@@ -7,7 +7,7 @@ import pytest
 from returns.result import Success
 
 from backend.src.application.commands import GetSessionHistoryQuery
-from backend.src.application.dtos import PaginatedSessionHistoryDTO, SessionHistoryLogDTO
+from backend.src.application.dtos import PaginatedSessionHistoryDTO
 from backend.src.application.use_cases.get_session_history import GetSessionHistoryUseCase
 from backend.src.domain.read_models import SessionLogSnapshot, SessionSnapshot
 from backend.tests.unit.application.use_cases.in_memory_session_repository import (
