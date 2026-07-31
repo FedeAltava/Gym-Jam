@@ -516,6 +516,27 @@ export function WorkoutSessionPage() {
 
   const session = newSession;
 
+  // Persist the active session ID across refreshes so the "Retomar / Nueva
+  // sesión" prompt is skipped when returning to a session the user just started
+  // or explicitly resumed this visit.
+  const activeSessionKey = `gymjam:active-session:${workoutId}:${dayId}`;
+
+  // Auto-resume guard — tracks which session ID we already triggered auto-resume
+  // for, so the "adjust during render" setState below doesn't loop.
+  const [autoResumedId, setAutoResumedId] = useState<string | null>(null);
+  if (!newSession && !sessionsLoading && inProgressFromHistory) {
+    const stored = sessionStorage.getItem(activeSessionKey);
+    if (stored === inProgressFromHistory.id && autoResumedId !== inProgressFromHistory.id) {
+      setAutoResumedId(inProgressFromHistory.id);
+      setNewSession({
+        id: inProgressFromHistory.id,
+        status: inProgressFromHistory.status,
+        logs: inProgressFromHistory.logs,
+        started_at: inProgressFromHistory.started_at,
+      });
+    }
+  }
+
   // Live timer — tracks active time only (pauses when screen is locked or user
   // navigates away). Accumulated seconds survive navigation via sessionStorage
   // so resuming the session continues from where it left off, not from
@@ -743,6 +764,7 @@ export function WorkoutSessionPage() {
       { workoutId, dayId },
       {
         onSuccess: (data) => {
+          sessionStorage.setItem(activeSessionKey, data.id);
           setNewSession({
             id: data.id,
             status: data.status,
@@ -793,6 +815,7 @@ export function WorkoutSessionPage() {
       {
         onSuccess: () => {
           sessionStorage.removeItem(`gymjam:elapsed:${session.id}`);
+          sessionStorage.removeItem(activeSessionKey);
           navigate(`/workouts/${workoutId}`);
         },
       },
@@ -964,14 +987,15 @@ export function WorkoutSessionPage() {
               <div className="flex gap-2">
                 <button
                   type="button"
-                  onClick={() =>
+                  onClick={() => {
+                    sessionStorage.setItem(activeSessionKey, inProgressFromHistory.id);
                     setNewSession({
                       id: inProgressFromHistory.id,
                       status: inProgressFromHistory.status,
                       logs: inProgressFromHistory.logs,
                       started_at: inProgressFromHistory.started_at,
-                    })
-                  }
+                    });
+                  }}
                   className="text-sm font-semibold rounded-btn bg-accent text-bg border-none cursor-pointer px-4 h-9"
                 >
                   Retomar
