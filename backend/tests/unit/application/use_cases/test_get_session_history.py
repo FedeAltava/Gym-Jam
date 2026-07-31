@@ -1,33 +1,36 @@
 """Unit tests for GetSessionHistoryUseCase."""
 from __future__ import annotations
 
-from datetime import date
+from datetime import date, datetime, timezone
 
 import pytest
 from returns.result import Success
 
 from backend.src.application.commands import GetSessionHistoryQuery
-from backend.src.application.dtos import PaginatedSessionHistoryDTO, SessionHistoryItemDTO, SessionHistoryLogDTO
+from backend.src.application.dtos import PaginatedSessionHistoryDTO, SessionHistoryLogDTO
 from backend.src.application.use_cases.get_session_history import GetSessionHistoryUseCase
+from backend.src.domain.read_models import SessionLogSnapshot, SessionSnapshot
 from backend.tests.unit.application.use_cases.in_memory_session_repository import (
     InMemorySessionRepository,
 )
 
+_STARTED = datetime(2026, 7, 1, 10, 0, 0, tzinfo=timezone.utc)
+_COMPLETED = datetime(2026, 7, 1, 11, 0, 0, tzinfo=timezone.utc)
 
-def _make_history_item(
+
+def _make_snapshot(
     item_id: str = "session-1",
     status: str = "completed",
-    logs: tuple[SessionHistoryLogDTO, ...] = (),
-) -> SessionHistoryItemDTO:
-    return SessionHistoryItemDTO(
+    logs: tuple[SessionLogSnapshot, ...] = (),
+) -> SessionSnapshot:
+    return SessionSnapshot(
         id=item_id,
         workout_id="workout-1",
         training_day_id="day-1",
         workout_name="Push Day",
         day_of_week="MONDAY",
-        started_at="2026-07-01T10:00:00+00:00",
-        completed_at="2026-07-01T11:00:00+00:00" if status == "completed" else None,
-        status=status,
+        started_at=_STARTED,
+        completed_at=_COMPLETED if status == "completed" else None,
         logs=logs,
     )
 
@@ -106,7 +109,7 @@ async def test_history_propagates_repo_results_as_dtos(
     use_case: GetSessionHistoryUseCase,
     session_repo: InMemorySessionRepository,
 ) -> None:
-    log = SessionHistoryLogDTO(
+    log_snap = SessionLogSnapshot(
         id="log-1",
         workout_exercise_id="we-1",
         exercise_name="Bench Press",
@@ -115,8 +118,8 @@ async def test_history_propagates_repo_results_as_dtos(
         reps_completed=10,
         weight_kg=80.0,
     )
-    newer = _make_history_item(item_id="session-2", status="in_progress")
-    older = _make_history_item(item_id="session-1", status="completed", logs=(log,))
+    newer = _make_snapshot(item_id="session-2", status="in_progress")
+    older = _make_snapshot(item_id="session-1", status="completed", logs=(log_snap,))
     session_repo.seed_history([newer, older])
 
     result = await use_case.execute(GetSessionHistoryQuery(user_id="user-1"))

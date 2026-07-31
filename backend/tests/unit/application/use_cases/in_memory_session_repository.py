@@ -3,8 +3,8 @@ from __future__ import annotations
 
 from datetime import date
 
-from backend.src.application.dtos import SessionHistoryItemDTO
 from backend.src.domain.entities.workout_session import WorkoutSession
+from backend.src.domain.read_models import SessionSnapshot
 from backend.src.domain.repositories.session_repository import SessionRepository
 from backend.src.domain.value_objects import TrainingDayId, WorkoutId
 from backend.src.domain.value_objects.workout_session_id import WorkoutSessionId
@@ -13,7 +13,7 @@ from backend.src.domain.value_objects.workout_session_id import WorkoutSessionId
 class InMemorySessionRepository(SessionRepository):
     def __init__(self) -> None:
         self._store: dict[str, WorkoutSession] = {}
-        self._history_items: list[SessionHistoryItemDTO] = []
+        self._history_items: list[SessionSnapshot] = []
         # Last kwargs received by list_history_for_user — lets use case tests
         # assert filter forwarding without a real query engine.
         self.last_history_call: dict[str, object] | None = None
@@ -63,13 +63,13 @@ class InMemorySessionRepository(SessionRepository):
         self,
         user_id: str,
         session_id: str,
-    ) -> SessionHistoryItemDTO | None:
+    ) -> SessionSnapshot | None:
         for item in self._history_items:
             if item.id == session_id:
                 return item
         return None
 
-    def seed_history(self, items: list[SessionHistoryItemDTO]) -> None:
+    def seed_history(self, items: list[SessionSnapshot]) -> None:
         """Seed pre-built history read models (already ordered newest-first)."""
         self._history_items = list(items)
 
@@ -83,7 +83,8 @@ class InMemorySessionRepository(SessionRepository):
         date_to: date | None,
         limit: int,
         offset: int,
-    ) -> list[SessionHistoryItemDTO]:
+        session_id: str | None = None,
+    ) -> list[SessionSnapshot]:
         self.last_history_call = {
             "user_id": user_id,
             "workout_id": workout_id,

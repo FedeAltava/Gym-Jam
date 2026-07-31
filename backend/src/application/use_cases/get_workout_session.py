@@ -10,6 +10,7 @@ from returns.result import Failure, Result, Success
 
 from backend.src.application.dtos import SessionHistoryItemDTO
 from backend.src.application.errors import ApplicationError, SessionNotFoundError
+from backend.src.application.use_cases.get_session_history import _to_dto
 from backend.src.domain.repositories.session_repository import SessionRepository
 
 
@@ -23,10 +24,10 @@ class GetWorkoutSessionUseCase:
         # The repository query is scoped by user_id, so a session belonging to
         # another user is indistinguishable from a missing one — both return
         # None here, which is the correct behaviour for a read endpoint.
-        item = await self._session_repo.get_history_item_for_user(
+        snap = await self._session_repo.get_history_item_for_user(
             user_id=user_id,
             session_id=session_id,
         )
-        if item is None:
+        if snap is None:
             return Failure(SessionNotFoundError(session_id=session_id))
-        return Success(item)
+        return Success(_to_dto(snap))

@@ -2,8 +2,8 @@
 from abc import ABC, abstractmethod
 from datetime import date
 
-from backend.src.application.dtos import SessionHistoryItemDTO
 from backend.src.domain.entities.workout_session import WorkoutSession
+from backend.src.domain.read_models import SessionSnapshot
 from backend.src.domain.value_objects.training_day_id import TrainingDayId
 from backend.src.domain.value_objects.workout_id import WorkoutId
 from backend.src.domain.value_objects.workout_session_id import WorkoutSessionId
@@ -39,7 +39,7 @@ class SessionRepository(ABC):
         self,
         user_id: str,
         session_id: str,
-    ) -> SessionHistoryItemDTO | None: ...
+    ) -> SessionSnapshot | None: ...
 
     @abstractmethod
     async def list_history_for_user(
@@ -52,7 +52,8 @@ class SessionRepository(ABC):
         date_to: date | None,
         limit: int,
         offset: int,
-    ) -> list[SessionHistoryItemDTO]: ...
+        session_id: str | None = None,
+    ) -> list[SessionSnapshot]: ...
 
     @abstractmethod
     async def count_history_for_user(

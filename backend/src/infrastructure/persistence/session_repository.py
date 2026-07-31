@@ -7,8 +7,8 @@ from sqlalchemy import delete, func, select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
-from backend.src.application.dtos import SessionHistoryItemDTO, SessionHistoryLogDTO
 from backend.src.domain.entities.workout_session import WorkoutSession
+from backend.src.domain.read_models import SessionLogSnapshot, SessionSnapshot
 from backend.src.domain.repositories.session_repository import SessionRepository
 from backend.src.domain.value_objects import TrainingDayId, WorkoutId
 from backend.src.domain.value_objects.workout_session_id import WorkoutSessionId
@@ -145,7 +145,7 @@ class SqlAlchemySessionRepository(SessionRepository):
         self,
         user_id: str,
         session_id: str,
-    ) -> SessionHistoryItemDTO | None:
+    ) -> SessionSnapshot | None:
         # Single-session read model, scoped by user_id so one user cannot fetch
         # another user's session. Reuses list_history_for_user's enriched query
         # (workout name, day-of-week, exercise names, PR count) instead of the
@@ -174,7 +174,7 @@ class SqlAlchemySessionRepository(SessionRepository):
         limit: int,
         offset: int,
         session_id: str | None = None,
-    ) -> list[SessionHistoryItemDTO]:
+    ) -> list[SessionSnapshot]:
         # Exactly two queries, zero N+1.
         #
         # Query 1 — page of sessions with workout name + day-of-week.
@@ -244,7 +244,7 @@ class SqlAlchemySessionRepository(SessionRepository):
         # is a soft reference (see models.py) — legacy rows can hold free-text
         # ids with no catalog row, and those logs must not be dropped.
         session_ids = [row.id for row in rows]
-        logs_by_session: dict[str, list[SessionHistoryLogDTO]] = {
+        logs_by_session: dict[str, list[SessionLogSnapshot]] = {
             sid: [] for sid in session_ids
         }
         if session_ids:
@@ -273,7 +273,7 @@ class SqlAlchemySessionRepository(SessionRepository):
             )
             for log_row in (await self._session.execute(logs_stmt)).all():
                 logs_by_session[log_row.session_id].append(
-                    SessionHistoryLogDTO(
+                    SessionLogSnapshot(
                         id=log_row.id,
                         workout_exercise_id=log_row.workout_exercise_id,
                         exercise_name=(
@@ -289,24 +289,16 @@ class SqlAlchemySessionRepository(SessionRepository):
                 )
 
         return [
-            SessionHistoryItemDTO(
+            SessionSnapshot(
                 id=row.id,
                 workout_id=row.workout_id,
                 training_day_id=row.training_day_id,
                 workout_name=row.workout_name,
                 day_of_week=row.day_of_week,
-                started_at=row.started_at.isoformat(),
-                completed_at=(
-                    row.completed_at.isoformat() if row.completed_at is not None else None
-                ),
-                status="completed" if row.completed_at is not None else "in_progress",
+                started_at=row.started_at,
+                completed_at=row.completed_at,
                 logs=tuple(logs_by_session[row.id]),
                 pr_count=row.pr_count,
-                duration_seconds=(
-                    int((row.completed_at - row.started_at).total_seconds())
-                    if row.completed_at is not None
-                    else None
-                ),
             )
             for row in rows
         ]
