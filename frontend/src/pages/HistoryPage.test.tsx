@@ -50,7 +50,7 @@ afterEach(() => {
 
 describe('HistoryPage', () => {
   it('renders "Todas" and "Esta semana" filter chips', async () => {
-    mockApiFetch.mockResolvedValue([makeSession('s1')]);
+    mockApiFetch.mockResolvedValue({ items: [makeSession('s1')], total: 1, page: 1, page_size: 20 });
     renderWithProviders(<HistoryPage />);
 
     expect(await screen.findByRole('button', { name: 'Todas' })).toBeInTheDocument();
@@ -59,7 +59,7 @@ describe('HistoryPage', () => {
 
   it('clicking "Esta semana" adds date_from to the API call (not period=this_week)', async () => {
     const user = userEvent.setup();
-    mockApiFetch.mockResolvedValue([makeSession('s1')]);
+    mockApiFetch.mockResolvedValue({ items: [makeSession('s1')], total: 1, page: 1, page_size: 20 });
     renderWithProviders(<HistoryPage />);
 
     expect(await screen.findByRole('button', { name: 'Esta semana' })).toBeInTheDocument();
@@ -75,7 +75,7 @@ describe('HistoryPage', () => {
   });
 
   it('renders the PR badge when pr_count > 0', async () => {
-    mockApiFetch.mockResolvedValue([makeSession('s1', 2, 3600)]);
+    mockApiFetch.mockResolvedValue({ items: [makeSession('s1', 2, 3600)], total: 1, page: 1, page_size: 20 });
     renderWithProviders(<HistoryPage />);
 
     // Wait for the session card
@@ -84,7 +84,7 @@ describe('HistoryPage', () => {
   });
 
   it('does NOT render the PR badge when pr_count = 0', async () => {
-    mockApiFetch.mockResolvedValue([makeSession('s1', 0, 3600)]);
+    mockApiFetch.mockResolvedValue({ items: [makeSession('s1', 0, 3600)], total: 1, page: 1, page_size: 20 });
     renderWithProviders(<HistoryPage />);
 
     expect(await screen.findByText('Push A')).toBeInTheDocument();
@@ -92,7 +92,7 @@ describe('HistoryPage', () => {
   });
 
   it('renders exercise name chips from session logs', async () => {
-    mockApiFetch.mockResolvedValue([makeSession('s1')]);
+    mockApiFetch.mockResolvedValue({ items: [makeSession('s1')], total: 1, page: 1, page_size: 20 });
     renderWithProviders(<HistoryPage />);
 
     // Chips now show "ExerciseName Nsets×reps" format
@@ -100,7 +100,7 @@ describe('HistoryPage', () => {
   });
 
   it('renders formatted duration when duration_seconds is provided', async () => {
-    mockApiFetch.mockResolvedValue([makeSession('s1', 0, 3660)]); // 1h 1min
+    mockApiFetch.mockResolvedValue({ items: [makeSession('s1', 0, 3660)], total: 1, page: 1, page_size: 20 }); // 1h 1min
     renderWithProviders(<HistoryPage />);
 
     expect(await screen.findByText(/1h 1min/)).toBeInTheDocument();

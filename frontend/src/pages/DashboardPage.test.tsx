@@ -87,9 +87,8 @@ function mockApi(overrides: Overrides = {}) {
       return Promise.resolve(overrides.workouts ?? [ACTIVE_WORKOUT]);
     }
     if (path.startsWith('/sessions')) {
-      return Promise.resolve(
-        overrides.sessions ?? [makeSession('s1', 'Full Body A'), makeSession('s2', 'Full Body B')],
-      );
+      const items = overrides.sessions ?? [makeSession('s1', 'Full Body A'), makeSession('s2', 'Full Body B')];
+      return Promise.resolve({ items, total: (items as unknown[]).length, page: 1, page_size: 20 });
     }
     return Promise.resolve(undefined);
   });

@@ -2,7 +2,7 @@ import { renderHook, waitFor } from '@testing-library/react';
 import { apiFetch } from '../lib/api';
 import { createWrapper } from '../test/test-utils';
 import { useSessionHistory } from './useSessionHistory';
-import type { SessionHistoryItemResponse } from '../types/api';
+import type { SessionHistoryItemResponse, SessionHistoryResponse } from '../types/api';
 
 vi.mock('../lib/api', async (orig) => ({
   ...(await orig()),
@@ -33,10 +33,11 @@ function makeSession(id: string): SessionHistoryItemResponse {
   };
 }
 
-function makePage(count: number, startIndex = 0): SessionHistoryItemResponse[] {
-  return Array.from({ length: count }, (_, i) =>
+function makePage(count: number, startIndex = 0, page = 1): SessionHistoryResponse {
+  const items: SessionHistoryItemResponse[] = Array.from({ length: count }, (_, i) =>
     makeSession(`sess-${startIndex + i}`),
   );
+  return { items, total: count, page, page_size: 20 };
 }
 
 // ---------------------------------------------------------------------------
@@ -45,19 +46,19 @@ function makePage(count: number, startIndex = 0): SessionHistoryItemResponse[] {
 
 describe('useSessionHistory', () => {
   it('calls GET /sessions with no query params when no filters are set', async () => {
-    vi.mocked(apiFetch).mockResolvedValue([]);
+    vi.mocked(apiFetch).mockResolvedValue(makePage(0));
     const { wrapper } = createWrapper();
     const { result } = renderHook(() => useSessionHistory(), { wrapper });
 
     await waitFor(() => expect(result.current.isSuccess).toBe(true));
 
     expect(vi.mocked(apiFetch)).toHaveBeenCalledWith(
-      '/sessions?limit=20&offset=0',
+      '/sessions?page=1&page_size=20',
     );
   });
 
   it('includes status query param when status filter is set', async () => {
-    vi.mocked(apiFetch).mockResolvedValue([]);
+    vi.mocked(apiFetch).mockResolvedValue(makePage(0));
     const { wrapper } = createWrapper();
     const { result } = renderHook(
       () => useSessionHistory({ status: 'completed' }),
@@ -67,12 +68,12 @@ describe('useSessionHistory', () => {
     await waitFor(() => expect(result.current.isSuccess).toBe(true));
 
     expect(vi.mocked(apiFetch)).toHaveBeenCalledWith(
-      '/sessions?status=completed&limit=20&offset=0',
+      '/sessions?status=completed&page=1&page_size=20',
     );
   });
 
   it('includes date_from for Monday UTC when period=this_week', async () => {
-    vi.mocked(apiFetch).mockResolvedValue([]);
+    vi.mocked(apiFetch).mockResolvedValue(makePage(0));
     const { wrapper } = createWrapper();
     const { result } = renderHook(
       () => useSessionHistory({ period: 'this_week' }),
@@ -87,7 +88,7 @@ describe('useSessionHistory', () => {
   });
 
   it('sets hasNextPage to true when a full page (20 items) is returned', async () => {
-    vi.mocked(apiFetch).mockResolvedValue(makePage(20));
+    vi.mocked(apiFetch).mockResolvedValue(makePage(20, 0, 1));
     const { wrapper } = createWrapper();
     const { result } = renderHook(() => useSessionHistory(), { wrapper });
 
@@ -97,7 +98,7 @@ describe('useSessionHistory', () => {
   });
 
   it('sets hasNextPage to false for a partial page (fewer than 20 items)', async () => {
-    vi.mocked(apiFetch).mockResolvedValue(makePage(7));
+    vi.mocked(apiFetch).mockResolvedValue(makePage(7, 0, 1));
     const { wrapper } = createWrapper();
     const { result } = renderHook(() => useSessionHistory(), { wrapper });
 
@@ -107,7 +108,7 @@ describe('useSessionHistory', () => {
   });
 
   it('sets hasNextPage to false for an empty page', async () => {
-    vi.mocked(apiFetch).mockResolvedValue([]);
+    vi.mocked(apiFetch).mockResolvedValue(makePage(0, 0, 1));
     const { wrapper } = createWrapper();
     const { result } = renderHook(() => useSessionHistory(), { wrapper });
 

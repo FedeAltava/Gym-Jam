@@ -151,17 +151,13 @@ describe('WorkoutSessionPage', () => {
   it('renders the live timer in mm:ss format after session start', async () => {
     await startSession();
 
-    // The timer element should be visible with mm:ss format
+    // Timer starts at 00:00 and counts only active viewing time (visibility-aware).
+    // Verify the element exists and shows the expected mm:ss format.
     await waitFor(() => {
       const timerEl = screen.getByLabelText('Tiempo transcurrido');
       expect(timerEl).toBeInTheDocument();
       expect(timerEl.textContent).toMatch(/^\d{2}:\d{2}$/);
     });
-
-    // STARTED_AT is 75 seconds ago, so timer should show at least 01:xx
-    const timerEl = screen.getByLabelText('Tiempo transcurrido');
-    const [minutes] = (timerEl.textContent ?? '').split(':').map(Number);
-    expect(minutes).toBeGreaterThanOrEqual(1);
   });
 
   it('shows 0/N progress when no sets are done at session start', async () => {
