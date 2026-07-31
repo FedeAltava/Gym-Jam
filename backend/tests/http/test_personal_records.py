@@ -51,9 +51,9 @@ async def start_session_with_log(
 
 
 async def pr_count_for(client, session_id: str) -> int:
-    r = await client.get("/sessions", params={"limit": 100})
+    r = await client.get("/sessions", params={"page_size": 100})
     assert r.status_code == 200
-    item = next(s for s in r.json() if s["id"] == session_id)
+    item = next(s for s in r.json()["items"] if s["id"] == session_id)
     return item["pr_count"]
 
 
@@ -163,8 +163,8 @@ async def test_completed_session_history_includes_duration_seconds(client) -> No
     assert r.status_code == 200
     assert r.json()["duration_seconds"] is not None
 
-    r2 = await client.get("/sessions", params={"limit": 100})
-    item = next(s for s in r2.json() if s["id"] == session_id)
+    r2 = await client.get("/sessions", params={"page_size": 100})
+    item = next(s for s in r2.json()["items"] if s["id"] == session_id)
     assert item["duration_seconds"] is not None
     assert item["duration_seconds"] >= 0
 

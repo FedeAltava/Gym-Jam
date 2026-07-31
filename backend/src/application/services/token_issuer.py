@@ -21,7 +21,7 @@ class TokenIssuer:
         repo: RefreshTokenRepository,
         hash_token: Callable[[str], str],
         generate_token: Callable[[], str],
-        create_access_token: Callable[[str], str],
+        create_access_token: Callable[..., str],
         refresh_token_ttl: timedelta,
     ) -> None:
         self._repo = repo
@@ -31,7 +31,11 @@ class TokenIssuer:
         self._refresh_token_ttl = refresh_token_ttl
 
     async def issue_pair(
-        self, user_id: str, now: datetime | None = None, token_id: str | None = None
+        self,
+        user_id: str,
+        now: datetime | None = None,
+        token_id: str | None = None,
+        password_changed_at: datetime | None = None,
     ) -> TokenPairDTO:
         """Create an access token and a persisted (hashed) refresh token."""
         now = now or datetime.now(UTC)
@@ -47,12 +51,18 @@ class TokenIssuer:
             )
         )
         return TokenPairDTO(
-            access_token=self._create_access_token(user_id),
+            access_token=self._create_access_token(
+                user_id, password_changed_at=password_changed_at
+            ),
             refresh_token=raw_refresh,
         )
 
-    async def issue_for_login(self, user_id: str) -> TokenPairDTO:
+    async def issue_for_login(
+        self,
+        user_id: str,
+        password_changed_at: datetime | None = None,
+    ) -> TokenPairDTO:
         # Opportunistic cleanup: drop this user's expired tokens so the table
         # does not grow without bound.
         await self._repo.delete_expired(user_id)
-        return await self.issue_pair(user_id)
+        return await self.issue_pair(user_id, password_changed_at=password_changed_at)

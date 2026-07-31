@@ -57,13 +57,16 @@ class LogExerciseSetUseCase:
             return Failure(WorkoutNotFoundError(workout_id=str(session.workout_id.value)))
         exercise_id = ex_id_result.unwrap()
 
+        # Scope the exercise lookup to the session's own training day.
+        # This prevents cross-day injection: an exercise from a different
+        # training day cannot be logged against this session.
         exercise = None
         for td in workout.get_training_days().values():
-            for ex in td.exercises:
-                if ex.id == exercise_id:
-                    exercise = ex
-                    break
-            if exercise is not None:
+            if td.id == session.training_day_id:
+                for ex in td.exercises:
+                    if ex.id == exercise_id:
+                        exercise = ex
+                        break
                 break
 
         if exercise is None:

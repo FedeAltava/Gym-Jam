@@ -18,6 +18,10 @@ class UserModel(Base):
     rest_seconds: Mapped[int] = mapped_column(Integer, nullable=False, default=90, server_default="90")
     units: Mapped[str] = mapped_column(String(2), nullable=False, default="kg", server_default="kg")
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=lambda: datetime.now(UTC))
+    # Tracks the last password change; embedded in JWT so tokens issued before
+    # a password change are rejected even before access token expiry.
+    # NULL for existing rows (pre-migration) — treated as "never changed".
+    password_changed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True, default=None)
 
 
 class RefreshTokenModel(Base):

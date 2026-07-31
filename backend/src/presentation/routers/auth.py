@@ -120,7 +120,9 @@ async def login(
     if not verify_password(body.password, user.hashed_password):
         logger.warning("Failed login attempt (wrong password)")
         raise HTTPException(status_code=401, detail="Invalid credentials")
-    pair = await token_issuer.issue_for_login(user.id)
+    pair = await token_issuer.issue_for_login(
+        user.id, password_changed_at=user.password_changed_at
+    )
     await session.commit()
     response = JSONResponse(content={"access_token": pair.access_token, "token_type": "bearer"})
     _set_refresh_cookie(response, pair.refresh_token, settings.refresh_token_expire_days)

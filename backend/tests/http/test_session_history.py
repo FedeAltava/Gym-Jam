@@ -78,8 +78,12 @@ async def test_history_returns_session_with_resolved_names(client) -> None:
     r = await client.get("/sessions")
     assert r.status_code == 200
     body = r.json()
-    assert isinstance(body, list)  # bare array, no pagination envelope
-    matches = [s for s in body if s["id"] == session_id]
+    # Paginated envelope
+    assert "items" in body
+    assert "total" in body
+    assert "page" in body
+    assert "page_size" in body
+    matches = [s for s in body["items"] if s["id"] == session_id]
     assert len(matches) == 1
     item = matches[0]
     assert item["workout_id"] == wid
@@ -112,18 +116,18 @@ async def test_history_filters_by_status(client) -> None:
     # Scope by workout_id so data from other tests never leaks in.
     r = await client.get(f"/sessions?workout_id={wid}&status=completed")
     assert r.status_code == 200
-    assert [s["id"] for s in r.json()] == [completed_id]
-    assert all(s["status"] == "completed" for s in r.json())
+    assert [s["id"] for s in r.json()["items"]] == [completed_id]
+    assert all(s["status"] == "completed" for s in r.json()["items"])
 
     r = await client.get(f"/sessions?workout_id={wid}&status=in_progress")
     assert r.status_code == 200
-    assert [s["id"] for s in r.json()] == [in_progress_id]
-    assert r.json()[0]["completed_at"] is None
+    assert [s["id"] for s in r.json()["items"]] == [in_progress_id]
+    assert r.json()["items"][0]["completed_at"] is None
 
     # No status filter → both, newest first
     r = await client.get(f"/sessions?workout_id={wid}")
     assert r.status_code == 200
-    assert {s["id"] for s in r.json()} == {completed_id, in_progress_id}
+    assert {s["id"] for s in r.json()["items"]} == {completed_id, in_progress_id}
 
 
 # ── 4. Day filter ─────────────────────────────────────────────────────────────
@@ -141,11 +145,11 @@ async def test_history_filters_by_day(client) -> None:
 
     r = await client.get(f"/sessions?workout_id={wid}&day_id={day_id}")
     assert r.status_code == 200
-    assert [s["id"] for s in r.json()] == [sid_wed]
+    assert [s["id"] for s in r.json()["items"]] == [sid_wed]
 
     r = await client.get(f"/sessions?workout_id={wid}&day_id={other_day_id}")
     assert r.status_code == 200
-    assert [s["id"] for s in r.json()] == [sid_fri]
+    assert [s["id"] for s in r.json()["items"]] == [sid_fri]
 
 
 # ── 5. Cross-user scoping — silently empty, not 403 ──────────────────────────
@@ -158,12 +162,13 @@ async def test_history_other_users_workout_returns_empty(client, client_user2) -
     # user-1 asks for user-2's workout: 200 with empty page (user_id scoping)
     r = await client.get(f"/sessions?workout_id={wid}")
     assert r.status_code == 200
-    assert r.json() == []
+    assert r.json()["items"] == []
+    assert r.json()["total"] == 0
 
     # user-2 sees their own session
     r = await client_user2.get(f"/sessions?workout_id={wid}")
     assert r.status_code == 200
-    assert len(r.json()) == 1
+    assert len(r.json()["items"]) == 1
 
 
 # ── 6. Date range filters ─────────────────────────────────────────────────────
@@ -178,16 +183,16 @@ async def test_history_filters_by_date_range(client) -> None:
 
     r = await client.get(f"/sessions?workout_id={wid}&date_from={today}&date_to={today}")
     assert r.status_code == 200
-    assert [s["id"] for s in r.json()] == [sid]
+    assert [s["id"] for s in r.json()["items"]] == [sid]
 
     r = await client.get(f"/sessions?workout_id={wid}&date_from={tomorrow}")
     assert r.status_code == 200
-    assert r.json() == []
+    assert r.json()["items"] == []
 
     yesterday = today - timedelta(days=1)
     r = await client.get(f"/sessions?workout_id={wid}&date_to={yesterday}")
     assert r.status_code == 200
-    assert r.json() == []
+    assert r.json()["items"] == []
 
 
 # ── 7. Pagination ─────────────────────────────────────────────────────────────
@@ -203,14 +208,20 @@ async def test_history_pagination(client) -> None:
         await complete_session(client, sid)
         ids.add(sid)
 
-    r = await client.get(f"/sessions?workout_id={wid}&limit=2")
+    r = await client.get(f"/sessions?workout_id={wid}&page=1&page_size=2")
     assert r.status_code == 200
-    first_page = r.json()
+    body1 = r.json()
+    assert body1["page"] == 1
+    assert body1["page_size"] == 2
+    assert body1["total"] == 3
+    first_page = body1["items"]
     assert len(first_page) == 2
 
-    r = await client.get(f"/sessions?workout_id={wid}&limit=2&offset=2")
+    r = await client.get(f"/sessions?workout_id={wid}&page=2&page_size=2")
     assert r.status_code == 200
-    second_page = r.json()
+    body2 = r.json()
+    assert body2["page"] == 2
+    second_page = body2["items"]
     assert len(second_page) == 1
 
     assert {s["id"] for s in first_page + second_page} == ids
@@ -219,15 +230,15 @@ async def test_history_pagination(client) -> None:
 # ── 8. Validation — 422 ───────────────────────────────────────────────────────
 
 
-async def test_history_invalid_limit_returns_422(client) -> None:
-    r = await client.get("/sessions?limit=invalid")
+async def test_history_invalid_page_size_returns_422(client) -> None:
+    r = await client.get("/sessions?page_size=invalid")
     assert r.status_code == 422
 
 
-async def test_history_limit_out_of_bounds_returns_422(client) -> None:
-    assert (await client.get("/sessions?limit=0")).status_code == 422
-    assert (await client.get("/sessions?limit=101")).status_code == 422
-    assert (await client.get("/sessions?offset=-1")).status_code == 422
+async def test_history_page_size_out_of_bounds_returns_422(client) -> None:
+    assert (await client.get("/sessions?page_size=0")).status_code == 422
+    assert (await client.get("/sessions?page_size=101")).status_code == 422
+    assert (await client.get("/sessions?page=0")).status_code == 422
 
 
 async def test_history_invalid_status_returns_422(client) -> None:
@@ -270,6 +281,8 @@ async def test_history_fires_exactly_two_queries(client, engine) -> None:
         event.remove(engine.sync_engine, "before_cursor_execute", _track)
 
     assert r.status_code == 200
-    assert len(r.json()) == 2
-    assert all(len(s["logs"]) == 1 for s in r.json())
-    assert len(statements) == 2, f"expected 2 SELECTs, got {len(statements)}: {statements}"
+    assert len(r.json()["items"]) == 2
+    assert all(len(s["logs"]) == 1 for s in r.json()["items"])
+    # 3 SELECTs: 1 COUNT for total, 1 for the session page, 1 IN for logs.
+    # Still O(1) regardless of page size — no N+1.
+    assert len(statements) == 3, f"expected 3 SELECTs, got {len(statements)}: {statements}"

@@ -165,6 +165,14 @@ class SessionHistoryItemDTO:
 
 
 @dataclass(frozen=True)
+class PaginatedSessionHistoryDTO:
+    items: tuple[SessionHistoryItemDTO, ...]
+    total: int
+    page: int
+    page_size: int
+
+
+@dataclass(frozen=True)
 class UserStatsDTO:
     total_sessions: int
     streak: int

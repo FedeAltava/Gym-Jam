@@ -90,15 +90,13 @@ class TestLogSet:
 
         assert len(session.logs) == 1
 
-    def test_set_number_beyond_plan_is_allowed(self) -> None:
+    def test_set_number_beyond_plan_raises_set_exceeds_plan(self) -> None:
         session = _make_session()
         exercise = _make_exercise(sets=3)
 
-        # Extra sets beyond the plan are now permitted (users can do more sets on the fly)
-        log = session.log_set(exercise=exercise, set_number=4, reps_completed=10, weight_kg=None)
-
-        assert log.set_number == 4
-        assert len(session.logs) == 1
+        # set_number > exercise.sets is now rejected (B3 fix)
+        with pytest.raises(SetExceedsPlan):
+            session.log_set(exercise=exercise, set_number=4, reps_completed=10, weight_kg=None)
 
     def test_set_number_zero_raises_set_exceeds_plan(self) -> None:
         session = _make_session()

@@ -5,6 +5,7 @@ from pydantic import BaseModel, Field
 
 from backend.src.application.dtos import (
     ExerciseLogDTO,
+    PaginatedSessionHistoryDTO,
     SessionHistoryItemDTO,
     SessionHistoryLogDTO,
     WorkoutSessionDTO,
@@ -131,4 +132,20 @@ class SessionHistoryItemResponse(BaseModel):
             pr_count=dto.pr_count,
             duration_seconds=dto.duration_seconds,
             logs=[SessionHistoryLogResponse.from_dto(log) for log in dto.logs],
+        )
+
+
+class PaginatedSessionHistoryResponse(BaseModel):
+    items: list[SessionHistoryItemResponse]
+    total: int
+    page: int
+    page_size: int
+
+    @classmethod
+    def from_dto(cls, dto: PaginatedSessionHistoryDTO) -> "PaginatedSessionHistoryResponse":
+        return cls(
+            items=[SessionHistoryItemResponse.from_dto(item) for item in dto.items],
+            total=dto.total,
+            page=dto.page,
+            page_size=dto.page_size,
         )

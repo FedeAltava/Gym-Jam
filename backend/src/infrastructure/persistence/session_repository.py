@@ -310,3 +310,39 @@ class SqlAlchemySessionRepository(SessionRepository):
             )
             for row in rows
         ]
+
+    async def count_history_for_user(
+        self,
+        user_id: str,
+        workout_id: str | None,
+        day_id: str | None,
+        status: str | None,
+        date_from: date | None,
+        date_to: date | None,
+    ) -> int:
+        """Return the total row count matching the same filters as list_history_for_user."""
+        stmt = (
+            select(func.count())
+            .select_from(WorkoutSessionModel)
+            .where(WorkoutSessionModel.user_id == user_id)
+        )
+        if workout_id is not None:
+            stmt = stmt.where(WorkoutSessionModel.workout_id == workout_id)
+        if day_id is not None:
+            stmt = stmt.where(WorkoutSessionModel.training_day_id == day_id)
+        if status == "in_progress":
+            stmt = stmt.where(WorkoutSessionModel.completed_at.is_(None))
+        elif status == "completed":
+            stmt = stmt.where(WorkoutSessionModel.completed_at.is_not(None))
+        if date_from is not None:
+            stmt = stmt.where(
+                WorkoutSessionModel.started_at
+                >= datetime.combine(date_from, time.min, tzinfo=UTC)
+            )
+        if date_to is not None:
+            stmt = stmt.where(
+                WorkoutSessionModel.started_at
+                < datetime.combine(date_to + timedelta(days=1), time.min, tzinfo=UTC)
+            )
+        result = await self._session.execute(stmt)
+        return result.scalar_one()

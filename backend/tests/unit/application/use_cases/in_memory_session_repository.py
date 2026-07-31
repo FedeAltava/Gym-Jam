@@ -95,3 +95,14 @@ class InMemorySessionRepository(SessionRepository):
             "offset": offset,
         }
         return self._history_items[offset : offset + limit]
+
+    async def count_history_for_user(
+        self,
+        user_id: str,
+        workout_id: str | None,
+        day_id: str | None,
+        status: str | None,
+        date_from: date | None,
+        date_to: date | None,
+    ) -> int:
+        return len(self._history_items)

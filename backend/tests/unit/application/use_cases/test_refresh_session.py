@@ -47,7 +47,7 @@ def _make_use_case(repo: InMemoryRefreshTokenRepository) -> RefreshSessionUseCas
         repo,
         hash_token=_fake_hash,
         generate_token=lambda: f"generated-{uuid.uuid4()}",
-        create_access_token=lambda user_id: f"access-for-{user_id}",
+        create_access_token=lambda user_id, **_kwargs: f"access-for-{user_id}",
         refresh_token_ttl=TTL,
     )
     return RefreshSessionUseCase(

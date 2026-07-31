@@ -4,8 +4,9 @@ from __future__ import annotations
 from datetime import date
 from typing import Literal
 
-from fastapi import APIRouter, Depends, Query
+from fastapi import APIRouter, Depends, HTTPException, Query
 from returns.result import Failure
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from backend.src.application.commands import (
@@ -43,6 +44,7 @@ from backend.src.presentation.dependencies import (
 from backend.src.presentation.schemas.session_schemas import (
     ExerciseLogResponse,
     LogSetRequest,
+    PaginatedSessionHistoryResponse,
     SessionHistoryItemResponse,
     UpdateLogRequest,
     WorkoutSessionResponse,
@@ -101,7 +103,7 @@ async def get_sessions_for_day(
 @router.get(
     "/sessions",
     status_code=200,
-    response_model=list[SessionHistoryItemResponse],
+    response_model=PaginatedSessionHistoryResponse,
 )
 async def get_session_history(
     workout_id: str | None = None,
@@ -109,11 +111,12 @@ async def get_session_history(
     status: Literal["completed", "in_progress"] | None = None,
     date_from: date | None = None,
     date_to: date | None = None,
-    limit: int = Query(default=20, ge=1, le=100),
-    offset: int = Query(default=0, ge=0),
+    page: int = Query(default=1, ge=1),
+    page_size: int = Query(default=20, ge=1, le=100),
     uc: GetSessionHistoryUseCase = Depends(get_session_history_uc),
     user_id: str = Depends(get_current_user_id),
-) -> list[SessionHistoryItemResponse]:
+) -> PaginatedSessionHistoryResponse:
+    offset = (page - 1) * page_size
     query = GetSessionHistoryQuery(
         user_id=user_id,
         workout_id=workout_id,
@@ -121,13 +124,13 @@ async def get_session_history(
         status=status,
         date_from=date_from,
         date_to=date_to,
-        limit=limit,
+        limit=page_size,
         offset=offset,
     )
     result = await uc.execute(query)
     if isinstance(result, Failure):
         raise result.failure()
-    return [SessionHistoryItemResponse.from_dto(dto) for dto in result.unwrap()]
+    return PaginatedSessionHistoryResponse.from_dto(result.unwrap())
 
 
 @router.get(
@@ -169,7 +172,11 @@ async def log_exercise_set(
     result = await uc.execute(cmd)
     if isinstance(result, Failure):
         raise result.failure()
-    await session.commit()
+    try:
+        await session.commit()
+    except IntegrityError:
+        await session.rollback()
+        raise HTTPException(status_code=409, detail="Set already logged (concurrent request)")
     return ExerciseLogResponse.from_dto(result.unwrap())
 
 

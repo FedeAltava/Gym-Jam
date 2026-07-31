@@ -5,7 +5,7 @@ from fastapi.security import OAuth2PasswordBearer
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from backend.src.infrastructure.database import get_session
-from backend.src.infrastructure.auth.jwt import create_access_token, decode_access_token
+from backend.src.infrastructure.auth.jwt import create_access_token, decode_access_token, decode_access_token_payload
 from backend.src.infrastructure.auth.password import hash_password, verify_password
 from backend.src.infrastructure.auth.refresh_tokens import (
     generate_refresh_token,
@@ -81,10 +81,24 @@ async def get_current_user(
     token: str = Depends(oauth2_scheme),
     user_repo: SqlAlchemyUserRepository = Depends(get_user_repository),
 ) -> UserModel:
-    user_id = decode_access_token(token)
+    from datetime import datetime as _datetime
+    payload = decode_access_token_payload(token)
+    user_id: str = payload["sub"]  # type: ignore[assignment]
     user = await user_repo.find_by_id(user_id)
     if user is None:
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="User not found")
+    # Reject tokens issued before the last password change.
+    # A token without "pca" was issued before B6 was deployed — treat it as
+    # issued at the Unix epoch so it is valid against rows with no
+    # password_changed_at (NULL, i.e. password never changed since migration).
+    pca_str: str | None = payload.get("pca")  # type: ignore[assignment]
+    if pca_str is not None and user.password_changed_at is not None:
+        token_pca = _datetime.fromisoformat(pca_str)
+        if token_pca < user.password_changed_at:
+            raise HTTPException(
+                status_code=status.HTTP_401_UNAUTHORIZED,
+                detail="Token invalidated by password change",
+            )
     return user
 
 

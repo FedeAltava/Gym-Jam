@@ -7,7 +7,7 @@ import pytest
 from returns.result import Success
 
 from backend.src.application.commands import GetSessionHistoryQuery
-from backend.src.application.dtos import SessionHistoryItemDTO, SessionHistoryLogDTO
+from backend.src.application.dtos import PaginatedSessionHistoryDTO, SessionHistoryItemDTO, SessionHistoryLogDTO
 from backend.src.application.use_cases.get_session_history import GetSessionHistoryUseCase
 from backend.tests.unit.application.use_cases.in_memory_session_repository import (
     InMemorySessionRepository,
@@ -42,13 +42,18 @@ def use_case(session_repo: InMemorySessionRepository) -> GetSessionHistoryUseCas
     return GetSessionHistoryUseCase(session_repo)
 
 
-async def test_history_empty_returns_empty_list(
+async def test_history_empty_returns_paginated_dto(
     use_case: GetSessionHistoryUseCase,
 ) -> None:
     query = GetSessionHistoryQuery(user_id="user-1")
     result = await use_case.execute(query)
     assert isinstance(result, Success)
-    assert result.unwrap() == []
+    dto = result.unwrap()
+    assert isinstance(dto, PaginatedSessionHistoryDTO)
+    assert dto.items == ()
+    assert dto.total == 0
+    assert dto.page == 1
+    assert dto.page_size == 20
 
 
 async def test_history_passes_filter_params_to_repo(
@@ -116,7 +121,10 @@ async def test_history_propagates_repo_results_as_dtos(
 
     result = await use_case.execute(GetSessionHistoryQuery(user_id="user-1"))
     assert isinstance(result, Success)
-    items = result.unwrap()
+    dto = result.unwrap()
+    assert isinstance(dto, PaginatedSessionHistoryDTO)
+    assert dto.total == 2
+    items = dto.items
     assert [i.id for i in items] == ["session-2", "session-1"]
     assert items[0].status == "in_progress"
     assert items[0].completed_at is None

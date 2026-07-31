@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 from collections.abc import Callable
+from datetime import UTC, datetime
 
 from returns.result import Failure, Result, Success
 
@@ -40,6 +41,8 @@ class ChangePasswordUseCase:
             ))
 
         user.hashed_password = self._hash_password(new_password)
+        user.password_changed_at = datetime.now(UTC)
+        await self._user_repo.save(user)
         await self._refresh_token_repo.revoke_all_for_user(user_id)
 
         return Success(None)
