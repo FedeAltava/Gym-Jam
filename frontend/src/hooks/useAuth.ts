@@ -1,6 +1,7 @@
 import { useMutation } from '@tanstack/react-query';
 import { useNavigate } from 'react-router-dom';
 import { apiFetch } from '../lib/api';
+import { queryClient } from '../lib/queryClient';
 import { useAuthStore } from '../store/authStore';
 import type { TokenResponse, UserResponse } from '../types/api';
 
@@ -26,6 +27,9 @@ export function useLoginMutation() {
       return { token, user };
     },
     onSuccess: ({ token, user }) => {
+      // Clear any previous user's cached data before loading the new session
+      // so no data bleeds across users on a shared device.
+      queryClient.clear();
       setAuth(token.access_token, user);
       navigate('/dashboard');
     },
@@ -54,6 +58,9 @@ export function useLogout() {
     onSettled: () => {
       // Clear auth store and redirect regardless of API success/failure
       logout();
+      // Clear React Query cache so the next user cannot see this user's
+      // cached workouts, sessions, or stats on a shared device.
+      queryClient.clear();
       navigate('/login');
     },
   });

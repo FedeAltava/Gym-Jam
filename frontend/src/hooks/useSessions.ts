@@ -91,6 +91,8 @@ export function useLogSet() {
     onSuccess: (_data, { workoutId, dayId }) => {
       qc.invalidateQueries({ queryKey: ['sessions', workoutId, dayId] });
       qc.invalidateQueries({ queryKey: ['sessions', 'history'] });
+      qc.invalidateQueries({ queryKey: ['sessions', 'detail'] });
+      qc.invalidateQueries({ queryKey: ['user-stats'] });
     },
   });
 }
@@ -143,6 +145,8 @@ export function useUpdateLog() {
     onSuccess: (_data, { workoutId, dayId }) => {
       qc.invalidateQueries({ queryKey: ['sessions', workoutId, dayId] });
       qc.invalidateQueries({ queryKey: ['sessions', 'history'] });
+      qc.invalidateQueries({ queryKey: ['sessions', 'detail'] });
+      qc.invalidateQueries({ queryKey: ['user-stats'] });
     },
   });
 }
@@ -164,6 +168,8 @@ export function useCompleteSession() {
     onSuccess: (_data, { workoutId, dayId }) => {
       qc.invalidateQueries({ queryKey: ['sessions', workoutId, dayId] });
       qc.invalidateQueries({ queryKey: ['sessions', 'history'] });
+      qc.invalidateQueries({ queryKey: ['sessions', 'detail'] });
+      qc.invalidateQueries({ queryKey: ['user-stats'] });
     },
   });
 }
@@ -183,6 +189,8 @@ export function useDeleteSession() {
     onSuccess: (_data, { workoutId, dayId }) => {
       qc.invalidateQueries({ queryKey: ['sessions', workoutId, dayId] });
       qc.invalidateQueries({ queryKey: ['sessions', 'history'] });
+      qc.invalidateQueries({ queryKey: ['sessions', 'detail'] });
+      qc.invalidateQueries({ queryKey: ['user-stats'] });
     },
   });
 }
@@ -203,6 +211,8 @@ export function useDeleteExerciseLog() {
     onSuccess: (_data, { workoutId, dayId }) => {
       qc.invalidateQueries({ queryKey: ['sessions', workoutId, dayId] });
       qc.invalidateQueries({ queryKey: ['sessions', 'history'] });
+      qc.invalidateQueries({ queryKey: ['sessions', 'detail'] });
+      qc.invalidateQueries({ queryKey: ['user-stats'] });
     },
   });
 }
