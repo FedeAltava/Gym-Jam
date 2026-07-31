@@ -1015,10 +1015,12 @@ export function WorkoutSessionPage() {
           className="rounded-card border border-border bg-surface p-4 mb-4"
           role="alert"
         >
-          <p className="text-xs text-danger mb-2">
-            Se eliminó la sesión anterior pero no se pudo iniciar la nueva:{' '}
-            {(startSession.error as Error).message}
-          </p>
+          {startSession.isError && (
+            <p className="text-xs text-danger mb-2">
+              Se eliminó la sesión anterior pero no se pudo iniciar la nueva:{' '}
+              {(startSession.error as Error).message}
+            </p>
+          )}
           <button
             type="button"
             onClick={() => doStart()}
