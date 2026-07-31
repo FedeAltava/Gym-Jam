@@ -94,6 +94,8 @@ async def get_current_user(
     pca_str: str | None = payload.get("pca")  # type: ignore[assignment]
     if pca_str is not None and user.password_changed_at is not None:
         token_pca = _datetime.fromisoformat(pca_str)
+        if token_pca.tzinfo is None:
+            token_pca = token_pca.replace(tzinfo=_tz.utc)
         pca = user.password_changed_at
         if pca.tzinfo is None:
             pca = pca.replace(tzinfo=_tz.utc)
