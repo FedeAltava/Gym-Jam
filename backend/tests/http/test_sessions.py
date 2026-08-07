@@ -222,10 +222,10 @@ async def test_log_set_beyond_plan_returns_422(client) -> None:
     r = await client.post(f"/workouts/{wid}/days/{day_id}/sessions", json={})
     session_id = r.json()["id"]
 
-    # Exercise has sets=3; set_number=4 exceeds the plan → 422
+    # Extra sets beyond the plan are now allowed; set_number=0 is the true invalid case
     r2 = await client.post(
         f"/sessions/{session_id}/logs",
-        json={"workout_exercise_id": ex_id, "set_number": 4, "reps_completed": 5, "weight_kg": 50.0},
+        json={"workout_exercise_id": ex_id, "set_number": 0, "reps_completed": 5, "weight_kg": 50.0},
     )
     assert r2.status_code == 422
 
@@ -512,7 +512,7 @@ async def test_add_exercise_without_plan_fields_uses_defaults(client) -> None:
     )
     assert r.status_code == 201
     data = r.json()
-    assert data["sets"] == 3
+    assert data["sets"] == 4
     assert data["reps_per_set"] == 10
     assert data["weight_kg"] is None
 

@@ -273,10 +273,12 @@ describe('WorkoutSessionPage', () => {
 // Rest timer
 // ---------------------------------------------------------------------------
 
-/** Opens the rest timer panel (assumes session is already active). */
+/** Opens the rest timer panel (assumes session is already active).
+ *  The page renders two "Abrir cronómetro" buttons (header + floating FAB),
+ *  so we click the first one found. */
 async function openTimer(user: ReturnType<typeof userEvent.setup>) {
-  const clockBtn = await screen.findByRole('button', { name: 'Abrir cronómetro' });
-  await user.click(clockBtn);
+  const clockBtns = await screen.findAllByRole('button', { name: 'Abrir cronómetro' });
+  await user.click(clockBtns[0]);
   await screen.findByText('Cronómetro');
 }
 
@@ -290,7 +292,9 @@ describe('Rest Timer — panel open/close', () => {
 
   it('clock button appears after session starts', async () => {
     await startSession();
-    expect(screen.getByRole('button', { name: 'Abrir cronómetro' })).toBeInTheDocument();
+    // Both the header button and the floating FAB render with this label.
+    const btns = screen.getAllByRole('button', { name: 'Abrir cronómetro' });
+    expect(btns.length).toBeGreaterThanOrEqual(1);
   });
 
   it('opens the timer panel on clock button click', async () => {

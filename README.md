@@ -2,7 +2,23 @@
 
 A full-stack gym workout tracker. Manage workout plans, training days, and exercise sessions — with JWT authentication, personal records, session history, and a polished mobile-first UI.
 
-> Built with **Clean/Hexagonal Architecture**, strict **TDD** (637 tests), and deployed via **Docker Compose**.
+> Built with **Clean/Hexagonal Architecture**, strict **TDD** (794 tests), and deployed via **Docker Compose** + **Traefik** with automatic HTTPS.
+
+---
+
+## Features
+
+- **Workout plans** — create routines with training days (Mon–Sun) and drag-to-reorder exercises
+- **Live session** — log reps and weight per set, inline edit without re-submission, extra sets on the fly
+- **Rest timer** — countdown and ascending modes, preset buttons (1:00 / 1:30 / 2:00 / 3:00), Wake Lock keeps screen on
+- **Sticky timer FAB** — floating button follows scroll so the timer is always one tap away, pulses green while running
+- **Personal records** — auto-detected on session complete; history shows PR badge per set
+- **Weight progress chart** — per-exercise line chart of max weight over time
+- **Session history** — infinite scroll with workout / date / status filters
+- **User preferences** — configurable rest interval and weight units (kg / lb)
+- **PWA** — installable, offline-capable, push-to-home-screen on iOS and Android
+- **Auth** — JWT access token + httpOnly refresh token rotation, email/password reset, case-insensitive email
+- **Exercise catalog** — 90 curated exercises (15 per muscle group) with bodyweight flag
 
 ---
 
@@ -59,8 +75,9 @@ The `entrypoint.sh` runs Alembic migrations automatically before starting the AP
 |---------|-----------|
 | Database | PostgreSQL (prod) / SQLite (dev/test) |
 | Cache / rate limiting | Redis |
-| Reverse proxy | nginx |
+| Reverse proxy | Traefik v3 (automatic HTTPS via Let's Encrypt) + nginx |
 | Containerization | Docker Compose |
+| PWA | vite-plugin-pwa (Workbox, service worker, web manifest) |
 
 ---
 
@@ -88,7 +105,7 @@ Gym-Jam/
 │   │   ├── unit/                 # Domain + application layer (in-memory repo)
 │   │   ├── integration/          # Infrastructure layer (SQLite in-memory)
 │   │   └── http/                 # HTTP layer (TestClient, FK constraints enabled)
-│   ├── alembic/                  # Migrations (011 versions)
+│   ├── alembic/                  # Migrations (018 versions)
 │   └── pyproject.toml
 │
 ├── frontend/
@@ -238,7 +255,7 @@ ENVIRONMENT=development
 ## Running tests
 
 ```bash
-# Backend — all 548 tests
+# Backend — all 567 tests
 cd backend
 poetry run pytest
 
@@ -251,12 +268,12 @@ poetry run pytest tests/unit
 # Only HTTP tests
 poetry run pytest tests/http
 
-# Frontend — all 89 tests
+# Frontend — all 227 tests
 cd frontend
 npx vitest run
 ```
 
-**637 total tests** across backend (unit / integration / HTTP) and frontend (Vitest + RTL).
+**794 total tests** across backend (unit / integration / HTTP) and frontend (Vitest + RTL).
 
 ---
 
