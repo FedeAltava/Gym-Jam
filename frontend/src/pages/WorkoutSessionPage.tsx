@@ -883,27 +883,6 @@ export function WorkoutSessionPage() {
             </span>
           </div>
         )}
-        {session && (
-          <button
-            type="button"
-            onClick={() => setTimerOpen(true)}
-            style={{
-              width: 44, height: 44, flexShrink: 0, borderRadius: 14,
-              background: 'rgba(43,229,129,0.10)',
-              border: '1px solid rgba(43,229,129,0.3)',
-              color: '#2BE581', cursor: 'pointer',
-              display: 'flex', alignItems: 'center', justifyContent: 'center',
-            }}
-            aria-label="Abrir cronómetro"
-          >
-            <svg width="21" height="21" viewBox="0 0 24 24" fill="none"
-              stroke="currentColor" strokeWidth="2"
-              strokeLinecap="round" strokeLinejoin="round">
-              <circle cx="12" cy="13" r="8"/>
-              <path d="M12 9.5V13l2.5 1.5M9 2h6M18.5 6.5l1.5-1.5"/>
-            </svg>
-          </button>
-        )}
       </div>
 
       {/* Progress bar — only while session is active */}
@@ -1156,34 +1135,29 @@ export function WorkoutSessionPage() {
         </>
       )}
 
-      {/* Floating timer button — visible while scrolling */}
+      {/* Timer button — fixed inside the AppHeader zone, stays visible while scrolling */}
       {session && !timerOpen && (
         <button
           type="button"
           onClick={() => setTimerOpen(true)}
-          className="fixed right-5 bottom-20 md:bottom-6 z-40"
+          className="fixed right-4 md:right-8 z-30"
           style={{
-            position: 'fixed',
-            width: 52, height: 52, borderRadius: 16,
-            background: tRunning ? 'rgba(43,229,129,0.20)' : 'rgba(43,229,129,0.10)',
-            border: `2px solid ${tRunning ? 'rgba(43,229,129,0.7)' : 'rgba(43,229,129,0.3)'}`,
+            top: 'calc(env(safe-area-inset-top) + 6px)',
+            width: 44, height: 44, borderRadius: 14,
+            background: tRunning ? 'rgba(43,229,129,0.18)' : 'rgba(43,229,129,0.10)',
+            border: `1px solid ${tRunning ? 'rgba(43,229,129,0.6)' : 'rgba(43,229,129,0.3)'}`,
             color: '#2BE581', cursor: 'pointer',
             display: 'flex', alignItems: 'center', justifyContent: 'center',
-            boxShadow: '0 4px 24px rgba(0,0,0,0.45)',
           }}
           aria-label="Abrir cronómetro"
         >
           {tRunning && (
             <span
               className="absolute animate-ping"
-              style={{
-                width: 52, height: 52, borderRadius: 16,
-                background: 'rgba(43,229,129,0.25)',
-                inset: 0,
-              }}
+              style={{ width: 44, height: 44, borderRadius: 14, background: 'rgba(43,229,129,0.2)', inset: 0 }}
             />
           )}
-          <svg width="22" height="22" viewBox="0 0 24 24" fill="none"
+          <svg width="21" height="21" viewBox="0 0 24 24" fill="none"
             stroke="currentColor" strokeWidth="2"
             strokeLinecap="round" strokeLinejoin="round"
             style={{ position: 'relative' }}
