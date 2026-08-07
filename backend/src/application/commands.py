@@ -16,7 +16,7 @@ class AddExerciseToWorkoutCommand:
     user_id: str
     day_of_week: str
     exercise_id: str
-    sets: int = 3
+    sets: int = 4
     reps_per_set: int = 10
     weight_kg: float | None = None
 

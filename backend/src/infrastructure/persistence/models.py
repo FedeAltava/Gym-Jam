@@ -94,7 +94,7 @@ class WorkoutExerciseModel(Base):
     # (AddExerciseToWorkoutUseCase validates against the catalog).
     exercise_id: Mapped[str] = mapped_column(String(255), nullable=False)
     order_in_day: Mapped[int] = mapped_column(Integer, nullable=False)
-    sets: Mapped[int] = mapped_column(Integer, nullable=False, server_default="3")
+    sets: Mapped[int] = mapped_column(Integer, nullable=False, server_default="4")
     reps_per_set: Mapped[int] = mapped_column(Integer, nullable=False, server_default="10")
     weight_kg: Mapped[float | None] = mapped_column(Float, nullable=True)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=lambda: datetime.now(UTC))

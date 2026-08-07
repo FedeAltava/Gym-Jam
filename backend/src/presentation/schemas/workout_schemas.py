@@ -19,7 +19,7 @@ class AddTrainingDayRequest(BaseModel):
 
 class AddExerciseRequest(BaseModel):
     exercise_id: str
-    sets: int = Field(default=3, ge=1)
+    sets: int = Field(default=4, ge=1)
     reps_per_set: int = Field(default=10, ge=1)
     weight_kg: float | None = Field(default=None, ge=0.0)
 

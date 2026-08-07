@@ -94,7 +94,7 @@ class Workout:
         day: DayOfWeek,
         exercise_id: str,
         workout_exercise_id: WorkoutExerciseId | None = None,
-        sets: int = 3,
+        sets: int = 4,
         reps_per_set: int = 10,
         weight_kg: float | None = None,
     ) -> WorkoutExercise:

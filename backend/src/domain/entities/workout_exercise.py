@@ -11,7 +11,7 @@ class WorkoutExercise:
     day: DayOfWeek
     exercise_id: str           # external catalog reference
     order: int                 # 1-based, managed by TrainingDay
-    sets: int = field(default=3)
+    sets: int = field(default=4)
     reps_per_set: int = field(default=10)
     weight_kg: float | None = field(default=None)
 

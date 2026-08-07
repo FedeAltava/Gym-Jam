@@ -57,7 +57,7 @@ class WorkoutSession:
         if self.completed_at is not None:
             raise SessionAlreadyCompleted()
 
-        if set_number < 1 or set_number > exercise.sets:
+        if set_number < 1:
             raise SetExceedsPlan(set_number=set_number, max_sets=exercise.sets)
 
         if reps_completed < 1:

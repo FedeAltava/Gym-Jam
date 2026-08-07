@@ -96,7 +96,6 @@ function NumericInput({
         onKeyDown={(e) => {
           if (e.key === 'Enter') (e.target as HTMLInputElement).blur();
         }}
-        onFocus={(e) => e.target.select()}
         disabled={disabled}
         style={{
           background: 'transparent',
@@ -1155,6 +1154,44 @@ export function WorkoutSessionPage() {
             </p>
           )}
         </>
+      )}
+
+      {/* Floating timer button — visible while scrolling */}
+      {session && !timerOpen && (
+        <button
+          type="button"
+          onClick={() => setTimerOpen(true)}
+          className="fixed right-5 bottom-20 md:bottom-6 z-40"
+          style={{
+            position: 'fixed',
+            width: 52, height: 52, borderRadius: 16,
+            background: tRunning ? 'rgba(43,229,129,0.20)' : 'rgba(43,229,129,0.10)',
+            border: `2px solid ${tRunning ? 'rgba(43,229,129,0.7)' : 'rgba(43,229,129,0.3)'}`,
+            color: '#2BE581', cursor: 'pointer',
+            display: 'flex', alignItems: 'center', justifyContent: 'center',
+            boxShadow: '0 4px 24px rgba(0,0,0,0.45)',
+          }}
+          aria-label="Abrir cronómetro"
+        >
+          {tRunning && (
+            <span
+              className="absolute animate-ping"
+              style={{
+                width: 52, height: 52, borderRadius: 16,
+                background: 'rgba(43,229,129,0.25)',
+                inset: 0,
+              }}
+            />
+          )}
+          <svg width="22" height="22" viewBox="0 0 24 24" fill="none"
+            stroke="currentColor" strokeWidth="2"
+            strokeLinecap="round" strokeLinejoin="round"
+            style={{ position: 'relative' }}
+          >
+            <circle cx="12" cy="13" r="8"/>
+            <path d="M12 9.5V13l2.5 1.5M9 2h6M18.5 6.5l1.5-1.5"/>
+          </svg>
+        </button>
       )}
 
       {/* Rest timer bottom sheet */}
