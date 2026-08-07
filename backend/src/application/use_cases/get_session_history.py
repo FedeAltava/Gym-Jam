@@ -15,6 +15,7 @@ from backend.src.application.dtos import (
 from backend.src.application.errors import ApplicationError
 from backend.src.domain.read_models import SessionSnapshot
 from backend.src.domain.repositories.session_repository import SessionRepository
+from backend.src.domain.value_objects import TrainingDayId, WorkoutId
 
 
 def _to_dto(snap: SessionSnapshot) -> SessionHistoryItemDTO:
@@ -98,19 +99,29 @@ class GetSessionHistoryUseCase:
         )
 
     async def _fetch(self, query: GetSessionHistoryQuery):  # type: ignore[return]
+        workout_id = (
+            WorkoutId.from_string(query.workout_id).value_or(None)
+            if query.workout_id is not None
+            else None
+        )
+        day_id = (
+            TrainingDayId.from_string(query.day_id).value_or(None)
+            if query.day_id is not None
+            else None
+        )
         total, snapshots = await _gather(
             self._session_repo.count_history_for_user(
                 user_id=query.user_id,
-                workout_id=query.workout_id,
-                day_id=query.day_id,
+                workout_id=workout_id,
+                day_id=day_id,
                 status=query.status,
                 date_from=query.date_from,
                 date_to=query.date_to,
             ),
             self._session_repo.list_history_for_user(
                 user_id=query.user_id,
-                workout_id=query.workout_id,
-                day_id=query.day_id,
+                workout_id=workout_id,
+                day_id=day_id,
                 status=query.status,
                 date_from=query.date_from,
                 date_to=query.date_to,

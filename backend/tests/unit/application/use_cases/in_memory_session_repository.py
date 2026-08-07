@@ -76,8 +76,8 @@ class InMemorySessionRepository(SessionRepository):
     async def list_history_for_user(
         self,
         user_id: str,
-        workout_id: str | None,
-        day_id: str | None,
+        workout_id: WorkoutId | None,
+        day_id: TrainingDayId | None,
         status: str | None,
         date_from: date | None,
         date_to: date | None,
@@ -100,8 +100,8 @@ class InMemorySessionRepository(SessionRepository):
     async def count_history_for_user(
         self,
         user_id: str,
-        workout_id: str | None,
-        day_id: str | None,
+        workout_id: WorkoutId | None,
+        day_id: TrainingDayId | None,
         status: str | None,
         date_from: date | None,
         date_to: date | None,

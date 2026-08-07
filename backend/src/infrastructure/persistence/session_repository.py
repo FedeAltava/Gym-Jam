@@ -185,8 +185,8 @@ class SqlAlchemySessionRepository(SessionRepository):
     async def list_history_for_user(
         self,
         user_id: str,
-        workout_id: str | None,
-        day_id: str | None,
+        workout_id: WorkoutId | None,
+        day_id: TrainingDayId | None,
         status: str | None,
         date_from: date | None,
         date_to: date | None,
@@ -235,9 +235,9 @@ class SqlAlchemySessionRepository(SessionRepository):
         if session_id is not None:
             stmt = stmt.where(WorkoutSessionModel.id == session_id)
         if workout_id is not None:
-            stmt = stmt.where(WorkoutSessionModel.workout_id == workout_id)
+            stmt = stmt.where(WorkoutSessionModel.workout_id == str(workout_id.value))
         if day_id is not None:
-            stmt = stmt.where(WorkoutSessionModel.training_day_id == day_id)
+            stmt = stmt.where(WorkoutSessionModel.training_day_id == str(day_id.value))
         # "status" is derived — there is no status column. in_progress means
         # the session was never completed.
         if status == "in_progress":
@@ -325,8 +325,8 @@ class SqlAlchemySessionRepository(SessionRepository):
     async def count_history_for_user(
         self,
         user_id: str,
-        workout_id: str | None,
-        day_id: str | None,
+        workout_id: WorkoutId | None,
+        day_id: TrainingDayId | None,
         status: str | None,
         date_from: date | None,
         date_to: date | None,
@@ -338,9 +338,9 @@ class SqlAlchemySessionRepository(SessionRepository):
             .where(WorkoutSessionModel.user_id == user_id)
         )
         if workout_id is not None:
-            stmt = stmt.where(WorkoutSessionModel.workout_id == workout_id)
+            stmt = stmt.where(WorkoutSessionModel.workout_id == str(workout_id.value))
         if day_id is not None:
-            stmt = stmt.where(WorkoutSessionModel.training_day_id == day_id)
+            stmt = stmt.where(WorkoutSessionModel.training_day_id == str(day_id.value))
         if status == "in_progress":
             stmt = stmt.where(WorkoutSessionModel.completed_at.is_(None))
         elif status == "completed":

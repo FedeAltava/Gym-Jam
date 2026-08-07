@@ -10,6 +10,7 @@ from backend.src.application.commands import GetSessionHistoryQuery
 from backend.src.application.dtos import PaginatedSessionHistoryDTO
 from backend.src.application.use_cases.get_session_history import GetSessionHistoryUseCase
 from backend.src.domain.read_models import SessionLogSnapshot, SessionSnapshot
+from backend.src.domain.value_objects import TrainingDayId, WorkoutId
 from backend.tests.unit.application.use_cases.in_memory_session_repository import (
     InMemorySessionRepository,
 )
@@ -59,14 +60,18 @@ async def test_history_empty_returns_paginated_dto(
     assert dto.page_size == 20
 
 
+_WORKOUT_UUID = "00000000-0000-0000-0000-000000000001"
+_DAY_UUID = "00000000-0000-0000-0000-000000000002"
+
+
 async def test_history_passes_filter_params_to_repo(
     use_case: GetSessionHistoryUseCase,
     session_repo: InMemorySessionRepository,
 ) -> None:
     query = GetSessionHistoryQuery(
         user_id="user-1",
-        workout_id="workout-1",
-        day_id="day-1",
+        workout_id=_WORKOUT_UUID,
+        day_id=_DAY_UUID,
         status="completed",
         date_from=date(2026, 6, 1),
         date_to=date(2026, 6, 30),
@@ -75,16 +80,16 @@ async def test_history_passes_filter_params_to_repo(
     )
     result = await use_case.execute(query)
     assert isinstance(result, Success)
-    assert session_repo.last_history_call == {
-        "user_id": "user-1",
-        "workout_id": "workout-1",
-        "day_id": "day-1",
-        "status": "completed",
-        "date_from": date(2026, 6, 1),
-        "date_to": date(2026, 6, 30),
-        "limit": 5,
-        "offset": 10,
-    }
+    call = session_repo.last_history_call
+    assert call is not None
+    assert call["user_id"] == "user-1"
+    assert call["workout_id"] == WorkoutId.from_string(_WORKOUT_UUID).unwrap()
+    assert call["day_id"] == TrainingDayId.from_string(_DAY_UUID).unwrap()
+    assert call["status"] == "completed"
+    assert call["date_from"] == date(2026, 6, 1)
+    assert call["date_to"] == date(2026, 6, 30)
+    assert call["limit"] == 5
+    assert call["offset"] == 10
 
 
 async def test_history_defaults_pagination_and_null_filters(

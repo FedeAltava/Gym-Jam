@@ -90,7 +90,7 @@ Gym-Jam/
 │   │   ├── domain/               # Core business logic — no framework dependencies
 │   │   │   ├── aggregates/       # Workout (aggregate root)
 │   │   │   ├── entities/         # TrainingDay, WorkoutExercise, WorkoutSession, ExerciseLog
-│   │   │   ├── value_objects/    # WorkoutId, WorkoutName, DayName, DayOfWeek…
+│   │   │   ├── value_objects/    # WorkoutId, WorkoutName, DayOfWeek…
 │   │   │   ├── errors/           # Typed domain errors
 │   │   │   └── repositories/     # ABC contracts (WorkoutRepository, UserRepository…)
 │   │   ├── application/          # Use cases, commands, DTOs

@@ -1,6 +1,5 @@
 """Domain value objects — public re-exports."""
 from backend.src.domain.value_objects.day_of_week import DayOfWeek
-from backend.src.domain.value_objects.day_name import DayName
 from backend.src.domain.value_objects.exercise_log_id import ExerciseLogId, ExerciseLogIdError
 from backend.src.domain.value_objects.workout_exercise_id import (
     WorkoutExerciseId,
@@ -13,7 +12,6 @@ from backend.src.domain.value_objects.workout_session_id import WorkoutSessionId
 
 __all__ = [
     "DayOfWeek",
-    "DayName",
     "ExerciseLogId",
     "ExerciseLogIdError",
     "TrainingDayId",
