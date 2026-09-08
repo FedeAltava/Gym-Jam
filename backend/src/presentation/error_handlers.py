@@ -2,6 +2,8 @@ from fastapi import Request
 from fastapi.responses import JSONResponse
 from backend.src.application.errors import (
     ApplicationError,
+    DietPlanNotFoundError,
+    DietPlanProcessingError,
     ExerciseNotFoundError,
     InvalidRefreshTokenError,
     LogNotFoundError,
@@ -16,7 +18,7 @@ from backend.src.application.errors import (
 
 
 async def application_error_handler(request: Request, exc: ApplicationError) -> JSONResponse:
-    if isinstance(exc, (WorkoutNotFoundError, ExerciseNotFoundError, SessionNotFoundError, LogNotFoundError)):
+    if isinstance(exc, (WorkoutNotFoundError, ExerciseNotFoundError, SessionNotFoundError, LogNotFoundError, DietPlanNotFoundError)):
         status_code = 404
     elif isinstance(exc, UnauthorizedError):
         status_code = 403
@@ -24,7 +26,7 @@ async def application_error_handler(request: Request, exc: ApplicationError) -> 
         status_code = 401
     elif isinstance(exc, (SessionAlreadyCompletedError, SessionAlreadyInProgressError, SetAlreadyLoggedError)):
         status_code = 409
-    elif isinstance(exc, SetExceedsPlanError):
+    elif isinstance(exc, (SetExceedsPlanError, DietPlanProcessingError)):
         status_code = 422
     else:
         status_code = 422
