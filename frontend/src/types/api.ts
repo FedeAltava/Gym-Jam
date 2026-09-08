@@ -65,6 +65,55 @@ export interface ApiError {
   detail: string;
 }
 
+// ─── Nutrition / Diet Plan types ─────────────────────────────────────────────
+
+export interface DietPlanSummary {
+  id: string;
+  user_id: string;
+  title: string;
+  calories: number | null;
+  uploaded_at: string;
+}
+
+export interface MealOption {
+  name: string;
+  ingredients: string[];
+}
+
+export interface DayMeal {
+  name: string;
+  ingredients: string[];
+  is_free: boolean;
+}
+
+export interface SharedMeals {
+  desayuno: MealOption[];
+  almuerzo_options: MealOption[];
+  merienda: MealOption[];
+}
+
+export interface DayMenu {
+  day: string;
+  comida: DayMeal;
+  cena: DayMeal;
+}
+
+export interface ParsedMenu {
+  title: string;
+  calories: number | null;
+  shared: SharedMeals;
+  days: DayMenu[];
+}
+
+export interface DietPlan {
+  id: string;
+  user_id: string;
+  title: string;
+  calories: number | null;
+  menu_json: string; // JSON string — parse before use
+  uploaded_at: string;
+}
+
 export interface UserStats {
   total_sessions: number;
   streak: number;

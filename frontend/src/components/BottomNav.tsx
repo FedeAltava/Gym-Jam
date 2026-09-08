@@ -1,10 +1,11 @@
 import { Link, useLocation } from 'react-router-dom';
-import { LayoutDashboard, PlusCircle, History, User } from 'lucide-react';
+import { LayoutDashboard, PlusCircle, History, User, Salad } from 'lucide-react';
 
 const TABS = [
   { to: '/dashboard', label: 'Home', icon: LayoutDashboard },
   { to: '/workouts', label: 'Rutinas', icon: PlusCircle },
   { to: '/history', label: 'Historial', icon: History },
+  { to: '/nutrition', label: 'Nutrición', icon: Salad },
   { to: '/profile', label: 'Perfil', icon: User },
 ];
 
