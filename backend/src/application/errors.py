@@ -179,3 +179,21 @@ class WeakPasswordError(ApplicationError):
         object.__setattr__(self, "message", message)
         super().__init__(message)
 
+
+@dataclass
+class DietPlanNotFoundError(ApplicationError):
+    diet_plan_id: str
+
+    def __init__(self, diet_plan_id: str) -> None:
+        object.__setattr__(self, "diet_plan_id", diet_plan_id)
+        super().__init__(f"Diet plan '{diet_plan_id}' not found.")
+
+
+@dataclass
+class DietPlanProcessingError(ApplicationError):
+    reason: str
+
+    def __init__(self, reason: str) -> None:
+        object.__setattr__(self, "reason", reason)
+        super().__init__(f"Diet plan processing failed: {reason}")
+

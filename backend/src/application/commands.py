@@ -176,3 +176,21 @@ class GetWorkoutsByUserQuery:
     limit: int = 50
     offset: int = 0
 
+
+@dataclass(frozen=True)
+class UploadDietPlanCommand:
+    user_id: str
+    pdf_bytes: bytes
+    filename: str
+
+
+@dataclass(frozen=True)
+class GetDietPlanQuery:
+    user_id: str
+    diet_plan_id: str
+
+
+@dataclass(frozen=True)
+class ListDietPlansQuery:
+    user_id: str
+

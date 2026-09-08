@@ -1,8 +1,10 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
+from datetime import datetime
 
 from backend.src.domain.aggregates.workout import Workout
+from backend.src.domain.entities.diet_plan import DietPlan
 from backend.src.domain.entities.exercise import Exercise
 from backend.src.domain.entities.exercise_log import ExerciseLog
 from backend.src.domain.entities.training_day import TrainingDay
@@ -212,4 +214,44 @@ class WorkoutSessionDTO:
             completed_at=session.completed_at.isoformat() if session.completed_at is not None else None,
             logs=tuple(ExerciseLogDTO.from_entity(log) for log in session.logs),
             duration_seconds=duration_seconds,
+        )
+
+
+@dataclass(frozen=True)
+class DietPlanDTO:
+    id: str
+    user_id: str
+    title: str
+    calories: int | None
+    menu_json: dict
+    uploaded_at: datetime
+
+    @classmethod
+    def from_aggregate(cls, plan: DietPlan) -> "DietPlanDTO":
+        return cls(
+            id=str(plan.id.value),
+            user_id=plan.user_id,
+            title=plan.title,
+            calories=plan.calories,
+            menu_json=plan.menu,
+            uploaded_at=plan.uploaded_at,
+        )
+
+
+@dataclass(frozen=True)
+class DietPlanSummaryDTO:
+    id: str
+    user_id: str
+    title: str
+    calories: int | None
+    uploaded_at: datetime
+
+    @classmethod
+    def from_aggregate(cls, plan: DietPlan) -> "DietPlanSummaryDTO":
+        return cls(
+            id=str(plan.id.value),
+            user_id=plan.user_id,
+            title=plan.title,
+            calories=plan.calories,
+            uploaded_at=plan.uploaded_at,
         )
