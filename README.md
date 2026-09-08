@@ -4,7 +4,7 @@ Gym-Jam is a mobile-first workout tracker that lets you build custom routines, r
 
 The target use case is the person who wants a structured gym log without the noise of social features: private, fast, and always available as a PWA on your phone.
 
-> Built with **Clean/Hexagonal Architecture**, strict **TDD** (783 tests), and deployed via **Docker Compose** + **Traefik** with automatic HTTPS.
+> Built with **Clean/Hexagonal Architecture**, strict **TDD** (848 tests), and deployed via **Docker Compose** + **Traefik** with automatic HTTPS.
 
 ---
 
@@ -20,6 +20,7 @@ The target use case is the person who wants a structured gym log without the noi
 - **Dashboard** — streak card, weekly volume chart, next workout suggestion, and recent activity feed
 - **User preferences** — configurable default rest interval and weight units (kg / lb)
 - **PWA** — installable, offline-capable, add-to-home-screen on iOS and Android
+- **Nutrition** — upload nutritionist's PDF, Claude AI extracts a structured weekly menu; per-day view with breakfast/lunch/snack/dinner cards, free-choice options highlighted
 - **Auth** — JWT access token + httpOnly refresh token rotation, email/password reset flow, case-insensitive email
 - **Exercise catalog** — 90 curated exercises (15 per muscle group) with bodyweight flag, filterable by muscle group
 
@@ -108,13 +109,13 @@ Gym-Jam/
 │   │   ├── unit/                 # Domain + application layer (in-memory repo)
 │   │   ├── integration/          # Infrastructure layer (SQLite in-memory)
 │   │   └── http/                 # HTTP layer (TestClient, FK constraints enabled)
-│   ├── alembic/                  # Migrations (018 versions)
+│   ├── alembic/                  # Migrations (019 versions)
 │   └── pyproject.toml
 │
 ├── frontend/
 │   └── src/
 │       ├── pages/                # Login, Register, Dashboard, Workouts, WorkoutDetail,
-│       │                         #   AddExercises, WorkoutSession, SessionDetail, History, Profile…
+│       │                         #   AddExercises, WorkoutSession, SessionDetail, History, Nutrition, Profile…
 │       ├── components/           # Layout, BottomNav, ProtectedRoute, dashboard cards…
 │       ├── hooks/                # useAuth, useWorkouts, useSessions, useExercises,
 │       │                         #   useSessionHistory, useUserStats, useUserPreferences…
@@ -213,6 +214,14 @@ Infrastructure (SQLAlchemy, JWT, bcrypt, Redis, SMTP)
 | `DELETE` | `/sessions/{id}` | Delete a session |
 | `GET` | `/sessions` | Session history with filters (status, workout, date range, pagination) |
 
+### Nutrition
+
+| Method | Path | Description |
+|--------|------|-------------|
+| `POST` | `/nutrition/menus` | Upload a diet plan PDF — Claude extracts structured weekly menu |
+| `GET` | `/nutrition/menus` | List all diet plans for current user (newest first) |
+| `GET` | `/nutrition/menus/{id}` | Get a single diet plan with full weekly menu JSON |
+
 ### Health
 
 | Method | Path | Description |
@@ -242,6 +251,9 @@ CORS_ORIGINS=http://localhost            # comma-separated allowed origins
 # Optional — enables Redis-backed rate limiting (recommended in production)
 REDIS_URL=redis://redis:6379
 
+# Required for nutrition PDF parsing
+ANTHROPIC_API_KEY=your_anthropic_api_key
+
 # Optional SMTP — required for password reset emails
 SMTP_HOST=smtp.example.com
 SMTP_PORT=587
@@ -258,8 +270,7 @@ ENVIRONMENT=development
 ## Running tests
 
 ```bash
-# Backend — all 556 tests
-cd backend
+# Backend — all 596 tests
 poetry run pytest
 
 # With coverage
@@ -271,12 +282,12 @@ poetry run pytest tests/unit
 # Only HTTP tests
 poetry run pytest tests/http
 
-# Frontend — all 227 tests
+# Frontend — all 252 tests
 cd frontend
 npx vitest run
 ```
 
-**783 total tests** across backend (unit / integration / HTTP) and frontend (Vitest + RTL).
+**848 total tests** across backend (unit / integration / HTTP) and frontend (Vitest + RTL).
 
 ---
 
