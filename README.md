@@ -1,24 +1,27 @@
 # Gym-Jam
 
-A full-stack gym workout tracker. Manage workout plans, training days, and exercise sessions — with JWT authentication, personal records, session history, and a polished mobile-first UI.
+Gym-Jam is a mobile-first workout tracker that lets you build custom routines, run training sessions, and track your progress over time. You create workout plans with named training days, pick exercises from a curated catalog, and then execute sessions — logging reps and weight set by set in real time. When a session is complete the app auto-detects personal records, updates your streak, and stores the history for later review.
 
-> Built with **Clean/Hexagonal Architecture**, strict **TDD** (794 tests), and deployed via **Docker Compose** + **Traefik** with automatic HTTPS.
+The target use case is the person who wants a structured gym log without the noise of social features: private, fast, and always available as a PWA on your phone.
+
+> Built with **Clean/Hexagonal Architecture**, strict **TDD** (783 tests), and deployed via **Docker Compose** + **Traefik** with automatic HTTPS.
 
 ---
 
 ## Features
 
-- **Workout plans** — create routines with training days (Mon–Sun) and drag-to-reorder exercises
-- **Live session** — log reps and weight per set, inline edit without re-submission, extra sets on the fly
-- **Rest timer** — countdown and ascending modes, preset buttons (1:00 / 1:30 / 2:00 / 3:00), Wake Lock keeps screen on
+- **Workout plans** — create routines with named training days (Mon–Sun) and drag-to-reorder exercises
+- **Live session** — log reps and weight per set, inline edit without re-submission, add extra sets on the fly, defaults to 4 sets per exercise
+- **Rest timer** — countdown and ascending modes, preset buttons (1:00 / 1:30 / 2:00 / 3:00), Wake Lock keeps the screen on
 - **Sticky timer FAB** — floating button follows scroll so the timer is always one tap away, pulses green while running
-- **Personal records** — auto-detected on session complete; history shows PR badge per set
+- **Personal records** — auto-detected on session complete; session detail shows a PR badge per set
 - **Weight progress chart** — per-exercise line chart of max weight over time
-- **Session history** — infinite scroll with workout / date / status filters
-- **User preferences** — configurable rest interval and weight units (kg / lb)
-- **PWA** — installable, offline-capable, push-to-home-screen on iOS and Android
-- **Auth** — JWT access token + httpOnly refresh token rotation, email/password reset, case-insensitive email
-- **Exercise catalog** — 90 curated exercises (15 per muscle group) with bodyweight flag
+- **Session history** — infinite scroll with workout / date / status filters; tap any entry to see the full session detail
+- **Dashboard** — streak card, weekly volume chart, next workout suggestion, and recent activity feed
+- **User preferences** — configurable default rest interval and weight units (kg / lb)
+- **PWA** — installable, offline-capable, add-to-home-screen on iOS and Android
+- **Auth** — JWT access token + httpOnly refresh token rotation, email/password reset flow, case-insensitive email
+- **Exercise catalog** — 90 curated exercises (15 per muscle group) with bodyweight flag, filterable by muscle group
 
 ---
 
@@ -111,7 +114,7 @@ Gym-Jam/
 ├── frontend/
 │   └── src/
 │       ├── pages/                # Login, Register, Dashboard, Workouts, WorkoutDetail,
-│       │                         #   AddExercises, WorkoutSession, History, Profile…
+│       │                         #   AddExercises, WorkoutSession, SessionDetail, History, Profile…
 │       ├── components/           # Layout, BottomNav, ProtectedRoute, dashboard cards…
 │       ├── hooks/                # useAuth, useWorkouts, useSessions, useExercises,
 │       │                         #   useSessionHistory, useUserStats, useUserPreferences…
@@ -255,7 +258,7 @@ ENVIRONMENT=development
 ## Running tests
 
 ```bash
-# Backend — all 567 tests
+# Backend — all 556 tests
 cd backend
 poetry run pytest
 
@@ -273,7 +276,7 @@ cd frontend
 npx vitest run
 ```
 
-**794 total tests** across backend (unit / integration / HTTP) and frontend (Vitest + RTL).
+**783 total tests** across backend (unit / integration / HTTP) and frontend (Vitest + RTL).
 
 ---
 
