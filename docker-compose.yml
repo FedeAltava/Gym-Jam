@@ -60,6 +60,7 @@ services:
       ENVIRONMENT: production
       CORS_ORIGINS: ${CORS_ORIGINS:?Set CORS_ORIGINS in .env — e.g. ["https://yourdomain.com"]}
       REDIS_URL: redis://redis:6379
+      GEMINI_API_KEY: ${GEMINI_API_KEY:-}
     depends_on:
       postgres:
         condition: service_healthy
