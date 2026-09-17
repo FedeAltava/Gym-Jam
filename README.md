@@ -252,7 +252,7 @@ CORS_ORIGINS=http://localhost            # comma-separated allowed origins
 REDIS_URL=redis://redis:6379
 
 # Required for nutrition PDF parsing
-ANTHROPIC_API_KEY=your_anthropic_api_key
+GEMINI_API_KEY=your_gemini_api_key
 
 # Optional SMTP — required for password reset emails
 SMTP_HOST=smtp.example.com

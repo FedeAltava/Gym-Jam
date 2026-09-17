@@ -66,7 +66,7 @@ from backend.src.application.use_cases.update_user_preferences import UpdateUser
 from backend.src.application.use_cases.register_user import RegisterUserUseCase
 from backend.src.domain.repositories.diet_plan_repository import DietPlanRepository
 from backend.src.infrastructure.persistence.diet_plan_repository import SqlAlchemyDietPlanRepository
-from backend.src.infrastructure.ai.claude_pdf_service import ClaudePdfParser
+from backend.src.infrastructure.ai.gemini_pdf_service import GeminiPdfParser
 from backend.src.application.services.diet_parser import DietParser
 from backend.src.application.use_cases.upload_diet_plan import UploadDietPlanUseCase
 from backend.src.application.use_cases.list_diet_plans import ListDietPlansUseCase
@@ -375,7 +375,7 @@ def get_diet_plan_repository(session: AsyncSession = Depends(get_session)) -> Di
 
 
 def get_diet_parser() -> DietParser:
-    return ClaudePdfParser(api_key=settings.anthropic_api_key)
+    return GeminiPdfParser(api_key=settings.gemini_api_key)
 
 
 def get_upload_diet_plan_use_case(
