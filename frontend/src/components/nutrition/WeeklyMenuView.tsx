@@ -72,6 +72,7 @@ export function WeeklyMenuView({ menu }: WeeklyMenuViewProps) {
             options={menu.shared.almuerzo_options}
           />
           <MealCard
+            key={`comida-${selectedDay}`}
             label="Comida"
             meal={day.comida}
             isFree={day.comida.is_free}
@@ -82,6 +83,7 @@ export function WeeklyMenuView({ menu }: WeeklyMenuViewProps) {
             options={menu.shared.merienda}
           />
           <MealCard
+            key={`cena-${selectedDay}`}
             label="Cena"
             meal={day.cena}
             isFree={day.cena.is_free}
