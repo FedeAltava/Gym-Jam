@@ -1,4 +1,4 @@
-import { useState, useRef } from 'react';
+import { useState, useRef, useEffect } from 'react';
 import type { DietPlan } from '../../types/api';
 import { useUploadNutritionMenu } from '../../hooks/useNutrition';
 import { Spinner } from '../Spinner';
@@ -14,6 +14,32 @@ export function UploadMenuForm({ onSuccess }: UploadMenuFormProps) {
   const [pickedFile, setPickedFile] = useState<File | null>(null);
   const [uiState, setUiState] = useState<UploadState>('idle');
   const mutation = useUploadNutritionMenu();
+
+  useEffect(() => {
+    if (uiState !== 'processing') return;
+    if (!('wakeLock' in navigator)) return;
+
+    let lock: WakeLockSentinel | null = null;
+
+    async function acquire() {
+      try {
+        lock = await navigator.wakeLock.request('screen');
+      } catch {
+        // Permission denied or feature unavailable — no action needed.
+      }
+    }
+
+    function handleVisibilityChange() {
+      if (document.visibilityState === 'visible') acquire();
+    }
+
+    acquire();
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+    return () => {
+      document.removeEventListener('visibilitychange', handleVisibilityChange);
+      lock?.release();
+    };
+  }, [uiState]);
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
