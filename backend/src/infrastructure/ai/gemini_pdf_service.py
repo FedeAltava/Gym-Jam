@@ -1,6 +1,7 @@
 """GeminiPdfParser — infrastructure implementation of DietParser using Google Gemini SDK."""
 from __future__ import annotations
 
+import asyncio
 import json
 
 from google import genai
@@ -10,7 +11,11 @@ from pydantic import ValidationError
 from backend.src.application.errors import DietPlanProcessingError
 from backend.src.application.services.diet_parser import DietParser, ParsedMenu
 
-_MODEL = "gemini-flash-latest"
+# Prefer the latest stable flash; fall back in order on 503/404.
+_MODELS = ["gemini-flash-latest", "gemini-3.5-flash"]
+_MAX_RETRIES = 3
+_RETRY_DELAY = 3.0  # seconds between retries
+
 _PROMPT = """\
 Extract the weekly meal plan from this PDF and return ONLY valid JSON with no markdown, \
 no explanation, matching exactly this schema:
@@ -50,34 +55,36 @@ class GeminiPdfParser(DietParser):
             )
 
         pdf_part = types.Part.from_bytes(data=pdf_bytes, mime_type="application/pdf")
+        last_exc: Exception | None = None
 
-        try:
-            response = await self._client.aio.models.generate_content(
-                model=_MODEL,
-                contents=[pdf_part, _PROMPT],
-            )
-        except Exception as exc:
-            raise DietPlanProcessingError(reason=f"Gemini API error: {exc}") from exc
+        for model in _MODELS:
+            for attempt in range(1, _MAX_RETRIES + 1):
+                try:
+                    response = await self._client.aio.models.generate_content(
+                        model=model,
+                        contents=[pdf_part, _PROMPT],
+                    )
+                    raw_text = response.text or ""
 
-        raw_text = response.text or ""
+                    # Strip markdown code fences if Gemini wraps the JSON
+                    if raw_text.startswith("```"):
+                        parts = raw_text.split("```")
+                        raw_text = parts[1].removeprefix("json").strip() if len(parts) > 1 else raw_text
 
-        # Strip markdown code fences if Gemini wraps the JSON
-        if raw_text.startswith("```"):
-            parts = raw_text.split("```")
-            raw_text = parts[1].removeprefix("json").strip() if len(parts) > 1 else raw_text
+                    raw_dict: dict = json.loads(raw_text)
+                    ParsedMenu.model_validate(raw_dict)
+                    return raw_dict
 
-        try:
-            raw_dict: dict = json.loads(raw_text)
-        except (json.JSONDecodeError, ValueError) as exc:
-            raise DietPlanProcessingError(
-                reason=f"Gemini returned non-JSON response: {raw_text[:200]}"
-            ) from exc
+                except (json.JSONDecodeError, ValueError, ValidationError) as exc:
+                    # Bad output — no point retrying the same model
+                    last_exc = exc
+                    break
+                except Exception as exc:
+                    last_exc = exc
+                    is_last = attempt == _MAX_RETRIES
+                    if not is_last:
+                        await asyncio.sleep(_RETRY_DELAY * attempt)
 
-        try:
-            ParsedMenu.model_validate(raw_dict)
-        except ValidationError as exc:
-            raise DietPlanProcessingError(
-                reason=f"Gemini response does not match schema: {exc}"
-            ) from exc
-
-        return raw_dict
+        raise DietPlanProcessingError(
+            reason=f"Gemini API unavailable after retries: {last_exc}"
+        )
