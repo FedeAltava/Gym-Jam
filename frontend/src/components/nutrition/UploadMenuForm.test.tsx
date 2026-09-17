@@ -21,7 +21,7 @@ const CREATED_PLAN: DietPlan = {
   user_id: 'u1',
   title: 'Mi Plan',
   calories: 2000,
-  menu_json: '{}',
+  menu_json: { title: '', calories: null, shared: { desayuno: [], almuerzo_options: [], merienda: [] }, days: [] },
   uploaded_at: '2026-09-08T00:00:00Z',
 };
 

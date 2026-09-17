@@ -67,7 +67,7 @@ describe('useNutritionMenu', () => {
       user_id: 'u1',
       title: 'Plan Semana 1',
       calories: 2000,
-      menu_json: '{}',
+      menu_json: { title: '', calories: null, shared: { desayuno: [], almuerzo_options: [], merienda: [] }, days: [] },
       uploaded_at: '2026-09-01T00:00:00Z',
     };
     vi.mocked(apiFetch).mockResolvedValue(plan);
@@ -102,7 +102,7 @@ describe('useUploadNutritionMenu', () => {
       user_id: 'u1',
       title: 'Nuevo Plan',
       calories: null,
-      menu_json: '{}',
+      menu_json: { title: '', calories: null, shared: { desayuno: [], almuerzo_options: [], merienda: [] }, days: [] },
       uploaded_at: '2026-09-08T00:00:00Z',
     };
     vi.mocked(apiFetch).mockResolvedValue(created);
