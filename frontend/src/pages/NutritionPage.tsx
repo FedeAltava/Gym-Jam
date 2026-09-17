@@ -4,7 +4,7 @@ import { useNutritionMenus, useNutritionMenu } from '../hooks/useNutrition';
 import { Spinner } from '../components/Spinner';
 import { UploadMenuForm } from '../components/nutrition/UploadMenuForm';
 import { WeeklyMenuView } from '../components/nutrition/WeeklyMenuView';
-import type { DietPlan, ParsedMenu } from '../types/api';
+import type { ParsedMenu } from '../types/api';
 
 type PageView = 'list' | 'upload' | 'menu';
 
@@ -85,7 +85,7 @@ export function NutritionPage() {
     setView('menu');
   };
 
-  const handleUploadSuccess = (_plan: DietPlan) => {
+  const handleUploadSuccess = () => {
     setView('list');
   };
 

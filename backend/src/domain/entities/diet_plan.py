@@ -1,7 +1,7 @@
 """DietPlan aggregate root — represents an uploaded weekly meal plan."""
 from __future__ import annotations
 
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 from datetime import datetime
 
 from backend.src.domain.value_objects.diet_plan_id import DietPlanId
