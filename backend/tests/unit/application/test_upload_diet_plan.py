@@ -1,9 +1,7 @@
 """Unit tests for UploadDietPlanUseCase — RED phase."""
 from __future__ import annotations
 
-from datetime import UTC, datetime
 
-import pytest
 from returns.result import Failure, Success
 
 from backend.src.application.commands import UploadDietPlanCommand

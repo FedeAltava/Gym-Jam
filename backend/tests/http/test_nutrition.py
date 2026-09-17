@@ -2,11 +2,9 @@
 from __future__ import annotations
 
 import io
-from unittest.mock import AsyncMock, patch
+from unittest.mock import AsyncMock
 
-import pytest
 
-from backend.src.application.commands import UploadDietPlanCommand
 from backend.src.application.dtos import DietPlanDTO, DietPlanSummaryDTO
 from backend.src.application.errors import DietPlanNotFoundError, DietPlanProcessingError
 from backend.src.application.use_cases.get_diet_plan import GetDietPlanUseCase
@@ -99,7 +97,7 @@ def _make_get_uc(return_value):
 def _pdf_file(size: int = 1024, content_type: str = "application/pdf") -> tuple:
     """Return (filename, file_obj, content_type) suitable for httpx multipart."""
     data = b"%PDF-1.4 fake" + b"x" * size
-    return ("file", (f"diet.pdf", io.BytesIO(data), content_type))
+    return ("file", ("diet.pdf", io.BytesIO(data), content_type))
 
 
 # ── POST /nutrition/menus ─────────────────────────────────────────────────────
