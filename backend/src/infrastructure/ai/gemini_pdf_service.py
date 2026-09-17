@@ -12,7 +12,7 @@ from backend.src.application.errors import DietPlanProcessingError
 from backend.src.application.services.diet_parser import DietParser, ParsedMenu
 
 # Prefer the latest stable flash; fall back in order on 503/404.
-_MODELS = ["gemini-flash-latest", "gemini-3.5-flash"]
+_MODELS = ["gemini-3.5-flash", "gemini-flash-latest"]
 _MAX_RETRIES = 3
 _RETRY_DELAY = 3.0  # seconds between retries
 
