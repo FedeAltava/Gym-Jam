@@ -19,14 +19,7 @@ function formatDate(isoString: string): string {
 function MenuDetailView({ id, onBack }: { id: string; onBack: () => void }) {
   const { data: plan, isLoading } = useNutritionMenu(id);
 
-  let parsedMenu: ParsedMenu | null = null;
-  if (plan?.menu_json) {
-    try {
-      parsedMenu = JSON.parse(plan.menu_json) as ParsedMenu;
-    } catch {
-      // malformed JSON — treat as null
-    }
-  }
+  const parsedMenu: ParsedMenu | null = plan?.menu_json ?? null;
 
   return (
     <div>

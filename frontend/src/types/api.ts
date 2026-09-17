@@ -110,7 +110,7 @@ export interface DietPlan {
   user_id: string;
   title: string;
   calories: number | null;
-  menu_json: string; // JSON string — parse before use
+  menu_json: ParsedMenu;
   uploaded_at: string;
 }
 
