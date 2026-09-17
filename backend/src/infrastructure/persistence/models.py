@@ -1,6 +1,6 @@
 from __future__ import annotations
 from datetime import datetime, UTC
-from sqlalchemy import String, Boolean, Integer, Float, ForeignKey, UniqueConstraint, Index, DateTime, func, text
+from sqlalchemy import String, Boolean, Integer, Float, ForeignKey, Text, UniqueConstraint, Index, DateTime, func, text
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column, relationship
 
 
@@ -184,3 +184,21 @@ class PasswordResetTokenModel(Base):
     expires_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
     used_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now(), nullable=False)
+
+
+class DietPlanModel(Base):
+    __tablename__ = "diet_plans"
+    __table_args__ = (
+        # Serves list_by_user: filter by user + ORDER BY uploaded_at DESC.
+        Index("ix_diet_plans_user_uploaded", "user_id", "uploaded_at"),
+    )
+    id: Mapped[str] = mapped_column(String(36), primary_key=True)
+    user_id: Mapped[str] = mapped_column(
+        String(36), ForeignKey("users.id", ondelete="CASCADE"), nullable=False
+    )
+    title: Mapped[str] = mapped_column(Text, nullable=False)
+    calories: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    menu_json: Mapped[str] = mapped_column(Text, nullable=False)
+    uploaded_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), nullable=False, default=lambda: datetime.now(UTC)
+    )

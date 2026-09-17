@@ -90,7 +90,9 @@ function doFetch(
   token: string | null,
 ): Promise<Response> {
   const headers: Record<string, string> = {
-    'Content-Type': 'application/json',
+    // Skip Content-Type for FormData so the browser can set the multipart
+    // boundary automatically. For all other bodies, default to JSON.
+    ...(!(options?.body instanceof FormData) ? { 'Content-Type': 'application/json' } : {}),
     ...((options.headers as Record<string, string>) ?? {}),
   };
   // Never clobber a caller-supplied Authorization header with the store token.

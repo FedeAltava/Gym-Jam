@@ -64,6 +64,13 @@ from backend.src.application.use_cases.reset_password import ResetPasswordUseCas
 from backend.src.application.use_cases.change_password import ChangePasswordUseCase
 from backend.src.application.use_cases.update_user_preferences import UpdateUserPreferencesUseCase
 from backend.src.application.use_cases.register_user import RegisterUserUseCase
+from backend.src.domain.repositories.diet_plan_repository import DietPlanRepository
+from backend.src.infrastructure.persistence.diet_plan_repository import SqlAlchemyDietPlanRepository
+from backend.src.infrastructure.ai.claude_pdf_service import ClaudePdfParser
+from backend.src.application.services.diet_parser import DietParser
+from backend.src.application.use_cases.upload_diet_plan import UploadDietPlanUseCase
+from backend.src.application.use_cases.list_diet_plans import ListDietPlansUseCase
+from backend.src.application.use_cases.get_diet_plan import GetDietPlanUseCase
 
 oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/auth/login")
 oauth2_scheme_optional = OAuth2PasswordBearer(tokenUrl="/auth/login", auto_error=False)
@@ -358,3 +365,33 @@ def get_register_user_uc(
         create_user=_create_user_model,
         hash_password=hash_password,
     )
+
+
+# ── Nutrition DI factories ────────────────────────────────────────────────────
+
+
+def get_diet_plan_repository(session: AsyncSession = Depends(get_session)) -> DietPlanRepository:
+    return SqlAlchemyDietPlanRepository(session)
+
+
+def get_diet_parser() -> DietParser:
+    return ClaudePdfParser(api_key=settings.anthropic_api_key)
+
+
+def get_upload_diet_plan_use_case(
+    repo: DietPlanRepository = Depends(get_diet_plan_repository),
+    parser: DietParser = Depends(get_diet_parser),
+) -> UploadDietPlanUseCase:
+    return UploadDietPlanUseCase(repo=repo, parser=parser)
+
+
+def get_list_diet_plans_use_case(
+    repo: DietPlanRepository = Depends(get_diet_plan_repository),
+) -> ListDietPlansUseCase:
+    return ListDietPlansUseCase(repo=repo)
+
+
+def get_get_diet_plan_use_case(
+    repo: DietPlanRepository = Depends(get_diet_plan_repository),
+) -> GetDietPlanUseCase:
+    return GetDietPlanUseCase(repo=repo)

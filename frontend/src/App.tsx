@@ -15,6 +15,7 @@ import { AddExercisesPage } from './pages/AddExercisesPage';
 import { ProfilePage } from './pages/ProfilePage';
 import { HistoryPage } from './pages/HistoryPage';
 import { SessionDetailPage } from './pages/SessionDetailPage';
+import { NutritionPage } from './pages/NutritionPage';
 
 export default function App() {
   return (
@@ -44,6 +45,7 @@ export default function App() {
             <Route path="profile" element={<ProfilePage />} />
             <Route path="history" element={<HistoryPage />} />
             <Route path="history/:sessionId" element={<SessionDetailPage />} />
+            <Route path="nutrition" element={<NutritionPage />} />
           </Route>
           <Route path="*" element={<Navigate to="/dashboard" replace />} />
         </Routes>

@@ -35,6 +35,10 @@ class Settings(BaseSettings):
     smtp_password: str = ""
     smtp_from: str = "noreply@gymjam.app"
     app_base_url: str = "http://localhost:5173"
+    # Anthropic API key — required for diet plan PDF processing.
+    # Empty string is accepted at boot; upload endpoint will fail with a clear
+    # configuration error at request time when the key is absent.
+    anthropic_api_key: str = ""
 
     @model_validator(mode="after")
     def validate_production_settings(self) -> "Settings":
