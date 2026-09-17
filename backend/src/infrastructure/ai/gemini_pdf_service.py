@@ -10,7 +10,7 @@ from pydantic import ValidationError
 from backend.src.application.errors import DietPlanProcessingError
 from backend.src.application.services.diet_parser import DietParser, ParsedMenu
 
-_MODEL = "gemini-3.6-flash"
+_MODEL = "gemini-flash-latest"
 _PROMPT = """\
 Extract the weekly meal plan from this PDF and return ONLY valid JSON with no markdown, \
 no explanation, matching exactly this schema:
