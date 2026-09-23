@@ -25,7 +25,7 @@ Make PDF menu upload survive Gemini capacity outages, and let users delete a men
 - [x] T1 — Parser: add more fallback models (`gemini-3.6-flash`, `gemini-3.5-flash-lite`), fewer
   same-model retries so total latency stays bounded. Route: inline (1 file).
 - [x] T2 — Backend delete endpoint + tests. Route: delegated (2+ non-trivial files, writer trigger).
-- [ ] T3 — Frontend delete action + tests. Route: delegated (2+ non-trivial files, writer trigger).
+- [x] T3 — Frontend delete action + tests. Route: delegated (2+ non-trivial files, writer trigger).
 
 ## Acceptance criteria
 - Parser tries 3+ models before failing; unit test covers fallback on 503.
@@ -39,7 +39,13 @@ Make PDF menu upload survive Gemini capacity outages, and let users delete a men
 - T2: commit 92ccd88. `DELETE /nutrition/menus/{id}` → 204 own / 404 missing, malformed or foreign
   (repo `delete_for_user` scoped by user_id). `poetry run pytest backend/tests -q` 610 passed;
   `poetry run ruff check backend` all checks passed.
+- T3: commit d128b76. `useDeleteDietPlan` (DELETE, removes detail cache, invalidates list exactly) +
+  `DeleteMenuButton` inline confirm (Eliminar → ¿Seguro? Sí/No, same pattern as workout delete) on
+  menu cards and the detail header; after delete the page returns to the refreshed list / empty state.
+  Also fixed stale `NutritionPage.test.tsx` fixture (menu_json was still JSON-stringified; the
+  existing detail test was failing on base). `npm test` 30 files / 257 passed; `npm run typecheck`
+  clean; `npm run lint` 0 errors, 1 pre-existing warning (ProtectedRoute.tsx exhaustive-deps).
 - Engram mirror: PENDING (mem_save failed: multiple active runtime sessions).
 
 ## Next step
-T2 + T3 (delegated writer).
+Parent: RDD assess over T2/T3 commits, then delivery decision (push/PR) by the user.
