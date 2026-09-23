@@ -49,3 +49,12 @@ Make PDF menu upload survive Gemini capacity outages, and let users delete a men
 
 ## Next step
 Parent: RDD assess over T2/T3 commits, then delivery decision (push/PR) by the user.
+
+## Review
+- RDD slice main..b25576e (T1–T3, 710 lines, medium): consent granted, 1 lens (reliability), APPROVED,
+  acknowledged (lineage review-d735d4c166513fc6, authority burned).
+- Advisory follow-ups (non-blocking):
+  - WARNING: worst-case Gemini calls grew 6 → 8 with no per-call timeout; add an http timeout /
+    total deadline so the all-models-down path fails fast.
+  - SUGGESTION: fallback test covers only model 1→2; test ordering across all models.
+  - SUGGESTION: DeleteMenuButton error state untested and persists after pressing "No".
