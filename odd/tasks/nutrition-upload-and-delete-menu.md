@@ -45,7 +45,7 @@ Make PDF menu upload survive Gemini capacity outages, and let users delete a men
   Also fixed stale `NutritionPage.test.tsx` fixture (menu_json was still JSON-stringified; the
   existing detail test was failing on base). `npm test` 30 files / 257 passed; `npm run typecheck`
   clean; `npm run lint` 0 errors, 1 pre-existing warning (ProtectedRoute.tsx exhaustive-deps).
-- Engram mirror: PENDING (mem_save failed: multiple active runtime sessions).
+- Engram mirror: synced via engram CLI (#334).
 
 ## Next step
 Parent: RDD assess over T2/T3 commits, then delivery decision (push/PR) by the user.
