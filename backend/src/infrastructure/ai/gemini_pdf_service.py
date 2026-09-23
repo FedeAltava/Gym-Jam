@@ -11,10 +11,16 @@ from pydantic import ValidationError
 from backend.src.application.errors import DietPlanProcessingError
 from backend.src.application.services.diet_parser import DietParser, ParsedMenu
 
-# Prefer the latest stable flash; fall back in order on 503/404.
-_MODELS = ["gemini-3.5-flash", "gemini-flash-latest"]
-_MAX_RETRIES = 3
-_RETRY_DELAY = 3.0  # seconds between retries
+# Fall back in order on 503/404. Gemini capacity outages are per-model, so a wider
+# model list recovers faster than retrying the same overloaded model.
+_MODELS = [
+    "gemini-3.5-flash",
+    "gemini-3.6-flash",
+    "gemini-flash-latest",
+    "gemini-3.5-flash-lite",
+]
+_MAX_RETRIES = 2
+_RETRY_DELAY = 2.0  # seconds between retries
 
 _PROMPT = """\
 Extract the weekly meal plan from this PDF and return ONLY valid JSON with no markdown, \
