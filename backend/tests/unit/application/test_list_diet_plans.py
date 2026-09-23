@@ -27,6 +27,9 @@ class FakeRepo(DietPlanRepository):
     async def list_by_user(self, user_id: str) -> list[DietPlan]:
         return [p for p in self._plans if p.user_id == user_id]
 
+    async def delete_for_user(self, id: DietPlanId, user_id: str) -> bool:
+        return False
+
 
 def _make_plan(user_id: str, title: str, uploaded_at: datetime) -> DietPlan:
     return DietPlan(

@@ -304,3 +304,70 @@ async def test_get_response_includes_full_menu_json(client) -> None:
     saturday = next(d for d in menu["days"] if d["day"] == "sábado")
     assert saturday["comida"]["is_free"] is True
     assert saturday["cena"]["is_free"] is True
+
+
+# ── DELETE /nutrition/menus/{id} ──────────────────────────────────────────────
+# These run against the real use case and repository (SQLite in-memory).
+
+USER_2 = "00000000-0000-0000-0000-000000000002"
+
+
+async def _seed_plan(session, user_id: str) -> str:
+    from backend.src.domain.entities.diet_plan import DietPlan
+    from backend.src.domain.value_objects.diet_plan_id import DietPlanId
+    from backend.src.infrastructure.persistence.diet_plan_repository import (
+        SqlAlchemyDietPlanRepository,
+    )
+
+    plan = DietPlan(
+        id=DietPlanId.generate(),
+        user_id=user_id,
+        title="To delete",
+        calories=1800,
+        menu=SAMPLE_MENU,
+        uploaded_at=datetime.now(timezone.utc),
+    )
+    await SqlAlchemyDietPlanRepository(session).save(plan)
+    await session.commit()
+    return str(plan.id.value)
+
+
+async def test_delete_own_diet_plan_returns_204_and_get_returns_404(client, session) -> None:
+    plan_id = await _seed_plan(session, USER_1)
+
+    r = await client.delete(f"/nutrition/menus/{plan_id}")
+
+    assert r.status_code == 204
+    assert r.content == b""
+    assert (await client.get(f"/nutrition/menus/{plan_id}")).status_code == 404
+    listed_ids = [p["id"] for p in (await client.get("/nutrition/menus")).json()]
+    assert plan_id not in listed_ids
+
+
+async def test_delete_missing_diet_plan_returns_404(client) -> None:
+    r = await client.delete("/nutrition/menus/00000000-0000-0000-0000-00000000dead")
+
+    assert r.status_code == 404
+
+
+async def test_delete_malformed_id_returns_404(client) -> None:
+    r = await client.delete("/nutrition/menus/not-a-uuid")
+
+    assert r.status_code == 404
+
+
+async def test_delete_other_users_diet_plan_returns_404_and_keeps_it(
+    client, client_user2, session
+) -> None:
+    plan_id = await _seed_plan(session, USER_2)
+
+    r = await client.delete(f"/nutrition/menus/{plan_id}")
+
+    assert r.status_code == 404
+    assert (await client_user2.get(f"/nutrition/menus/{plan_id}")).status_code == 200
+
+
+async def test_delete_diet_plan_requires_auth(auth_client) -> None:
+    r = await auth_client.delete(f"/nutrition/menus/{VALID_PLAN_ID}")
+
+    assert r.status_code == 401

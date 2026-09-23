@@ -71,6 +71,7 @@ from backend.src.application.services.diet_parser import DietParser
 from backend.src.application.use_cases.upload_diet_plan import UploadDietPlanUseCase
 from backend.src.application.use_cases.list_diet_plans import ListDietPlansUseCase
 from backend.src.application.use_cases.get_diet_plan import GetDietPlanUseCase
+from backend.src.application.use_cases.delete_diet_plan import DeleteDietPlanUseCase
 
 oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/auth/login")
 oauth2_scheme_optional = OAuth2PasswordBearer(tokenUrl="/auth/login", auto_error=False)
@@ -395,3 +396,9 @@ def get_get_diet_plan_use_case(
     repo: DietPlanRepository = Depends(get_diet_plan_repository),
 ) -> GetDietPlanUseCase:
     return GetDietPlanUseCase(repo=repo)
+
+
+def get_delete_diet_plan_use_case(
+    repo: DietPlanRepository = Depends(get_diet_plan_repository),
+) -> DeleteDietPlanUseCase:
+    return DeleteDietPlanUseCase(repo=repo)

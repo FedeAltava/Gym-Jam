@@ -1,21 +1,24 @@
-"""Nutrition router — PDF diet plan upload and retrieval endpoints."""
+"""Nutrition router — PDF diet plan upload, retrieval and deletion endpoints."""
 from __future__ import annotations
 
-from fastapi import APIRouter, Depends, HTTPException, UploadFile
+from fastapi import APIRouter, Depends, HTTPException, Response, UploadFile
 from returns.result import Failure
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from backend.src.application.commands import (
+    DeleteDietPlanCommand,
     GetDietPlanQuery,
     ListDietPlansQuery,
     UploadDietPlanCommand,
 )
+from backend.src.application.use_cases.delete_diet_plan import DeleteDietPlanUseCase
 from backend.src.application.use_cases.get_diet_plan import GetDietPlanUseCase
 from backend.src.application.use_cases.list_diet_plans import ListDietPlansUseCase
 from backend.src.application.use_cases.upload_diet_plan import UploadDietPlanUseCase
 from backend.src.infrastructure.database import get_session
 from backend.src.presentation.dependencies import (
     get_current_user_id,
+    get_delete_diet_plan_use_case,
     get_get_diet_plan_use_case,
     get_list_diet_plans_use_case,
     get_upload_diet_plan_use_case,
@@ -99,3 +102,22 @@ async def get_diet_plan(
     if isinstance(result, Failure):
         raise result.failure()
     return DietPlanResponse.from_dto(result.unwrap())
+
+
+@router.delete(
+    "/menus/{diet_plan_id}",
+    status_code=204,
+)
+async def delete_diet_plan(
+    diet_plan_id: str,
+    uc: DeleteDietPlanUseCase = Depends(get_delete_diet_plan_use_case),
+    user_id: str = Depends(get_current_user_id),
+    session: AsyncSession = Depends(get_session),
+) -> Response:
+    cmd = DeleteDietPlanCommand(user_id=user_id, diet_plan_id=diet_plan_id)
+    result = await uc.execute(cmd)
+    if isinstance(result, Failure):
+        raise result.failure()
+
+    await session.commit()
+    return Response(status_code=204)

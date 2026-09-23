@@ -119,3 +119,33 @@ async def test_list_by_user_empty_returns_empty_list(session) -> None:
     result = await repo.list_by_user("user-with-no-plans")
 
     assert result == []
+
+
+async def test_delete_for_user_removes_own_plan(session) -> None:
+    repo = SqlAlchemyDietPlanRepository(session)
+    plan = _make_plan(user_id="user-alice")
+    await repo.save(plan)
+
+    deleted = await repo.delete_for_user(plan.id, "user-alice")
+
+    assert deleted is True
+    assert await repo.get_by_id_for_user(plan.id, "user-alice") is None
+
+
+async def test_delete_for_user_foreign_plan_is_noop(session) -> None:
+    repo = SqlAlchemyDietPlanRepository(session)
+    plan = _make_plan(user_id="user-alice")
+    await repo.save(plan)
+
+    deleted = await repo.delete_for_user(plan.id, "user-bob")
+
+    assert deleted is False
+    assert await repo.get_by_id_for_user(plan.id, "user-alice") is not None
+
+
+async def test_delete_for_user_unknown_id_returns_false(session) -> None:
+    repo = SqlAlchemyDietPlanRepository(session)
+
+    deleted = await repo.delete_for_user(DietPlanId.generate(), "user-1")
+
+    assert deleted is False

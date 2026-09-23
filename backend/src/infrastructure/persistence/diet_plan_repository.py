@@ -4,7 +4,7 @@ from __future__ import annotations
 import json
 from datetime import UTC
 
-from sqlalchemy import select
+from sqlalchemy import delete, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from backend.src.domain.entities.diet_plan import DietPlan
@@ -64,3 +64,13 @@ class SqlAlchemyDietPlanRepository(DietPlanRepository):
             .order_by(DietPlanModel.uploaded_at.desc())
         )
         return [_to_entity(row) for row in result.scalars()]
+
+    async def delete_for_user(self, id: DietPlanId, user_id: str) -> bool:
+        result = await self._session.execute(
+            delete(DietPlanModel).where(
+                DietPlanModel.id == str(id.value),
+                DietPlanModel.user_id == user_id,
+            )
+        )
+        await self._session.flush()
+        return result.rowcount > 0

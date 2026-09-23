@@ -62,6 +62,9 @@ class FakeDietPlanRepository(DietPlanRepository):
     async def list_by_user(self, user_id: str) -> list[DietPlan]:
         return []
 
+    async def delete_for_user(self, id: DietPlanId, user_id: str) -> bool:
+        return False
+
 
 # ---------------------------------------------------------------------------
 # Tests

@@ -191,6 +191,12 @@ class GetDietPlanQuery:
 
 
 @dataclass(frozen=True)
+class DeleteDietPlanCommand:
+    user_id: str
+    diet_plan_id: str
+
+
+@dataclass(frozen=True)
 class ListDietPlansQuery:
     user_id: str
 
