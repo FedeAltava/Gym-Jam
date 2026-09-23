@@ -28,3 +28,17 @@ export function useUploadNutritionMenu() {
     onSuccess: () => qc.invalidateQueries({ queryKey: ['nutrition', 'menus'] }),
   });
 }
+
+export function useDeleteDietPlan() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (id: string) =>
+      apiFetch<void>(`/nutrition/menus/${id}`, { method: 'DELETE' }),
+    onSuccess: (_data, id) => {
+      // Drop the deleted plan's detail cache and refresh only the list, so no
+      // refetch is ever issued for a plan that no longer exists.
+      qc.removeQueries({ queryKey: ['nutrition', 'menus', id], exact: true });
+      return qc.invalidateQueries({ queryKey: ['nutrition', 'menus'], exact: true });
+    },
+  });
+}

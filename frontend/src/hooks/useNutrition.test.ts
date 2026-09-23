@@ -5,6 +5,7 @@ import {
   useNutritionMenus,
   useNutritionMenu,
   useUploadNutritionMenu,
+  useDeleteDietPlan,
 } from './useNutrition';
 import type { DietPlanSummary, DietPlan } from '../types/api';
 
@@ -124,5 +125,50 @@ describe('useUploadNutritionMenu', () => {
       body: fd,
     });
     expect(result.current.data?.id).toBe('new1');
+  });
+});
+
+// ---------------------------------------------------------------------------
+// useDeleteDietPlan
+// ---------------------------------------------------------------------------
+
+describe('useDeleteDietPlan', () => {
+  it('DELETEs /nutrition/menus/:id, removes the detail cache and invalidates the list', async () => {
+    vi.mocked(apiFetch).mockResolvedValue(undefined);
+
+    const { wrapper, queryClient } = createWrapper();
+    queryClient.setQueryData(['nutrition', 'menus'], [{ id: 'm1' }, { id: 'm2' }]);
+    queryClient.setQueryData(['nutrition', 'menus', 'm1'], { id: 'm1' });
+    queryClient.setQueryData(['nutrition', 'menus', 'm2'], { id: 'm2' });
+    const invalidateSpy = vi.spyOn(queryClient, 'invalidateQueries');
+
+    const { result } = renderHook(() => useDeleteDietPlan(), { wrapper });
+
+    await act(async () => {
+      result.current.mutate('m1');
+    });
+
+    await waitFor(() => expect(result.current.isSuccess).toBe(true));
+
+    expect(vi.mocked(apiFetch)).toHaveBeenCalledWith('/nutrition/menus/m1', { method: 'DELETE' });
+    expect(queryClient.getQueryData(['nutrition', 'menus', 'm1'])).toBeUndefined();
+    expect(queryClient.getQueryData(['nutrition', 'menus', 'm2'])).toEqual({ id: 'm2' });
+    expect(invalidateSpy).toHaveBeenCalledWith({ queryKey: ['nutrition', 'menus'], exact: true });
+  });
+
+  it('keeps caches untouched when the request fails', async () => {
+    vi.mocked(apiFetch).mockRejectedValue(new Error('Not found'));
+
+    const { wrapper, queryClient } = createWrapper();
+    queryClient.setQueryData(['nutrition', 'menus', 'm1'], { id: 'm1' });
+
+    const { result } = renderHook(() => useDeleteDietPlan(), { wrapper });
+
+    await act(async () => {
+      result.current.mutate('m1');
+    });
+
+    await waitFor(() => expect(result.current.isError).toBe(true));
+    expect(queryClient.getQueryData(['nutrition', 'menus', 'm1'])).toEqual({ id: 'm1' });
   });
 });

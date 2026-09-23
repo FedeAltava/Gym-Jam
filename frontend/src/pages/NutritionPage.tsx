@@ -4,6 +4,7 @@ import { useNutritionMenus, useNutritionMenu } from '../hooks/useNutrition';
 import { Spinner } from '../components/Spinner';
 import { UploadMenuForm } from '../components/nutrition/UploadMenuForm';
 import { WeeklyMenuView } from '../components/nutrition/WeeklyMenuView';
+import { DeleteMenuButton } from '../components/nutrition/DeleteMenuButton';
 import type { ParsedMenu } from '../types/api';
 
 type PageView = 'list' | 'upload' | 'menu';
@@ -16,7 +17,15 @@ function formatDate(isoString: string): string {
   });
 }
 
-function MenuDetailView({ id, onBack }: { id: string; onBack: () => void }) {
+function MenuDetailView({
+  id,
+  onBack,
+  onDeleted,
+}: {
+  id: string;
+  onBack: () => void;
+  onDeleted: () => void;
+}) {
   const { data: plan, isLoading } = useNutritionMenu(id);
 
   const parsedMenu: ParsedMenu | null = plan?.menu_json ?? null;
@@ -48,17 +57,28 @@ function MenuDetailView({ id, onBack }: { id: string; onBack: () => void }) {
         <Spinner />
       ) : parsedMenu ? (
         <>
-          <h2
+          <div
             style={{
-              fontSize: '22px',
-              fontWeight: 700,
-              color: 'var(--text)',
+              display: 'flex',
+              alignItems: 'flex-start',
+              justifyContent: 'space-between',
+              gap: '12px',
               marginBottom: '16px',
-              fontFamily: "'Barlow Semi Condensed', sans-serif",
             }}
           >
-            {plan?.title}
-          </h2>
+            <h2
+              style={{
+                fontSize: '22px',
+                fontWeight: 700,
+                color: 'var(--text)',
+                margin: 0,
+                fontFamily: "'Barlow Semi Condensed', sans-serif",
+              }}
+            >
+              {plan?.title}
+            </h2>
+            <DeleteMenuButton menuId={id} menuTitle={plan?.title ?? ''} onDeleted={onDeleted} />
+          </div>
           <WeeklyMenuView menu={parsedMenu} />
         </>
       ) : (
@@ -76,6 +96,13 @@ export function NutritionPage() {
   const handleMenuCardClick = (id: string) => {
     setSelectedMenuId(id);
     setView('menu');
+  };
+
+  // After deleting the shown menu, fall back to the list: it refetches and
+  // renders the remaining menus or the empty/upload state.
+  const handleMenuDeleted = () => {
+    setSelectedMenuId('');
+    setView('list');
   };
 
   const handleUploadSuccess = () => {
@@ -120,19 +147,31 @@ export function NutritionPage() {
                   cursor: 'pointer',
                 }}
               >
-                <h3
+                <div
                   style={{
-                    fontSize: '17px',
-                    fontWeight: 700,
-                    color: 'var(--text)',
-                    margin: '0 0 6px',
+                    display: 'flex',
+                    alignItems: 'flex-start',
+                    justifyContent: 'space-between',
+                    gap: '12px',
                   }}
                 >
-                  {menu.title}
-                </h3>
-                <p style={{ fontSize: '13px', color: '#8B928A', margin: 0 }}>
-                  {formatDate(menu.uploaded_at)}
-                </p>
+                  <div style={{ minWidth: 0 }}>
+                    <h3
+                      style={{
+                        fontSize: '17px',
+                        fontWeight: 700,
+                        color: 'var(--text)',
+                        margin: '0 0 6px',
+                      }}
+                    >
+                      {menu.title}
+                    </h3>
+                    <p style={{ fontSize: '13px', color: '#8B928A', margin: 0 }}>
+                      {formatDate(menu.uploaded_at)}
+                    </p>
+                  </div>
+                  <DeleteMenuButton menuId={menu.id} menuTitle={menu.title} />
+                </div>
               </article>
             ))}
           </div>
@@ -232,6 +271,10 @@ export function NutritionPage() {
 
   // ── Menu detail view ─────────────────────────────────────────────────────
   return (
-    <MenuDetailView id={selectedMenuId} onBack={() => setView('list')} />
+    <MenuDetailView
+      id={selectedMenuId}
+      onBack={() => setView('list')}
+      onDeleted={handleMenuDeleted}
+    />
   );
 }

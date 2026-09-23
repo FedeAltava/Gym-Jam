@@ -51,7 +51,7 @@ const MENU_DETAIL = {
   user_id: 'u1',
   title: 'Plan Semana 1',
   calories: 2000,
-  menu_json: JSON.stringify({
+  menu_json: {
     title: 'Plan Semana 1',
     calories: 2000,
     shared: {
@@ -96,7 +96,7 @@ const MENU_DETAIL = {
         cena: { name: 'Libre', ingredients: [], is_free: true },
       },
     ],
-  }),
+  },
   uploaded_at: '2026-09-01T00:00:00Z',
 };
 
@@ -154,5 +154,87 @@ describe('NutritionPage — menu view', () => {
       // WeeklyMenuView shows day chips
       expect(screen.getByText('Lun')).toBeInTheDocument();
     });
+  });
+});
+
+describe('NutritionPage — delete menu', () => {
+  function mockApiWithDelete() {
+    let menus = [...MENUS_FIXTURE];
+    mockApiFetch.mockImplementation((path: string, init?: RequestInit) => {
+      if (init?.method === 'DELETE') {
+        const id = path.split('/').pop();
+        menus = menus.filter((m) => m.id !== id);
+        return Promise.resolve(undefined);
+      }
+      if (path === '/nutrition/menus') return Promise.resolve(menus);
+      if (path.startsWith('/nutrition/menus/')) return Promise.resolve(MENU_DETAIL);
+      return Promise.resolve(undefined);
+    });
+  }
+
+  const deleteCalls = () =>
+    mockApiFetch.mock.calls.filter(([, init]) => (init as RequestInit | undefined)?.method === 'DELETE');
+
+  it('deletes the shown menu after confirmation and returns to the refreshed list', async () => {
+    const user = userEvent.setup();
+    mockApiWithDelete();
+    renderWithProviders(<NutritionPage />);
+
+    await user.click(await screen.findByText('Plan Semana 1'));
+    await screen.findByText('Lun');
+
+    await user.click(screen.getByRole('button', { name: 'Eliminar menú Plan Semana 1' }));
+    expect(screen.getByText('¿Seguro?')).toBeInTheDocument();
+    expect(deleteCalls()).toHaveLength(0);
+
+    await user.click(screen.getByRole('button', { name: 'Sí' }));
+
+    await waitFor(() => {
+      expect(screen.getByText('Tus menús subidos')).toBeInTheDocument();
+    });
+    expect(mockApiFetch).toHaveBeenCalledWith('/nutrition/menus/m1', { method: 'DELETE' });
+    await waitFor(() => {
+      expect(screen.queryByText('Plan Semana 1')).not.toBeInTheDocument();
+    });
+    expect(screen.getByText('Plan Semana 2')).toBeInTheDocument();
+  });
+
+  it('shows the empty state after deleting the last menu from the list', async () => {
+    const user = userEvent.setup();
+    let menus = [MENUS_FIXTURE[0]];
+    mockApiFetch.mockImplementation((path: string, init?: RequestInit) => {
+      if (init?.method === 'DELETE') {
+        menus = [];
+        return Promise.resolve(undefined);
+      }
+      if (path === '/nutrition/menus') return Promise.resolve(menus);
+      return Promise.resolve(MENU_DETAIL);
+    });
+    renderWithProviders(<NutritionPage />);
+
+    await user.click(await screen.findByRole('button', { name: 'Eliminar menú Plan Semana 1' }));
+    // Confirm step must not open the menu detail (click does not bubble to the card).
+    expect(screen.getByText('Tus menús subidos')).toBeInTheDocument();
+    await user.click(screen.getByRole('button', { name: 'Sí' }));
+
+    expect(await screen.findByText('Sin menús todavía')).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /Subir menú/i })).toBeInTheDocument();
+  });
+
+  it('does not send a request when the confirmation is cancelled', async () => {
+    const user = userEvent.setup();
+    mockApiWithDelete();
+    renderWithProviders(<NutritionPage />);
+
+    await user.click(await screen.findByText('Plan Semana 1'));
+    await screen.findByText('Lun');
+
+    await user.click(screen.getByRole('button', { name: 'Eliminar menú Plan Semana 1' }));
+    await user.click(screen.getByRole('button', { name: 'No' }));
+
+    expect(deleteCalls()).toHaveLength(0);
+    expect(screen.queryByText('¿Seguro?')).not.toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Eliminar menú Plan Semana 1' })).toBeInTheDocument();
+    expect(screen.getByText('Lun')).toBeInTheDocument();
   });
 });
