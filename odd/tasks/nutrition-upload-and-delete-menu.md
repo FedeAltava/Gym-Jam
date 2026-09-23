@@ -22,9 +22,9 @@ Make PDF menu upload survive Gemini capacity outages, and let users delete a men
   Runners: `cd backend && poetry run pytest`, `cd frontend && npm test`, `npm run typecheck`, `npm run lint`.
 
 ## Tasks
-- [ ] T1 — Parser: add more fallback models (`gemini-3.6-flash`, `gemini-3.5-flash-lite`), fewer
+- [x] T1 — Parser: add more fallback models (`gemini-3.6-flash`, `gemini-3.5-flash-lite`), fewer
   same-model retries so total latency stays bounded. Route: inline (1 file).
-- [ ] T2 — Backend delete endpoint + tests. Route: delegated (2+ non-trivial files, writer trigger).
+- [x] T2 — Backend delete endpoint + tests. Route: delegated (2+ non-trivial files, writer trigger).
 - [ ] T3 — Frontend delete action + tests. Route: delegated (2+ non-trivial files, writer trigger).
 
 ## Acceptance criteria
@@ -34,6 +34,12 @@ Make PDF menu upload survive Gemini capacity outages, and let users delete a men
 
 ## Progress / evidence
 - Branch: `fix/nutrition-upload-and-delete-menu`
+- T1: commit 8671ea8. `pytest tests/unit/infrastructure/test_gemini_pdf_service.py` 2 passed; ruff clean.
+  RDD assess: medium, review_due=false (under_budget) — pending in slice.
+- T2: commit 92ccd88. `DELETE /nutrition/menus/{id}` → 204 own / 404 missing, malformed or foreign
+  (repo `delete_for_user` scoped by user_id). `poetry run pytest backend/tests -q` 610 passed;
+  `poetry run ruff check backend` all checks passed.
+- Engram mirror: PENDING (mem_save failed: multiple active runtime sessions).
 
 ## Next step
-T1.
+T2 + T3 (delegated writer).
