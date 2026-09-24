@@ -28,6 +28,9 @@ class SetWorkoutActiveUseCase:
             return Failure(UnauthorizedError(user_id=cmd.user_id, workout_id=cmd.workout_id))
 
         if cmd.is_active:
+            # A user follows one routine at a time: activating this one
+            # deactivates the rest in the same unit of work.
+            await self._repo.deactivate_all_for_user(workout.user_id, except_id=workout.id)
             workout.activate()
         else:
             workout.deactivate()

@@ -20,6 +20,11 @@ class InMemoryWorkoutRepository(WorkoutRepository):
         results = [w for w in self._store.values() if w.user_id == user_id]
         return results[offset : offset + limit]
 
+    async def deactivate_all_for_user(self, user_id: str, except_id: WorkoutId) -> None:
+        for workout in self._store.values():
+            if workout.user_id == user_id and workout.id != except_id:
+                workout.deactivate()
+
     async def delete(self, workout_id: WorkoutId) -> bool:
         key = str(workout_id.value)
         if key not in self._store:

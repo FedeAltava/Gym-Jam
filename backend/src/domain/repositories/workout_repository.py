@@ -18,4 +18,8 @@ class WorkoutRepository(ABC):
     async def get_by_user(self, user_id: str, limit: int = 50, offset: int = 0) -> list[Workout]: ...
 
     @abstractmethod
+    async def deactivate_all_for_user(self, user_id: str, except_id: WorkoutId) -> None:
+        """Mark every workout of `user_id` inactive, except `except_id`."""
+
+    @abstractmethod
     async def delete(self, workout_id: WorkoutId) -> bool: ...

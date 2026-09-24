@@ -303,3 +303,36 @@ async def test_rename_workout_name_too_long_returns_422(client):
     created = await create_workout(client, "Rename Long Test")
     r = await client.patch(f"/workouts/{created['id']}", json={"name": "a" * 101})
     assert r.status_code == 422
+
+
+# PATCH /workouts/{id}/active — only one active workout per user
+async def test_activate_workout_deactivates_other_workouts(client, client_user2):
+    first = await create_workout(client, "Routine One")
+    second = await create_workout(client, "Routine Two")
+    foreign = await create_workout(client_user2, "Foreign Routine")
+    r = await client_user2.patch(f"/workouts/{foreign['id']}/active", json={"is_active": True})
+    assert r.status_code == 200
+
+    r = await client.patch(f"/workouts/{first['id']}/active", json={"is_active": True})
+    assert r.status_code == 200
+    r = await client.patch(f"/workouts/{second['id']}/active", json={"is_active": True})
+    assert r.status_code == 200
+    assert r.json()["is_active"] is True
+
+    listed = (await client.get("/workouts", params={"limit": 100})).json()
+    assert [w["id"] for w in listed if w["is_active"]] == [second["id"]]
+    assert (await client_user2.get(f"/workouts/{foreign['id']}")).json()["is_active"] is True
+
+
+async def test_deactivate_workout_leaves_other_workouts_untouched(client):
+    first = await create_workout(client, "Keep Active")
+    second = await create_workout(client, "Turn Off")
+    await client.patch(f"/workouts/{first['id']}/active", json={"is_active": True})
+    # Activate `second` too so both would be candidates; then turn it off.
+    await client.patch(f"/workouts/{second['id']}/active", json={"is_active": True})
+    await client.patch(f"/workouts/{first['id']}/active", json={"is_active": True})
+
+    r = await client.patch(f"/workouts/{second['id']}/active", json={"is_active": False})
+    assert r.status_code == 200
+    assert r.json()["is_active"] is False
+    assert (await client.get(f"/workouts/{first['id']}")).json()["is_active"] is True

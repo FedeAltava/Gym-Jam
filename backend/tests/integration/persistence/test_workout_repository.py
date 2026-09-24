@@ -476,3 +476,21 @@ async def test_deleting_training_day_cascades_to_workout_sessions(session):
         select(WorkoutSessionModel).where(WorkoutSessionModel.id == session_id)
     )
     assert orphan is None
+
+
+# ─── deactivate_all_for_user: single active workout per user ─────────────
+
+async def test_deactivate_all_for_user_keeps_only_excepted_workout_active(session):
+    repo = SqlAlchemyWorkoutRepository(session)
+    keep = _make_workout(user_id="user-a", name="Keep")
+    other = _make_workout(user_id="user-a", name="Other")
+    foreign = _make_workout(user_id="user-b", name="Foreign")
+    for w in (keep, other, foreign):
+        await repo.save(w)
+
+    await repo.deactivate_all_for_user("user-a", except_id=keep.id)
+    session.expire_all()
+
+    assert (await repo.get_by_id(keep.id)).is_active is True
+    assert (await repo.get_by_id(other.id)).is_active is False
+    assert (await repo.get_by_id(foreign.id)).is_active is True
