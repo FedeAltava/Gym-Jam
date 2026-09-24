@@ -49,4 +49,4 @@ A user has at most one active routine, so Home always shows the routine they are
 - Known limit: two concurrent creates for a user with no active workout could both become active (no lock); activating any workout resolves it.
 - Review assess (base main, committed-only): risk medium, `review_due=false` (`under_budget`, 312 lines); no native review required.
 - Delivered 2026-09-24: ff-merged to main (`b7ef6f7`), pushed, backend deployed; `/api/health` 200; user confirmed Home shows the right routine.
-- Engram mirror: pending (mem_save failed: multiple active runtime sessions).
+- Engram mirror: synced (topic `odd/single-active-routine/tasks`).
