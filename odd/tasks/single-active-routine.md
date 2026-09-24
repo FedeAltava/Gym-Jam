@@ -47,4 +47,5 @@ A user has at most one active routine, so Home always shows the routine they are
   - RED: 3 failing (unit second-workout inactive, integration `has_active_workout` missing, http create inactive). GREEN: full suite 624 passed.
 - Not covered: untracked `backend/scripts/seed_routine.py` inserts workouts via raw SQL with `is_active=1`, bypassing the use case.
 - Known limit: two concurrent creates for a user with no active workout could both become active (no lock); activating any workout resolves it.
-- Next: review / delivery decision (push, PR) by the user.
+- Review assess (base main, committed-only): risk medium, `review_due=false` (`under_budget`, 312 lines); no native review required.
+- Next: delivery decision (merge to main, push, deploy backend) by the user.
