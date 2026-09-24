@@ -38,6 +38,11 @@ class CreateWorkoutUseCase:
 
         workout = workout_result.unwrap()
 
+        # A user follows one routine at a time: a new workout only becomes
+        # active when the user has no active workout yet.
+        if await self._repo.has_active_workout(cmd.user_id):
+            workout.deactivate()
+
         # 4. Save
         await self._repo.save(workout)
 

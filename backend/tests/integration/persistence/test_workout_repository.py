@@ -494,3 +494,14 @@ async def test_deactivate_all_for_user_keeps_only_excepted_workout_active(sessio
     assert (await repo.get_by_id(keep.id)).is_active is True
     assert (await repo.get_by_id(other.id)).is_active is False
     assert (await repo.get_by_id(foreign.id)).is_active is True
+
+
+async def test_has_active_workout_reflects_only_that_users_active_workouts(session):
+    repo = SqlAlchemyWorkoutRepository(session)
+    inactive = _make_workout(user_id="user-alice", name="Paused")
+    inactive.deactivate()
+    await repo.save(inactive)
+    await repo.save(_make_workout(user_id="user-bob", name="Bob Active"))
+
+    assert await repo.has_active_workout("user-alice") is False
+    assert await repo.has_active_workout("user-bob") is True

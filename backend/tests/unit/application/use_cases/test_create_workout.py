@@ -101,3 +101,46 @@ async def test_create_workout_with_no_days_creates_empty_workout(use_case: Creat
     assert isinstance(result, Success)
     dto = result.unwrap()
     assert len(dto.training_days) == 0
+
+
+# ─── Single active workout per user ─────────────────────────────────────
+
+def _cmd(user_id: str, name: str) -> CreateWorkoutCommand:
+    return CreateWorkoutCommand(user_id=user_id, name=name, description=None, training_days=())
+
+
+async def test_first_workout_is_created_active(use_case: CreateWorkoutUseCase) -> None:
+    result = await use_case.execute(_cmd("user-1", "First Routine"))
+    assert result.unwrap().is_active is True
+
+
+async def test_workout_is_created_inactive_when_user_already_has_an_active_one(
+    use_case: CreateWorkoutUseCase, repo: InMemoryWorkoutRepository
+) -> None:
+    first = (await use_case.execute(_cmd("user-1", "First Routine"))).unwrap()
+
+    second = (await use_case.execute(_cmd("user-1", "Second Routine"))).unwrap()
+
+    assert second.is_active is False
+    stored = await repo.get_by_user("user-1")
+    assert [w.name.value for w in stored if w.is_active] == [first.name]
+
+
+async def test_workout_is_created_active_when_existing_ones_are_inactive(
+    use_case: CreateWorkoutUseCase, repo: InMemoryWorkoutRepository
+) -> None:
+    await use_case.execute(_cmd("user-1", "Old Routine"))
+    for w in await repo.get_by_user("user-1"):
+        w.deactivate()
+
+    result = await use_case.execute(_cmd("user-1", "New Routine"))
+
+    assert result.unwrap().is_active is True
+
+
+async def test_other_users_active_workout_does_not_affect_creation(use_case: CreateWorkoutUseCase) -> None:
+    await use_case.execute(_cmd("user-2", "Their Routine"))
+
+    result = await use_case.execute(_cmd("user-1", "My Routine"))
+
+    assert result.unwrap().is_active is True

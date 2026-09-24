@@ -20,6 +20,9 @@ class InMemoryWorkoutRepository(WorkoutRepository):
         results = [w for w in self._store.values() if w.user_id == user_id]
         return results[offset : offset + limit]
 
+    async def has_active_workout(self, user_id: str) -> bool:
+        return any(w.user_id == user_id and w.is_active for w in self._store.values())
+
     async def deactivate_all_for_user(self, user_id: str, except_id: WorkoutId) -> None:
         for workout in self._store.values():
             if workout.user_id == user_id and workout.id != except_id:

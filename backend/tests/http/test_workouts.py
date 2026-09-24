@@ -14,7 +14,8 @@ async def test_create_workout_returns_201(client):
     assert r.status_code == 201
     data = r.json()
     assert data["name"] == "Push Day"
-    assert data["is_active"] is True
+    # Active only when the user had no active workout (shared test DB).
+    assert isinstance(data["is_active"], bool)
     assert data["training_days"] == []
 
 
@@ -336,3 +337,15 @@ async def test_deactivate_workout_leaves_other_workouts_untouched(client):
     assert r.status_code == 200
     assert r.json()["is_active"] is False
     assert (await client.get(f"/workouts/{first['id']}")).json()["is_active"] is True
+
+
+# POST /workouts — created inactive when the user already follows a routine
+async def test_create_workout_is_inactive_when_user_has_an_active_one(client):
+    current = await create_workout(client, "Current Routine")
+    r = await client.patch(f"/workouts/{current['id']}/active", json={"is_active": True})
+    assert r.status_code == 200
+
+    created = await create_workout(client, "Another Routine")
+
+    assert created["is_active"] is False
+    assert (await client.get(f"/workouts/{current['id']}")).json()["is_active"] is True

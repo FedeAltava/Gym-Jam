@@ -114,6 +114,14 @@ class SqlAlchemyWorkoutRepository(WorkoutRepository):
         models = result.scalars().all()
         return [WorkoutMapper.to_domain(m) for m in models]
 
+    async def has_active_workout(self, user_id: str) -> bool:
+        stmt = select(
+            select(WorkoutModel.id)
+            .where(WorkoutModel.user_id == user_id, WorkoutModel.is_active.is_(True))
+            .exists()
+        )
+        return bool(await self._session.scalar(stmt))
+
     async def deactivate_all_for_user(self, user_id: str, except_id: WorkoutId) -> None:
         # Bulk UPDATE inside the caller's session: it commits together with
         # the save of the activated workout (the router owns the commit).
