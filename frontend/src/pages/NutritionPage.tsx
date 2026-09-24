@@ -1,13 +1,14 @@
-import { useState } from 'react';
+import { useRef, useState } from 'react';
 import { ArrowLeft } from 'lucide-react';
-import { useNutritionMenus, useNutritionMenu } from '../hooks/useNutrition';
+import { useNutritionMenus, useNutritionMenu, useUploadNutritionMenu } from '../hooks/useNutrition';
+import { useScreenWakeLock } from '../hooks/useScreenWakeLock';
 import { Spinner } from '../components/Spinner';
-import { UploadMenuForm } from '../components/nutrition/UploadMenuForm';
 import { WeeklyMenuView } from '../components/nutrition/WeeklyMenuView';
 import { DeleteMenuButton } from '../components/nutrition/DeleteMenuButton';
+import { MenuCardSkeleton } from '../components/nutrition/MenuCardSkeleton';
 import type { ParsedMenu } from '../types/api';
 
-type PageView = 'list' | 'upload' | 'menu';
+type PageView = 'list' | 'menu';
 
 function formatDate(isoString: string): string {
   return new Date(isoString).toLocaleDateString('es-ES', {
@@ -92,6 +93,11 @@ export function NutritionPage() {
   const [view, setView] = useState<PageView>('list');
   const [selectedMenuId, setSelectedMenuId] = useState<string>('');
   const { data: menus, isLoading } = useNutritionMenus();
+  const fileInputRef = useRef<HTMLInputElement>(null);
+  const uploadMutation = useUploadNutritionMenu();
+
+  // Keep the screen awake while the PDF is being processed.
+  useScreenWakeLock(uploadMutation.isPending);
 
   const handleMenuCardClick = (id: string) => {
     setSelectedMenuId(id);
@@ -105,8 +111,15 @@ export function NutritionPage() {
     setView('list');
   };
 
-  const handleUploadSuccess = () => {
-    setView('list');
+  // Upload starts as soon as a file is picked; the list refetches on success.
+  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    // Reset so picking the same file again still fires a change event.
+    e.target.value = '';
+    if (!file) return;
+    const fd = new FormData();
+    fd.append('file', file);
+    uploadMutation.mutate(fd);
   };
 
   // ── List view ────────────────────────────────────────────────────────────
@@ -130,11 +143,16 @@ export function NutritionPage() {
           </div>
         </div>
 
+        {uploadMutation.isError && (
+          <p className="mb-3 text-sm text-danger">No se pudo leer el PDF. Inténtalo de nuevo.</p>
+        )}
+
         {isLoading ? (
           <Spinner />
-        ) : menus && menus.length > 0 ? (
+        ) : uploadMutation.isPending || (menus && menus.length > 0) ? (
           <div>
-            {menus.map((menu) => (
+            {uploadMutation.isPending && <MenuCardSkeleton />}
+            {menus?.map((menu) => (
               <article
                 key={menu.id}
                 onClick={() => handleMenuCardClick(menu.id)}
@@ -218,9 +236,19 @@ export function NutritionPage() {
             zIndex: 20,
           }}
         >
+          <input
+            ref={fileInputRef}
+            type="file"
+            accept="application/pdf"
+            aria-label="Archivo PDF del menú"
+            style={{ display: 'none' }}
+            onChange={handleFileChange}
+          />
           <button
             type="button"
-            onClick={() => setView('upload')}
+            onClick={() => fileInputRef.current?.click()}
+            disabled={uploadMutation.isPending}
+            className="disabled:opacity-60"
             style={{
               width: '100%',
               height: '54px',
@@ -230,41 +258,12 @@ export function NutritionPage() {
               color: 'rgb(6,33,15)',
               fontSize: '16px',
               fontWeight: 700,
-              cursor: 'pointer',
+              cursor: uploadMutation.isPending ? 'default' : 'pointer',
             }}
           >
-            Subir menú
+            {uploadMutation.isPending ? 'Leyendo PDF...' : 'Subir menú'}
           </button>
         </div>
-      </div>
-    );
-  }
-
-  // ── Upload view ──────────────────────────────────────────────────────────
-  if (view === 'upload') {
-    return (
-      <div>
-        <button
-          type="button"
-          onClick={() => setView('list')}
-          style={{
-            background: 'transparent',
-            border: 'none',
-            cursor: 'pointer',
-            color: 'var(--text)',
-            display: 'flex',
-            alignItems: 'center',
-            gap: '6px',
-            marginBottom: '16px',
-            fontSize: '15px',
-            fontWeight: 600,
-            padding: 0,
-          }}
-        >
-          <ArrowLeft size={18} />
-          Volver
-        </button>
-        <UploadMenuForm onSuccess={handleUploadSuccess} />
       </div>
     );
   }

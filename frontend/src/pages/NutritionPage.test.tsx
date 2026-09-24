@@ -126,17 +126,120 @@ describe('NutritionPage — list view', () => {
     });
     expect(screen.getByText('Plan Semana 2')).toBeInTheDocument();
   });
+});
 
-  it('shows upload form when "Subir menú" button is clicked', async () => {
+describe('NutritionPage — upload menu', () => {
+  const NEW_MENU = {
+    id: 'm3',
+    user_id: 'u1',
+    title: 'Plan Semana 3',
+    calories: 1900,
+    uploaded_at: '2026-09-15T00:00:00Z',
+  };
+
+  function pdfFile() {
+    return new File(['%PDF-1.4'], 'menu.pdf', { type: 'application/pdf' });
+  }
+
+  // POST resolves/rejects only when the test says so, to observe the pending UI.
+  function mockApiWithUpload(initialMenus: typeof MENUS_FIXTURE) {
+    let menus = [...initialMenus];
+    let settle: { resolve: () => void; reject: (e: Error) => void } | null = null;
+    mockApiFetch.mockImplementation((path: string, init?: RequestInit) => {
+      if (init?.method === 'POST') {
+        return new Promise((resolve, reject) => {
+          settle = {
+            resolve: () => {
+              menus = [NEW_MENU, ...menus];
+              resolve({ ...NEW_MENU, menu_json: MENU_DETAIL.menu_json });
+            },
+            reject,
+          };
+        });
+      }
+      if (path === '/nutrition/menus') return Promise.resolve(menus);
+      return Promise.resolve(MENU_DETAIL);
+    });
+    return {
+      resolveUpload: () => settle?.resolve(),
+      rejectUpload: () => settle?.reject(new Error('boom')),
+    };
+  }
+
+  const postCalls = () =>
+    mockApiFetch.mock.calls.filter(([, init]) => (init as RequestInit | undefined)?.method === 'POST');
+
+  it('opens the file picker from the CTA and uploads the chosen file without extra clicks', async () => {
     const user = userEvent.setup();
-    mockApi();
+    mockApiWithUpload(MENUS_FIXTURE);
     renderWithProviders(<NutritionPage />);
+    await screen.findByText('Plan Semana 1');
 
-    await waitFor(() => screen.getByText('Plan Semana 1'));
-
+    const input = screen.getByLabelText('Archivo PDF del menú') as HTMLInputElement;
+    const clickSpy = vi.spyOn(input, 'click');
     await user.click(screen.getByRole('button', { name: /Subir menú/i }));
+    expect(clickSpy).toHaveBeenCalled();
 
-    expect(screen.getByText('Sube el PDF de tu nutricionista')).toBeInTheDocument();
+    await user.upload(input, pdfFile());
+
+    await waitFor(() => expect(postCalls()).toHaveLength(1));
+    const [path, init] = postCalls()[0];
+    expect(path).toBe('/nutrition/menus');
+    expect((init as RequestInit).body).toBeInstanceOf(FormData);
+    // Stays on the list: no intermediate upload view.
+    expect(screen.getByText('Tus menús subidos')).toBeInTheDocument();
+    expect(input.value).toBe('');
+  });
+
+  it('shows a skeleton card and disables the CTA while pending, then shows the new menu', async () => {
+    const user = userEvent.setup();
+    const { resolveUpload } = mockApiWithUpload(MENUS_FIXTURE);
+    renderWithProviders(<NutritionPage />);
+    await screen.findByText('Plan Semana 1');
+
+    await user.upload(screen.getByLabelText('Archivo PDF del menú'), pdfFile());
+
+    expect(await screen.findByRole('status', { name: 'Leyendo tu PDF' })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /Leyendo PDF/i })).toBeDisabled();
+    expect(screen.getByText('Plan Semana 1')).toBeInTheDocument();
+
+    resolveUpload();
+
+    expect(await screen.findByText('Plan Semana 3')).toBeInTheDocument();
+    await waitFor(() => {
+      expect(screen.queryByRole('status', { name: 'Leyendo tu PDF' })).not.toBeInTheDocument();
+    });
+    expect(screen.getByRole('button', { name: /Subir menú/i })).toBeEnabled();
+  });
+
+  it('replaces the empty state with the skeleton while pending', async () => {
+    const user = userEvent.setup();
+    mockApiWithUpload([]);
+    renderWithProviders(<NutritionPage />);
+    await screen.findByText('Sin menús todavía');
+
+    await user.upload(screen.getByLabelText('Archivo PDF del menú'), pdfFile());
+
+    expect(await screen.findByRole('status', { name: 'Leyendo tu PDF' })).toBeInTheDocument();
+    expect(screen.queryByText('Sin menús todavía')).not.toBeInTheDocument();
+  });
+
+  it('shows an inline error when the upload fails and lets the user retry', async () => {
+    const user = userEvent.setup();
+    const { rejectUpload } = mockApiWithUpload(MENUS_FIXTURE);
+    renderWithProviders(<NutritionPage />);
+    await screen.findByText('Plan Semana 1');
+
+    await user.upload(screen.getByLabelText('Archivo PDF del menú'), pdfFile());
+    await screen.findByRole('status', { name: 'Leyendo tu PDF' });
+
+    rejectUpload();
+
+    expect(
+      await screen.findByText('No se pudo leer el PDF. Inténtalo de nuevo.'),
+    ).toBeInTheDocument();
+    expect(screen.queryByRole('status', { name: 'Leyendo tu PDF' })).not.toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /Subir menú/i })).toBeEnabled();
   });
 });
 
