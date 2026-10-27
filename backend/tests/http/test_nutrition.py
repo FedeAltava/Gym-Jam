@@ -371,3 +371,64 @@ async def test_delete_diet_plan_requires_auth(auth_client) -> None:
     r = await auth_client.delete(f"/nutrition/menus/{VALID_PLAN_ID}")
 
     assert r.status_code == 401
+
+
+# ── Per-person variants (group_id + person) ───────────────────────────────────
+
+
+async def _seed_variants(session, user_id: str) -> tuple[str, str]:
+    """Seed one menu with a Fede (2100) and a Belén (1500) variant; returns their ids."""
+    from backend.src.domain.entities.diet_plan import DietPlan
+    from backend.src.domain.value_objects.diet_plan_id import DietPlanId
+    from backend.src.infrastructure.persistence.diet_plan_repository import (
+        SqlAlchemyDietPlanRepository,
+    )
+
+    repo = SqlAlchemyDietPlanRepository(session)
+    ids = []
+    for person, kcal in (("Fede", 2100), ("Belén", 1500)):
+        plan = DietPlan(
+            id=DietPlanId.generate(),
+            user_id=user_id,
+            title="Quinoa con salmón",
+            calories=kcal,
+            menu=SAMPLE_MENU,
+            uploaded_at=datetime.now(timezone.utc),
+            group_id="group-quinoa",
+            person=person,
+        )
+        await repo.save(plan)
+        ids.append(str(plan.id.value))
+    await session.commit()
+    return ids[0], ids[1]
+
+
+async def test_list_and_get_expose_group_and_person(client, session) -> None:
+    fede_id, belen_id = await _seed_variants(session, USER_1)
+
+    listed = {p["id"]: p for p in (await client.get("/nutrition/menus")).json()}
+    detail = (await client.get(f"/nutrition/menus/{belen_id}")).json()
+
+    assert (listed[fede_id]["group_id"], listed[fede_id]["person"]) == ("group-quinoa", "Fede")
+    assert (listed[belen_id]["group_id"], listed[belen_id]["person"]) == ("group-quinoa", "Belén")
+    assert (detail["group_id"], detail["person"], detail["calories"]) == ("group-quinoa", "Belén", 1500)
+
+
+async def test_ungrouped_plan_exposes_null_group_and_person(client, session) -> None:
+    plan_id = await _seed_plan(session, USER_1)
+
+    listed = (await client.get("/nutrition/menus")).json()
+    detail = (await client.get(f"/nutrition/menus/{plan_id}")).json()
+
+    assert (listed[0]["group_id"], listed[0]["person"]) == (None, None)
+    assert (detail["group_id"], detail["person"]) == (None, None)
+
+
+async def test_delete_one_variant_deletes_the_whole_menu(client, session) -> None:
+    fede_id, belen_id = await _seed_variants(session, USER_1)
+
+    r = await client.delete(f"/nutrition/menus/{fede_id}")
+
+    assert r.status_code == 204
+    assert (await client.get("/nutrition/menus")).json() == []
+    assert (await client.get(f"/nutrition/menus/{belen_id}")).status_code == 404

@@ -17,6 +17,8 @@ class DietPlanResponse(BaseModel):
     calories: int | None
     menu_json: dict
     uploaded_at: datetime
+    group_id: str | None = None
+    person: str | None = None
 
     @classmethod
     def from_dto(cls, dto: DietPlanDTO) -> "DietPlanResponse":
@@ -27,6 +29,8 @@ class DietPlanResponse(BaseModel):
             calories=dto.calories,
             menu_json=dto.menu_json,
             uploaded_at=dto.uploaded_at,
+            group_id=dto.group_id,
+            person=dto.person,
         )
 
 
@@ -38,6 +42,8 @@ class DietPlanSummaryResponse(BaseModel):
     title: str
     calories: int | None
     uploaded_at: datetime
+    group_id: str | None = None
+    person: str | None = None
 
     @classmethod
     def from_dto(cls, dto: DietPlanSummaryDTO) -> "DietPlanSummaryResponse":
@@ -47,4 +53,6 @@ class DietPlanSummaryResponse(BaseModel):
             title=dto.title,
             calories=dto.calories,
             uploaded_at=dto.uploaded_at,
+            group_id=dto.group_id,
+            person=dto.person,
         )

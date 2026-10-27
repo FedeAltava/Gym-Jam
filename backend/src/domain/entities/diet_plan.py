@@ -15,6 +15,10 @@ class DietPlan:
     calories: int | None
     menu: dict
     uploaded_at: datetime
+    # Variants of the same menu (e.g. one per person) share a group_id;
+    # person labels the variant. Both are None for a standalone plan.
+    group_id: str | None = None
+    person: str | None = None
 
     def __eq__(self, other: object) -> bool:
         if not isinstance(other, DietPlan):

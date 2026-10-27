@@ -1,4 +1,4 @@
-"""DeleteDietPlanUseCase — delete a diet plan owned by the requesting user."""
+"""DeleteDietPlanUseCase — delete a diet plan (and its group variants) owned by the requesting user."""
 from __future__ import annotations
 
 from returns.result import Failure, Result, Success
@@ -20,8 +20,14 @@ class DeleteDietPlanUseCase:
 
         # Missing and foreign plans are indistinguishable to the caller (both 404),
         # so ownership leaks nothing about other users' plans.
-        deleted = await self._repo.delete_for_user(id_result.unwrap(), cmd.user_id)
-        if not deleted:
+        plan = await self._repo.get_by_id_for_user(id_result.unwrap(), cmd.user_id)
+        if plan is None:
             return Failure(DietPlanNotFoundError(diet_plan_id=cmd.diet_plan_id))
+
+        # A grouped plan is one variant of a menu: deleting it deletes the menu.
+        if plan.group_id is not None:
+            await self._repo.delete_group_for_user(plan.group_id, cmd.user_id)
+        else:
+            await self._repo.delete_for_user(plan.id, cmd.user_id)
 
         return Success(None)

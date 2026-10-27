@@ -38,8 +38,13 @@ class FakeRepo(DietPlanRepository):
         self.plans = [p for p in self.plans if not (p.id == id and p.user_id == user_id)]
         return len(self.plans) < before
 
+    async def delete_group_for_user(self, group_id: str, user_id: str) -> int:
+        before = len(self.plans)
+        self.plans = [p for p in self.plans if not (p.group_id == group_id and p.user_id == user_id)]
+        return before - len(self.plans)
 
-def _plan(user_id: str = "user-1") -> DietPlan:
+
+def _plan(user_id: str = "user-1", group_id: str | None = None, person: str | None = None) -> DietPlan:
     return DietPlan(
         id=DietPlanId.generate(),
         user_id=user_id,
@@ -47,6 +52,8 @@ def _plan(user_id: str = "user-1") -> DietPlan:
         calories=1800,
         menu=_MENU,
         uploaded_at=datetime.now(UTC),
+        group_id=group_id,
+        person=person,
     )
 
 
@@ -91,3 +98,27 @@ async def test_delete_malformed_id_returns_not_found() -> None:
 
     assert isinstance(result, Failure)
     assert isinstance(result.failure(), DietPlanNotFoundError)
+
+
+async def test_delete_grouped_plan_removes_every_variant_of_the_group() -> None:
+    fede, belen = _plan(group_id="g1", person="Fede"), _plan(group_id="g1", person="Belén")
+    other = _plan(group_id="g2", person="Fede")
+    repo = FakeRepo([fede, belen, other])
+    uc = DeleteDietPlanUseCase(repo=repo)
+
+    result = await uc.execute(DeleteDietPlanCommand(user_id="user-1", diet_plan_id=str(belen.id.value)))
+
+    assert isinstance(result, Success)
+    assert repo.plans == [other]
+
+
+async def test_delete_other_users_grouped_plan_returns_not_found_and_keeps_group() -> None:
+    fede, belen = _plan(group_id="g1", person="Fede"), _plan(group_id="g1", person="Belén")
+    repo = FakeRepo([fede, belen])
+    uc = DeleteDietPlanUseCase(repo=repo)
+
+    result = await uc.execute(DeleteDietPlanCommand(user_id="user-2", diet_plan_id=str(fede.id.value)))
+
+    assert isinstance(result, Failure)
+    assert isinstance(result.failure(), DietPlanNotFoundError)
+    assert repo.plans == [fede, belen]

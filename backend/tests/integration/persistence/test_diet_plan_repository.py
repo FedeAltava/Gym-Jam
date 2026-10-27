@@ -149,3 +149,55 @@ async def test_delete_for_user_unknown_id_returns_false(session) -> None:
     deleted = await repo.delete_for_user(DietPlanId.generate(), "user-1")
 
     assert deleted is False
+
+
+def _make_variant(group_id: str, person: str, user_id: str = "user-1") -> DietPlan:
+    return DietPlan(
+        id=DietPlanId.generate(),
+        user_id=user_id,
+        title="Plan compartido",
+        calories=2100 if person == "Fede" else 1500,
+        menu=_MENU,
+        uploaded_at=datetime.now(UTC),
+        group_id=group_id,
+        person=person,
+    )
+
+
+async def test_save_and_load_keeps_group_and_person(session) -> None:
+    repo = SqlAlchemyDietPlanRepository(session)
+    plan = _make_variant("group-1", "Fede")
+    await repo.save(plan)
+
+    loaded = await repo.get_by_id_for_user(plan.id, "user-1")
+    listed = await repo.list_by_user("user-1")
+
+    assert loaded is not None
+    assert (loaded.group_id, loaded.person) == ("group-1", "Fede")
+    assert [(p.group_id, p.person) for p in listed] == [("group-1", "Fede")]
+
+
+async def test_plan_without_group_loads_with_null_group_and_person(session) -> None:
+    repo = SqlAlchemyDietPlanRepository(session)
+    plan = _make_plan()
+    await repo.save(plan)
+
+    loaded = await repo.get_by_id_for_user(plan.id, "user-1")
+
+    assert loaded is not None
+    assert (loaded.group_id, loaded.person) == (None, None)
+
+
+async def test_delete_group_for_user_removes_only_that_users_group(session) -> None:
+    repo = SqlAlchemyDietPlanRepository(session)
+    fede, belen = _make_variant("group-1", "Fede"), _make_variant("group-1", "Belén")
+    other_group = _make_variant("group-2", "Fede")
+    other_user = _make_variant("group-1", "Fede", user_id="user-2")
+    for plan in (fede, belen, other_group, other_user):
+        await repo.save(plan)
+
+    deleted = await repo.delete_group_for_user("group-1", "user-1")
+
+    assert deleted == 2
+    assert [p.id for p in await repo.list_by_user("user-1")] == [other_group.id]
+    assert [p.id for p in await repo.list_by_user("user-2")] == [other_user.id]

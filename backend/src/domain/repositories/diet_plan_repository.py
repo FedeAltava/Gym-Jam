@@ -19,3 +19,8 @@ class DietPlanRepository(ABC):
     async def delete_for_user(self, id: DietPlanId, user_id: str) -> bool:
         """Delete the plan if it belongs to user_id. Returns False when nothing was deleted."""
         ...
+
+    @abstractmethod
+    async def delete_group_for_user(self, group_id: str, user_id: str) -> int:
+        """Delete every plan of user_id in group_id. Returns how many were deleted."""
+        ...

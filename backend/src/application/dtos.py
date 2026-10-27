@@ -225,6 +225,8 @@ class DietPlanDTO:
     calories: int | None
     menu_json: dict
     uploaded_at: datetime
+    group_id: str | None = None
+    person: str | None = None
 
     @classmethod
     def from_aggregate(cls, plan: DietPlan) -> "DietPlanDTO":
@@ -235,6 +237,8 @@ class DietPlanDTO:
             calories=plan.calories,
             menu_json=plan.menu,
             uploaded_at=plan.uploaded_at,
+            group_id=plan.group_id,
+            person=plan.person,
         )
 
 
@@ -245,6 +249,8 @@ class DietPlanSummaryDTO:
     title: str
     calories: int | None
     uploaded_at: datetime
+    group_id: str | None = None
+    person: str | None = None
 
     @classmethod
     def from_aggregate(cls, plan: DietPlan) -> "DietPlanSummaryDTO":
@@ -254,4 +260,6 @@ class DietPlanSummaryDTO:
             title=plan.title,
             calories=plan.calories,
             uploaded_at=plan.uploaded_at,
+            group_id=plan.group_id,
+            person=plan.person,
         )

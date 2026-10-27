@@ -191,6 +191,8 @@ class DietPlanModel(Base):
     __table_args__ = (
         # Serves list_by_user: filter by user + ORDER BY uploaded_at DESC.
         Index("ix_diet_plans_user_uploaded", "user_id", "uploaded_at"),
+        # Serves delete_group_for_user.
+        Index("ix_diet_plans_user_group", "user_id", "group_id"),
     )
     id: Mapped[str] = mapped_column(String(36), primary_key=True)
     user_id: Mapped[str] = mapped_column(
@@ -202,3 +204,5 @@ class DietPlanModel(Base):
     uploaded_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), nullable=False, default=lambda: datetime.now(UTC)
     )
+    group_id: Mapped[str | None] = mapped_column(String(36), nullable=True)
+    person: Mapped[str | None] = mapped_column(String(50), nullable=True)

@@ -40,6 +40,9 @@ class FakeRepo(DietPlanRepository):
     async def delete_for_user(self, id: DietPlanId, user_id: str) -> bool:
         return False
 
+    async def delete_group_for_user(self, group_id: str, user_id: str) -> int:
+        return 0
+
 
 async def test_get_existing_plan_returns_dto() -> None:
     plan_id = DietPlanId.generate()

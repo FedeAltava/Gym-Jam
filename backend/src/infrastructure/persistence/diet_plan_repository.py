@@ -26,6 +26,8 @@ def _to_entity(model: DietPlanModel) -> DietPlan:
         calories=model.calories,
         menu=menu_dict,
         uploaded_at=uploaded_at,
+        group_id=model.group_id,
+        person=model.person,
     )
 
 
@@ -41,6 +43,8 @@ class SqlAlchemyDietPlanRepository(DietPlanRepository):
             calories=plan.calories,
             menu_json=json.dumps(plan.menu),
             uploaded_at=plan.uploaded_at,
+            group_id=plan.group_id,
+            person=plan.person,
         )
         self._session.add(model)
         await self._session.flush()
@@ -74,3 +78,13 @@ class SqlAlchemyDietPlanRepository(DietPlanRepository):
         )
         await self._session.flush()
         return result.rowcount > 0
+
+    async def delete_group_for_user(self, group_id: str, user_id: str) -> int:
+        result = await self._session.execute(
+            delete(DietPlanModel).where(
+                DietPlanModel.group_id == group_id,
+                DietPlanModel.user_id == user_id,
+            )
+        )
+        await self._session.flush()
+        return result.rowcount
