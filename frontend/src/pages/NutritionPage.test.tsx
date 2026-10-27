@@ -341,3 +341,100 @@ describe('NutritionPage — delete menu', () => {
     expect(screen.getByText('Lun')).toBeInTheDocument();
   });
 });
+
+describe('NutritionPage — per-person variants', () => {
+  const GROUPED_MENUS = [
+    { id: 'b1', user_id: 'u1', title: 'Quinoa con salmón', calories: 1500, group_id: 'g1', person: 'Belén', uploaded_at: '2026-10-01T00:00:00Z' },
+    { id: 'f1', user_id: 'u1', title: 'Quinoa con salmón', calories: 2100, group_id: 'g1', person: 'Fede', uploaded_at: '2026-10-01T00:00:00Z' },
+    { id: 'm9', user_id: 'u1', title: 'Menú suelto', calories: 1800, group_id: null, person: null, uploaded_at: '2026-09-01T00:00:00Z' },
+  ];
+
+  function variantDetail(id: string, person: string | null, salmon: string) {
+    return {
+      ...MENU_DETAIL,
+      id,
+      title: id === 'm9' ? 'Menú suelto' : 'Quinoa con salmón',
+      group_id: person ? 'g1' : null,
+      person,
+      menu_json: {
+        ...MENU_DETAIL.menu_json,
+        days: MENU_DETAIL.menu_json.days.map((d, i) =>
+          i === 1 ? { ...d, comida: { name: 'Quinoa con salmón', ingredients: [salmon], is_free: false } } : d,
+        ),
+      },
+    };
+  }
+
+  function mockGroupedApi() {
+    let menus = [...GROUPED_MENUS];
+    mockApiFetch.mockImplementation((path: string, init?: RequestInit) => {
+      if (init?.method === 'DELETE') {
+        // The backend deletes the whole group when one variant is deleted.
+        menus = menus.filter((m) => m.group_id !== 'g1');
+        return Promise.resolve(undefined);
+      }
+      if (path === '/nutrition/menus') return Promise.resolve(menus);
+      if (path === '/nutrition/menus/f1') return Promise.resolve(variantDetail('f1', 'Fede', '160g salmón'));
+      if (path === '/nutrition/menus/b1') return Promise.resolve(variantDetail('b1', 'Belén', '120g salmón'));
+      if (path === '/nutrition/menus/m9') return Promise.resolve(variantDetail('m9', null, '100g salmón'));
+      return Promise.resolve(undefined);
+    });
+  }
+
+  it('shows one card per menu with the persons it has', async () => {
+    mockGroupedApi();
+    renderWithProviders(<NutritionPage />);
+
+    expect(await screen.findAllByText('Quinoa con salmón')).toHaveLength(1);
+    expect(screen.getByText('Fede · Belén')).toBeInTheDocument();
+    expect(screen.getByText('Menú suelto')).toBeInTheDocument();
+  });
+
+  it('opens on the highest-calorie variant and switches to the other person', async () => {
+    const user = userEvent.setup();
+    mockGroupedApi();
+    renderWithProviders(<NutritionPage />);
+
+    await user.click(await screen.findByText('Quinoa con salmón'));
+    await user.click(await screen.findByText('Mar'));
+    expect(await screen.findByText('160g salmón')).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Fede' })).toHaveAttribute('aria-pressed', 'true');
+    expect(screen.getByRole('button', { name: 'Belén' })).toHaveAttribute('aria-pressed', 'false');
+
+    await user.click(screen.getByRole('button', { name: 'Belén' }));
+
+    // Same day stays selected while the other person's quantities load.
+    expect(await screen.findByText('120g salmón')).toBeInTheDocument();
+    expect(screen.queryByText('160g salmón')).not.toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Belén' })).toHaveAttribute('aria-pressed', 'true');
+    expect(mockApiFetch).toHaveBeenCalledWith('/nutrition/menus/b1');
+  });
+
+  it('shows no person selector for a menu without variants', async () => {
+    const user = userEvent.setup();
+    mockGroupedApi();
+    renderWithProviders(<NutritionPage />);
+
+    await user.click(await screen.findByText('Menú suelto'));
+    await screen.findByText('Lun');
+
+    expect(screen.queryByRole('group', { name: 'Persona' })).not.toBeInTheDocument();
+  });
+
+  it('deletes the whole menu from its card with a single request', async () => {
+    const user = userEvent.setup();
+    mockGroupedApi();
+    renderWithProviders(<NutritionPage />);
+
+    await screen.findByText('Quinoa con salmón');
+    await user.click(screen.getByRole('button', { name: 'Eliminar menú Quinoa con salmón' }));
+    await user.click(screen.getByRole('button', { name: 'Sí' }));
+
+    await waitFor(() => {
+      expect(screen.queryByText('Quinoa con salmón')).not.toBeInTheDocument();
+    });
+    const deletes = mockApiFetch.mock.calls.filter(([, init]) => (init as RequestInit | undefined)?.method === 'DELETE');
+    expect(deletes).toEqual([['/nutrition/menus/f1', { method: 'DELETE' }]]);
+    expect(screen.getByText('Menú suelto')).toBeInTheDocument();
+  });
+});

@@ -1,4 +1,4 @@
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { keepPreviousData, useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { apiFetch } from '../lib/api';
 import type { DietPlan, DietPlanSummary } from '../types/api';
 
@@ -9,11 +9,16 @@ export function useNutritionMenus() {
   });
 }
 
-export function useNutritionMenu(id: string) {
+/**
+ * keepPrevious keeps showing the last loaded plan while another id loads,
+ * e.g. when switching between the variants of one menu.
+ */
+export function useNutritionMenu(id: string, { keepPrevious = false } = {}) {
   return useQuery({
     queryKey: ['nutrition', 'menus', id],
     queryFn: () => apiFetch<DietPlan>(`/nutrition/menus/${id}`),
     enabled: !!id,
+    placeholderData: keepPrevious ? keepPreviousData : undefined,
   });
 }
 

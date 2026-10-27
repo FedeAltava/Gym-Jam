@@ -6,6 +6,8 @@ import { Spinner } from '../components/Spinner';
 import { WeeklyMenuView } from '../components/nutrition/WeeklyMenuView';
 import { DeleteMenuButton } from '../components/nutrition/DeleteMenuButton';
 import { MenuCardSkeleton } from '../components/nutrition/MenuCardSkeleton';
+import { PersonSelector } from '../components/nutrition/PersonSelector';
+import { groupMenus, type MenuVariant } from '../components/nutrition/groupMenus';
 import type { ParsedMenu } from '../types/api';
 
 type PageView = 'list' | 'menu';
@@ -19,15 +21,18 @@ function formatDate(isoString: string): string {
 }
 
 function MenuDetailView({
-  id,
+  variants,
   onBack,
   onDeleted,
 }: {
-  id: string;
+  variants: MenuVariant[];
   onBack: () => void;
   onDeleted: () => void;
 }) {
-  const { data: plan, isLoading } = useNutritionMenu(id);
+  const [id, setId] = useState(variants[0].id);
+  // Keep the current variant on screen while the other one loads, so the
+  // selected day survives switching person.
+  const { data: plan, isLoading, isPlaceholderData } = useNutritionMenu(id, { keepPrevious: true });
 
   const parsedMenu: ParsedMenu | null = plan?.menu_json ?? null;
 
@@ -80,7 +85,12 @@ function MenuDetailView({
             </h2>
             <DeleteMenuButton menuId={id} menuTitle={plan?.title ?? ''} onDeleted={onDeleted} />
           </div>
-          <WeeklyMenuView menu={parsedMenu} />
+          {variants.length > 1 && (
+            <PersonSelector variants={variants} selectedId={id} onSelect={setId} />
+          )}
+          <div style={{ opacity: isPlaceholderData ? 0.6 : 1 }}>
+            <WeeklyMenuView menu={parsedMenu} />
+          </div>
         </>
       ) : (
         <p style={{ color: '#8B928A' }}>No se pudo cargar el menú.</p>
@@ -91,23 +101,25 @@ function MenuDetailView({
 
 export function NutritionPage() {
   const [view, setView] = useState<PageView>('list');
-  const [selectedMenuId, setSelectedMenuId] = useState<string>('');
+  const [selectedGroupKey, setSelectedGroupKey] = useState<string>('');
   const { data: menus, isLoading } = useNutritionMenus();
+  const groups = groupMenus(menus ?? []);
+  const selectedGroup = groups.find((g) => g.key === selectedGroupKey);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const uploadMutation = useUploadNutritionMenu();
 
   // Keep the screen awake while the PDF is being processed.
   useScreenWakeLock(uploadMutation.isPending);
 
-  const handleMenuCardClick = (id: string) => {
-    setSelectedMenuId(id);
+  const handleMenuCardClick = (groupKey: string) => {
+    setSelectedGroupKey(groupKey);
     setView('menu');
   };
 
   // After deleting the shown menu, fall back to the list: it refetches and
   // renders the remaining menus or the empty/upload state.
   const handleMenuDeleted = () => {
-    setSelectedMenuId('');
+    setSelectedGroupKey('');
     setView('list');
   };
 
@@ -123,7 +135,7 @@ export function NutritionPage() {
   };
 
   // ── List view ────────────────────────────────────────────────────────────
-  if (view === 'list') {
+  if (view === 'list' || !selectedGroup) {
     return (
       <div style={{ paddingBottom: '80px' }}>
         {/* Header */}
@@ -152,10 +164,10 @@ export function NutritionPage() {
         ) : uploadMutation.isPending || (menus && menus.length > 0) ? (
           <div>
             {uploadMutation.isPending && <MenuCardSkeleton />}
-            {menus?.map((menu) => (
+            {groups.map((menu) => (
               <article
-                key={menu.id}
-                onClick={() => handleMenuCardClick(menu.id)}
+                key={menu.key}
+                onClick={() => handleMenuCardClick(menu.key)}
                 style={{
                   background: '#14160F',
                   border: '1px solid #22251E',
@@ -184,11 +196,17 @@ export function NutritionPage() {
                     >
                       {menu.title}
                     </h3>
+                    {menu.variants.length > 1 && (
+                      <p style={{ fontSize: '13px', color: '#2BE581', fontWeight: 600, margin: '0 0 4px' }}>
+                        {menu.variants.map((v) => v.person).filter(Boolean).join(' · ')}
+                      </p>
+                    )}
                     <p style={{ fontSize: '13px', color: '#8B928A', margin: 0 }}>
                       {formatDate(menu.uploaded_at)}
                     </p>
                   </div>
-                  <DeleteMenuButton menuId={menu.id} menuTitle={menu.title} />
+                  {/* Deleting any variant deletes the whole menu (backend). */}
+                  <DeleteMenuButton menuId={menu.variants[0].id} menuTitle={menu.title} />
                 </div>
               </article>
             ))}
@@ -271,7 +289,8 @@ export function NutritionPage() {
   // ── Menu detail view ─────────────────────────────────────────────────────
   return (
     <MenuDetailView
-      id={selectedMenuId}
+      key={selectedGroup.key}
+      variants={selectedGroup.variants}
       onBack={() => setView('list')}
       onDeleted={handleMenuDeleted}
     />

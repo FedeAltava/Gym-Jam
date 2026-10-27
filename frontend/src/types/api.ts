@@ -73,6 +73,9 @@ export interface DietPlanSummary {
   title: string;
   calories: number | null;
   uploaded_at: string;
+  /** Variants of the same menu (one per person) share a group_id. */
+  group_id?: string | null;
+  person?: string | null;
 }
 
 export interface MealOption {
@@ -112,6 +115,8 @@ export interface DietPlan {
   calories: number | null;
   menu_json: ParsedMenu;
   uploaded_at: string;
+  group_id?: string | null;
+  person?: string | null;
 }
 
 export interface UserStats {
