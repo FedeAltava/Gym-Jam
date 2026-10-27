@@ -17,9 +17,9 @@ Branch: `feat/nutrition-person-variants` · Delivery: work-unit commits, push/de
 
 | ID | Specs | Route | Status | Evidence |
 |----|-------|-------|--------|----------|
-| T1 | S1 backend | inline | pending | |
-| T2 | S1 frontend | inline | pending | |
-| T3 | S2, S3 extraction + dedupe | delegated (3 read-only extractors, context backstop: 30 PDFs) | in progress | |
+| T1 | S1 backend | inline | done, verifier + review pending | 8ffc95c; RED 10 failing → GREEN 632 passed; migration up/down/up on Postgres 16 |
+| T2 | S1 frontend | inline | done | b8918fe; RED 3 failing + missing module → GREEN 267 passed, tsc + eslint clean |
+| T3 | S2, S3 extraction + dedupe | delegated (3 read-only extractors, context backstop: 30 PDFs) | done | 30 JSON validated with ParsedMenu; 15 menus; loader dry-tested on temp SQLite |
 | T4 | S2, S3, S4 deploy + load in prod + delete old menu | inline, needs user OK for push/deploy | pending | |
 
 Risk: T1 item 1 (schema migration, additive nullable columns) → own commit.
@@ -30,3 +30,5 @@ Risk: T1 item 1 (schema migration, additive nullable columns) → own commit.
 - L2 (2026-10-27) S1 quote above; user picked option 2 (selector) over title-only.
 - L3 (2026-10-27) 31 PDFs in ~/Descargas. md5: only `S1 XXIII ED. 1500 Kcal (1)` is a byte copy. Dish-name comparison: each FEDE/BELÉN pair of a week and each 1500/2100 pair of an edition+week is the same menu → 15 candidate menus; cross-edition duplicates to confirm from extracted dishes.
 - L4 (2026-10-27) S4 quote; the old menu is deleted in prod when loading the new ones.
+- L5 (2026-10-27) Extraction done: 15 menus × (Fede, Belén). Max same-meal overlap between different menus 6/12 (S1 vs S1 XXVII) → no duplicates beyond the byte copy. Fede/Belén variants sometimes differ in a dish, not only quantities (kept per person). Calories only known for 2100/1500 editions and S2 FEDE; loader makes Fede 1 s newer so ties still show Fede first. Titles de-duplicated by hand (agents' proposals repeated quinoa/boloñesa/bacalao).
+- L6 (2026-10-27) RDD assess on 8ffc95c: high (executable_change + escalated item 1) → independent verifier launched, then native review.
