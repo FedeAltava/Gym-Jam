@@ -17,7 +17,7 @@ Branch: `feat/nutrition-person-variants` · Delivery: work-unit commits, push/de
 
 | ID | Specs | Route | Status | Evidence |
 |----|-------|-------|--------|----------|
-| T1 | S1 backend | inline | done, verifier + review pending | 8ffc95c; RED 10 failing → GREEN 632 passed; migration up/down/up on Postgres 16 |
+| T1 | S1 backend | inline | done | 8ffc95c; RED 10 failing → GREEN 632 passed; migration up/down/up on Postgres 16 |
 | T2 | S1 frontend | inline | done | b8918fe; RED 3 failing + missing module → GREEN 267 passed, tsc + eslint clean |
 | T3 | S2, S3 extraction + dedupe | delegated (3 read-only extractors, context backstop: 30 PDFs) | done | 30 JSON validated with ParsedMenu; 15 menus; loader dry-tested on temp SQLite |
 | T4 | S2, S3, S4 deploy + load in prod + delete old menu | inline, needs user OK for push/deploy | pending | |
@@ -32,3 +32,5 @@ Risk: T1 item 1 (schema migration, additive nullable columns) → own commit.
 - L4 (2026-10-27) S4 quote; the old menu is deleted in prod when loading the new ones.
 - L5 (2026-10-27) Extraction done: 15 menus × (Fede, Belén). Max same-meal overlap between different menus 6/12 (S1 vs S1 XXVII) → no duplicates beyond the byte copy. Fede/Belén variants sometimes differ in a dish, not only quantities (kept per person). Calories only known for 2100/1500 editions and S2 FEDE; loader makes Fede 1 s newer so ties still show Fede first. Titles de-duplicated by hand (agents' proposals repeated quinoa/boloñesa/bacalao).
 - L6 (2026-10-27) RDD assess on 8ffc95c: high (executable_change + escalated item 1) → independent verifier launched, then native review.
+- L7 (2026-10-27) Independent verifier on 8ffc95c: PASS, no blockers (632 passed, probes for grouped/ungrouped delete and payloads, baseline diff = only 2 added null keys, migration 019→020→019→020 on Postgres with a pre-existing row, `alembic check` clean). Native review (lineage review-a359d13c92236271, lenses risk+reliability, range 69d793f..56d376c): consent granted, approved, acknowledged. Advisory follow-ups (non-blocking): delete returns 204 if the plan vanishes between lookup and delete (baseline 404); null-person grouped cards render an empty subtitle (untested; not produced by the loader).
+- L8 (2026-10-27) Prod has two old menus "MENÚ S1 XXVII Ed. Reto REMUS30": 2100 kcal in fedealtava1992@gmail.com, 1500 kcal in bchiquinquira40@gmail.com (likely Belén's own account). Asked user which accounts to load/clean.
