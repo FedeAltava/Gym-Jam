@@ -20,7 +20,7 @@ Branch: `feat/nutrition-person-variants` · Delivery: work-unit commits, push/de
 | T1 | S1 backend | inline | done | 8ffc95c; RED 10 failing → GREEN 632 passed; migration up/down/up on Postgres 16 |
 | T2 | S1 frontend | inline | done | b8918fe; RED 3 failing + missing module → GREEN 267 passed, tsc + eslint clean |
 | T3 | S2, S3 extraction + dedupe | delegated (3 read-only extractors, context backstop: 30 PDFs) | done | 30 JSON validated with ParsedMenu; 15 menus; loader dry-tested on temp SQLite |
-| T4 | S2, S3, S4 deploy + load in prod + delete old menu | inline, needs user OK for push/deploy | pending | |
+| T4 | S2, S3, S4 deploy + load in prod + delete old menu | inline | done | main 4bac1a8 pushed + deployed (migration 019→020); prod: 30 plans / 15 groups / 15 Fede + 15 Belén per account, 0 old menus |
 
 Risk: T1 item 1 (schema migration, additive nullable columns) → own commit.
 
@@ -34,3 +34,4 @@ Risk: T1 item 1 (schema migration, additive nullable columns) → own commit.
 - L6 (2026-10-27) RDD assess on 8ffc95c: high (executable_change + escalated item 1) → independent verifier launched, then native review.
 - L7 (2026-10-27) Independent verifier on 8ffc95c: PASS, no blockers (632 passed, probes for grouped/ungrouped delete and payloads, baseline diff = only 2 added null keys, migration 019→020→019→020 on Postgres with a pre-existing row, `alembic check` clean). Native review (lineage review-a359d13c92236271, lenses risk+reliability, range 69d793f..56d376c): consent granted, approved, acknowledged. Advisory follow-ups (non-blocking): delete returns 204 if the plan vanishes between lookup and delete (baseline 404); null-person grouped cards render an empty subtitle (untested; not produced by the loader).
 - L8 (2026-10-27) Prod has two old menus "MENÚ S1 XXVII Ed. Reto REMUS30": 2100 kcal in fedealtava1992@gmail.com, 1500 kcal in bchiquinquira40@gmail.com (likely Belén's own account). Asked user which accounts to load/clean.
+- L9 (2026-10-27) User chose "Mi cuenta y la de Belén". Fast-forwarded main to 4bac1a8, pushed, server `git pull` + `docker compose up -d --build --no-deps backend frontend` (backend healthy, alembic 020). Loader dry run then COMMIT=1: deleted "MENÚ S1 XXVII Ed. Reto REMUS30" in both accounts and created 15 grouped menus in each (fedealtava1992@gmail.com, bchiquinquira40@gmail.com). Feature closed.
