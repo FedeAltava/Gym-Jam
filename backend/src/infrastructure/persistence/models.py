@@ -134,6 +134,9 @@ class WorkoutSessionModel(Base):
     logs: Mapped[list["WorkoutLogModel"]] = relationship(
         "WorkoutLogModel", back_populates="session", cascade="all, delete-orphan", lazy="selectin"
     )
+    swaps: Mapped[list["SessionExerciseSwapModel"]] = relationship(
+        "SessionExerciseSwapModel", cascade="all, delete-orphan", lazy="selectin"
+    )
 
 
 class WorkoutLogModel(Base):
@@ -151,6 +154,21 @@ class WorkoutLogModel(Base):
     weight_kg: Mapped[float | None] = mapped_column(Float, nullable=True)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=lambda: datetime.now(UTC))
     session: Mapped["WorkoutSessionModel"] = relationship("WorkoutSessionModel", back_populates="logs")
+
+
+class SessionExerciseSwapModel(Base):
+    # A planned exercise replaced by another catalog exercise for one session
+    # only; the routine plan is untouched. Kept in sync with migration 021.
+    __tablename__ = "session_exercise_swaps"
+    session_id: Mapped[str] = mapped_column(
+        String(36), ForeignKey("workout_sessions.id", ondelete="CASCADE"), primary_key=True
+    )
+    workout_exercise_id: Mapped[str] = mapped_column(
+        String(36), ForeignKey("workout_exercises.id", ondelete="CASCADE"), primary_key=True
+    )
+    # Soft reference to the catalog, like workout_exercises.exercise_id;
+    # existence is checked in SwapSessionExerciseUseCase.
+    exercise_id: Mapped[str] = mapped_column(String(255), nullable=False)
 
 
 class PersonalRecordModel(Base):

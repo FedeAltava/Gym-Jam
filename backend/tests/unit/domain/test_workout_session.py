@@ -9,6 +9,7 @@ from backend.src.domain.entities.exercise_log import ExerciseLog
 from backend.src.domain.entities.workout_exercise import WorkoutExercise
 from backend.src.domain.entities.workout_session import WorkoutSession
 from backend.src.domain.errors.session_errors import (
+    ExerciseHasLoggedSets,
     InvalidRepsCompleted,
     SessionAlreadyCompleted,
     SetAlreadyLogged,
@@ -217,3 +218,72 @@ class TestComplete:
         completed_at = datetime.now(UTC) - timedelta(hours=1)
         session = _make_session(completed_at=completed_at)
         assert session.status == "completed"
+
+
+# ---------------------------------------------------------------------------
+# swap_exercise() — replace a planned exercise for this session only
+# ---------------------------------------------------------------------------
+
+
+class TestSwapExercise:
+    def test_swap_records_substitute_for_the_planned_slot(self) -> None:
+        session = _make_session()
+        exercise = _make_exercise(exercise_id="bench-press")
+
+        session.swap_exercise(exercise, "dumbbell-fly")
+
+        assert session.swaps == {exercise.id: "dumbbell-fly"}
+
+    def test_swapping_again_replaces_the_substitute(self) -> None:
+        session = _make_session()
+        exercise = _make_exercise(exercise_id="bench-press")
+
+        session.swap_exercise(exercise, "dumbbell-fly")
+        session.swap_exercise(exercise, "pec-deck")
+
+        assert session.swaps == {exercise.id: "pec-deck"}
+
+    def test_swapping_back_to_the_planned_exercise_removes_the_swap(self) -> None:
+        session = _make_session()
+        exercise = _make_exercise(exercise_id="bench-press")
+        session.swap_exercise(exercise, "dumbbell-fly")
+
+        session.swap_exercise(exercise, "bench-press")
+
+        assert session.swaps == {}
+
+    def test_swap_on_completed_session_raises(self) -> None:
+        session = _make_session(completed_at=datetime.now(UTC))
+        exercise = _make_exercise()
+
+        with pytest.raises(SessionAlreadyCompleted):
+            session.swap_exercise(exercise, "dumbbell-fly")
+        assert session.swaps == {}
+
+    def test_swap_after_logging_a_set_of_that_slot_raises(self) -> None:
+        session = _make_session()
+        exercise = _make_exercise()
+        session.log_set(exercise=exercise, set_number=1, reps_completed=10, weight_kg=60.0)
+
+        with pytest.raises(ExerciseHasLoggedSets):
+            session.swap_exercise(exercise, "dumbbell-fly")
+        assert session.swaps == {}
+
+    def test_sets_logged_in_another_slot_do_not_block_the_swap(self) -> None:
+        session = _make_session()
+        logged = _make_exercise(exercise_id="squat")
+        exercise = _make_exercise(exercise_id="bench-press")
+        session.log_set(exercise=logged, set_number=1, reps_completed=10, weight_kg=60.0)
+
+        session.swap_exercise(exercise, "dumbbell-fly")
+
+        assert session.swaps == {exercise.id: "dumbbell-fly"}
+
+    def test_a_swapped_slot_still_accepts_sets(self) -> None:
+        session = _make_session()
+        exercise = _make_exercise()
+        session.swap_exercise(exercise, "dumbbell-fly")
+
+        log = session.log_set(exercise=exercise, set_number=1, reps_completed=12, weight_kg=14.0)
+
+        assert log.workout_exercise_id == exercise.id

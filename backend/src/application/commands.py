@@ -95,6 +95,15 @@ class LogExerciseSetCommand:
 
 
 @dataclass(frozen=True)
+class SwapSessionExerciseCommand:
+    user_id: str
+    session_id: str
+    workout_exercise_id: str
+    # None = undo: go back to the planned exercise.
+    exercise_id: str | None
+
+
+@dataclass(frozen=True)
 class UpdateExerciseLogCommand:
     user_id: str
     session_id: str

@@ -4,6 +4,7 @@ from backend.src.application.errors import (
     ApplicationError,
     DietPlanNotFoundError,
     DietPlanProcessingError,
+    ExerciseHasLoggedSetsError,
     ExerciseNotFoundError,
     InvalidRefreshTokenError,
     LogNotFoundError,
@@ -24,7 +25,7 @@ async def application_error_handler(request: Request, exc: ApplicationError) -> 
         status_code = 403
     elif isinstance(exc, InvalidRefreshTokenError):
         status_code = 401
-    elif isinstance(exc, (SessionAlreadyCompletedError, SessionAlreadyInProgressError, SetAlreadyLoggedError)):
+    elif isinstance(exc, (SessionAlreadyCompletedError, SessionAlreadyInProgressError, SetAlreadyLoggedError, ExerciseHasLoggedSetsError)):
         status_code = 409
     elif isinstance(exc, (SetExceedsPlanError, DietPlanProcessingError)):
         status_code = 422

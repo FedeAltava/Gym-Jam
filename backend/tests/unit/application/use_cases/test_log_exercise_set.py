@@ -13,6 +13,7 @@ from backend.src.application.errors import (
     SessionNotFoundError,
     SetAlreadyLoggedError,
     UnauthorizedError,
+    WorkoutNotFoundError,
 )
 from backend.src.application.use_cases.log_exercise_set import LogExerciseSetUseCase
 from backend.src.domain.aggregates.workout import Workout
@@ -238,3 +239,31 @@ async def test_log_set_on_completed_session(
     result = await use_case.execute(cmd)
     assert isinstance(result, Failure)
     assert isinstance(result.failure(), SessionAlreadyCompletedError)
+
+
+async def test_log_set_rejects_exercise_from_another_training_day(
+    use_case: LogExerciseSetUseCase,
+    workout_repo: InMemoryWorkoutRepository,
+    session_repo: InMemorySessionRepository,
+) -> None:
+    workout = _make_workout(days=["MONDAY", "TUESDAY"])
+    workout.add_exercise_to_day(DayOfWeek.MONDAY, "bench-press", sets=3)
+    tuesday_ex = workout.add_exercise_to_day(DayOfWeek.TUESDAY, "bench-press", sets=3)
+    await workout_repo.save(workout)
+    monday = workout.get_training_days()[DayOfWeek.MONDAY]
+    session = _make_session("user-1", workout.id, monday.id)
+    await session_repo.save(session)
+
+    cmd = LogExerciseSetCommand(
+        user_id="user-1",
+        session_id=str(session.id.value),
+        workout_exercise_id=str(tuesday_ex.id.value),
+        set_number=1,
+        reps_completed=10,
+        weight_kg=None,
+    )
+    result = await use_case.execute(cmd)
+
+    assert isinstance(result, Failure)
+    assert isinstance(result.failure(), WorkoutNotFoundError)
+    assert session.logs == []

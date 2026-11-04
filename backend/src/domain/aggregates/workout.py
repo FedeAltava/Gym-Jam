@@ -144,6 +144,16 @@ class Workout:
             raise DayNotInWorkoutError(day=day.value, workout_id=str(self.id.value))
         return self._training_days[day].exercises
 
+    def find_exercise_in_day(
+        self,
+        training_day_id: TrainingDayId,
+        workout_exercise_id: WorkoutExerciseId,
+    ) -> WorkoutExercise | None:
+        for td in self._training_days.values():
+            if td.id == training_day_id:
+                return next((ex for ex in td.exercises if ex.id == workout_exercise_id), None)
+        return None
+
     def get_training_days(self) -> dict[DayOfWeek, TrainingDay]:
         return dict(self._training_days)
 

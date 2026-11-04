@@ -566,3 +566,138 @@ async def test_get_workout_returns_plan_fields(client) -> None:
     assert ex["sets"] == 4
     assert ex["reps_per_set"] == 8
     assert ex["weight_kg"] == 60.0
+
+
+# ── Swap a planned exercise for this session only ────────────────────────────
+
+async def _start_with_exercise(client, day: str, exercise_id: str = "bench-press") -> tuple[str, str, str, str]:
+    """Returns (workout_id, day_id, workout_exercise_id, session_id)."""
+    wid, day_id = await create_workout_with_day(client, day)
+    ex_id = await add_exercise_to_day(client, wid, day, exercise_id)
+    r = await client.post(f"/workouts/{wid}/days/{day_id}/sessions", json={})
+    assert r.status_code == 201
+    assert r.json()["swaps"] == []
+    return wid, day_id, ex_id, r.json()["id"]
+
+
+async def test_swap_exercise_returns_200_and_persists(client) -> None:
+    wid, day_id, ex_id, session_id = await _start_with_exercise(client, "MONDAY")
+
+    r = await client.put(
+        f"/sessions/{session_id}/exercises/{ex_id}/swap",
+        json={"exercise_id": "dumbbell-fly"},
+    )
+
+    assert r.status_code == 200
+    assert r.json()["swaps"] == [{"workout_exercise_id": ex_id, "exercise_id": "dumbbell-fly"}]
+    sessions = (await client.get(f"/workouts/{wid}/days/{day_id}/sessions")).json()
+    assert sessions[0]["swaps"] == [{"workout_exercise_id": ex_id, "exercise_id": "dumbbell-fly"}]
+    # The routine plan is untouched.
+    workout = (await client.get(f"/workouts/{wid}")).json()
+    assert workout["training_days"][0]["exercises"][0]["exercise_id"] == "bench-press"
+
+
+async def test_swap_again_replaces_the_substitute(client) -> None:
+    wid, day_id, ex_id, session_id = await _start_with_exercise(client, "TUESDAY")
+    url = f"/sessions/{session_id}/exercises/{ex_id}/swap"
+    await client.put(url, json={"exercise_id": "dumbbell-fly"})
+
+    r = await client.put(url, json={"exercise_id": "pec-deck"})
+
+    assert r.status_code == 200
+    sessions = (await client.get(f"/workouts/{wid}/days/{day_id}/sessions")).json()
+    assert sessions[0]["swaps"] == [{"workout_exercise_id": ex_id, "exercise_id": "pec-deck"}]
+
+
+async def test_undo_swap_returns_200_and_removes_it(client) -> None:
+    wid, day_id, ex_id, session_id = await _start_with_exercise(client, "WEDNESDAY")
+    url = f"/sessions/{session_id}/exercises/{ex_id}/swap"
+    await client.put(url, json={"exercise_id": "dumbbell-fly"})
+
+    r = await client.delete(url)
+
+    assert r.status_code == 200
+    assert r.json()["swaps"] == []
+    sessions = (await client.get(f"/workouts/{wid}/days/{day_id}/sessions")).json()
+    assert sessions[0]["swaps"] == []
+
+
+async def test_swapped_slot_accepts_sets(client) -> None:
+    _, _, ex_id, session_id = await _start_with_exercise(client, "THURSDAY")
+    await client.put(f"/sessions/{session_id}/exercises/{ex_id}/swap", json={"exercise_id": "dumbbell-fly"})
+
+    r = await client.post(
+        f"/sessions/{session_id}/logs",
+        json={"workout_exercise_id": ex_id, "set_number": 1, "reps_completed": 12, "weight_kg": 14.0},
+    )
+
+    assert r.status_code == 201
+
+
+async def test_swap_unknown_catalog_exercise_returns_404(client) -> None:
+    _, _, ex_id, session_id = await _start_with_exercise(client, "FRIDAY")
+
+    r = await client.put(
+        f"/sessions/{session_id}/exercises/{ex_id}/swap",
+        json={"exercise_id": "no-such-exercise"},
+    )
+
+    assert r.status_code == 404
+
+
+async def test_swap_after_logging_a_set_returns_409(client) -> None:
+    _, _, ex_id, session_id = await _start_with_exercise(client, "SATURDAY")
+    await client.post(
+        f"/sessions/{session_id}/logs",
+        json={"workout_exercise_id": ex_id, "set_number": 1, "reps_completed": 10, "weight_kg": 60.0},
+    )
+
+    r = await client.put(
+        f"/sessions/{session_id}/exercises/{ex_id}/swap",
+        json={"exercise_id": "dumbbell-fly"},
+    )
+
+    assert r.status_code == 409
+
+
+async def test_swap_on_completed_session_returns_409(client) -> None:
+    _, _, ex_id, session_id = await _start_with_exercise(client, "SUNDAY")
+    await client.post(f"/sessions/{session_id}/complete", json={})
+
+    r = await client.put(
+        f"/sessions/{session_id}/exercises/{ex_id}/swap",
+        json={"exercise_id": "dumbbell-fly"},
+    )
+
+    assert r.status_code == 409
+
+
+async def test_swap_other_users_session_returns_403(client, client_user2) -> None:
+    wid, day_id, ex_id, session_id = await _start_with_exercise(client, "MONDAY")
+
+    r = await client_user2.put(
+        f"/sessions/{session_id}/exercises/{ex_id}/swap",
+        json={"exercise_id": "dumbbell-fly"},
+    )
+
+    assert r.status_code == 403
+    sessions = (await client.get(f"/workouts/{wid}/days/{day_id}/sessions")).json()
+    assert sessions[0]["swaps"] == []
+
+
+async def test_swap_requires_auth(auth_client) -> None:
+    r = await auth_client.put(
+        "/sessions/00000000-0000-0000-0000-000000000001/exercises/x/swap",
+        json={"exercise_id": "dumbbell-fly"},
+    )
+    assert r.status_code == 401
+
+
+async def test_delete_session_with_swap_returns_204(client) -> None:
+    wid, day_id, ex_id, session_id = await _start_with_exercise(client, "TUESDAY")
+    await client.put(f"/sessions/{session_id}/exercises/{ex_id}/swap", json={"exercise_id": "dumbbell-fly"})
+
+    r = await client.delete(f"/sessions/{session_id}")
+
+    assert r.status_code == 204
+    assert (await client.get(f"/workouts/{wid}/days/{day_id}/sessions")).json() == []

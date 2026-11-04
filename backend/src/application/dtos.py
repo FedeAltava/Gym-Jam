@@ -139,6 +139,12 @@ class ExerciseLogDTO:
 
 
 @dataclass(frozen=True)
+class ExerciseSwapDTO:
+    workout_exercise_id: str
+    exercise_id: str
+
+
+@dataclass(frozen=True)
 class SessionHistoryLogDTO:
     id: str
     workout_exercise_id: str
@@ -196,6 +202,8 @@ class WorkoutSessionDTO:
     logs: tuple[ExerciseLogDTO, ...]
     # completed_at - started_at in whole seconds; None while in progress.
     duration_seconds: int | None = None
+    # Planned exercises replaced in this session only.
+    swaps: tuple[ExerciseSwapDTO, ...] = ()
 
     @classmethod
     def from_aggregate(cls, session: WorkoutSession) -> "WorkoutSessionDTO":
@@ -214,6 +222,10 @@ class WorkoutSessionDTO:
             completed_at=session.completed_at.isoformat() if session.completed_at is not None else None,
             logs=tuple(ExerciseLogDTO.from_entity(log) for log in session.logs),
             duration_seconds=duration_seconds,
+            swaps=tuple(
+                ExerciseSwapDTO(workout_exercise_id=str(we_id.value), exercise_id=exercise_id)
+                for we_id, exercise_id in session.swaps.items()
+            ),
         )
 
 

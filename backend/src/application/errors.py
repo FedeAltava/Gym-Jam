@@ -139,6 +139,17 @@ class SessionAlreadyCompletedError(ApplicationError):
 
 
 @dataclass
+class ExerciseHasLoggedSetsError(ApplicationError):
+    workout_exercise_id: str
+
+    def __init__(self, workout_exercise_id: str) -> None:
+        object.__setattr__(self, "workout_exercise_id", workout_exercise_id)
+        super().__init__(
+            f"Exercise '{workout_exercise_id}' already has logged sets in this session; delete them before swapping."
+        )
+
+
+@dataclass
 class SessionAlreadyInProgressError(ApplicationError):
     training_day_id: str
 

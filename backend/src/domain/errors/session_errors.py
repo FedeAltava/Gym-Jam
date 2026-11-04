@@ -42,3 +42,11 @@ class LogNotFound(SessionError):
     def __init__(self, log_id: str) -> None:
         super().__init__(f"Log '{log_id}' not found in session.")
         self.log_id = log_id
+
+
+class ExerciseHasLoggedSets(SessionError):
+    def __init__(self, workout_exercise_id: str) -> None:
+        super().__init__(
+            f"Exercise '{workout_exercise_id}' already has logged sets in this session."
+        )
+        self.workout_exercise_id = workout_exercise_id

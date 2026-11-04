@@ -15,6 +15,7 @@ from backend.src.domain.value_objects import (
     WorkoutSessionId,
 )
 from backend.src.infrastructure.persistence.models import (
+    SessionExerciseSwapModel,
     WorkoutModel,
     WorkoutLogModel,
     WorkoutSessionModel,
@@ -129,6 +130,10 @@ class WorkoutSessionMapper:
             started_at=_as_utc(model.started_at),
             completed_at=_as_utc(model.completed_at),
             _logs=logs,
+            _swaps={
+                WorkoutExerciseId.from_string(swap.workout_exercise_id).unwrap(): swap.exercise_id
+                for swap in model.swaps
+            },
         )
 
     @staticmethod
@@ -153,4 +158,12 @@ class WorkoutSessionMapper:
             )
             log_models.append(log_model)
         session_model.logs = log_models
+        session_model.swaps = [
+            SessionExerciseSwapModel(
+                session_id=str(session.id.value),
+                workout_exercise_id=str(we_id.value),
+                exercise_id=exercise_id,
+            )
+            for we_id, exercise_id in session.swaps.items()
+        ]
         return session_model

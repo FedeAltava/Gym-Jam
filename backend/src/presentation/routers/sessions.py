@@ -17,6 +17,7 @@ from backend.src.application.commands import (
     GetSessionsForDayCommand,
     LogExerciseSetCommand,
     StartWorkoutSessionCommand,
+    SwapSessionExerciseCommand,
     UpdateExerciseLogCommand,
 )
 from backend.src.application.use_cases.complete_workout_session import CompleteWorkoutSessionUseCase
@@ -27,6 +28,7 @@ from backend.src.application.use_cases.get_sessions_for_day import GetSessionsFo
 from backend.src.application.use_cases.get_workout_session import GetWorkoutSessionUseCase
 from backend.src.application.use_cases.log_exercise_set import LogExerciseSetUseCase
 from backend.src.application.use_cases.start_workout_session import StartWorkoutSessionUseCase
+from backend.src.application.use_cases.swap_session_exercise import SwapSessionExerciseUseCase
 from backend.src.application.use_cases.update_exercise_log import UpdateExerciseLogUseCase
 from backend.src.infrastructure.database import get_session
 from backend.src.presentation.dependencies import (
@@ -39,6 +41,7 @@ from backend.src.presentation.dependencies import (
     get_get_workout_session_uc,
     get_session_history_uc,
     get_start_session_uc,
+    get_swap_session_exercise_uc,
     get_update_log_uc,
 )
 from backend.src.presentation.schemas.session_schemas import (
@@ -46,6 +49,7 @@ from backend.src.presentation.schemas.session_schemas import (
     LogSetRequest,
     PaginatedSessionHistoryResponse,
     SessionHistoryItemResponse,
+    SwapExerciseRequest,
     UpdateLogRequest,
     WorkoutSessionResponse,
 )
@@ -231,6 +235,67 @@ async def delete_exercise_log(
     if isinstance(result, Failure):
         raise result.failure()
     await session.commit()
+
+
+async def _swap(
+    uc: SwapSessionExerciseUseCase,
+    session: AsyncSession,
+    cmd: SwapSessionExerciseCommand,
+) -> WorkoutSessionResponse:
+    result = await uc.execute(cmd)
+    if isinstance(result, Failure):
+        raise result.failure()
+    try:
+        await session.commit()
+    except IntegrityError:
+        await session.rollback()
+        raise HTTPException(status_code=409, detail="Exercise swap changed concurrently")
+    return WorkoutSessionResponse.from_dto(result.unwrap())
+
+
+@router.put(
+    "/sessions/{session_id}/exercises/{workout_exercise_id}/swap",
+    status_code=200,
+    response_model=WorkoutSessionResponse,
+)
+async def swap_session_exercise(
+    session_id: str,
+    workout_exercise_id: str,
+    body: SwapExerciseRequest,
+    uc: SwapSessionExerciseUseCase = Depends(get_swap_session_exercise_uc),
+    user_id: str = Depends(get_current_user_id),
+    session: AsyncSession = Depends(get_session),
+) -> WorkoutSessionResponse:
+    """Do another catalog exercise instead of the planned one, this session only."""
+    cmd = SwapSessionExerciseCommand(
+        user_id=user_id,
+        session_id=session_id,
+        workout_exercise_id=workout_exercise_id,
+        exercise_id=body.exercise_id,
+    )
+    return await _swap(uc, session, cmd)
+
+
+@router.delete(
+    "/sessions/{session_id}/exercises/{workout_exercise_id}/swap",
+    status_code=200,
+    response_model=WorkoutSessionResponse,
+)
+async def undo_session_exercise_swap(
+    session_id: str,
+    workout_exercise_id: str,
+    uc: SwapSessionExerciseUseCase = Depends(get_swap_session_exercise_uc),
+    user_id: str = Depends(get_current_user_id),
+    session: AsyncSession = Depends(get_session),
+) -> WorkoutSessionResponse:
+    """Go back to the planned exercise."""
+    cmd = SwapSessionExerciseCommand(
+        user_id=user_id,
+        session_id=session_id,
+        workout_exercise_id=workout_exercise_id,
+        exercise_id=None,
+    )
+    return await _swap(uc, session, cmd)
 
 
 @router.post(

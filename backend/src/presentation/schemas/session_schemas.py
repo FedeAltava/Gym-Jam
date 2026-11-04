@@ -5,6 +5,7 @@ from pydantic import BaseModel, Field
 
 from backend.src.application.dtos import (
     ExerciseLogDTO,
+    ExerciseSwapDTO,
     PaginatedSessionHistoryDTO,
     SessionHistoryItemDTO,
     SessionHistoryLogDTO,
@@ -21,6 +22,11 @@ class LogSetRequest(BaseModel):
     reps_completed: int = Field(ge=1)
     # Optional: bodyweight exercises log sets without external weight.
     weight_kg: float | None = Field(default=None, ge=0.0)
+
+
+class SwapExerciseRequest(BaseModel):
+    # Catalog exercise done instead of the planned one, this session only.
+    exercise_id: str = Field(min_length=1)
 
 
 class UpdateLogRequest(BaseModel):
@@ -54,6 +60,15 @@ class ExerciseLogResponse(BaseModel):
         )
 
 
+class ExerciseSwapResponse(BaseModel):
+    workout_exercise_id: str
+    exercise_id: str
+
+    @classmethod
+    def from_dto(cls, dto: ExerciseSwapDTO) -> "ExerciseSwapResponse":
+        return cls(workout_exercise_id=dto.workout_exercise_id, exercise_id=dto.exercise_id)
+
+
 class WorkoutSessionResponse(BaseModel):
     id: str
     user_id: str
@@ -65,6 +80,8 @@ class WorkoutSessionResponse(BaseModel):
     # Whole seconds between started_at and completed_at; null in progress.
     duration_seconds: int | None
     logs: list[ExerciseLogResponse]
+    # Planned exercises replaced in this session only.
+    swaps: list[ExerciseSwapResponse]
 
     @classmethod
     def from_dto(cls, dto: WorkoutSessionDTO) -> "WorkoutSessionResponse":
@@ -78,6 +95,7 @@ class WorkoutSessionResponse(BaseModel):
             completed_at=dto.completed_at,
             duration_seconds=dto.duration_seconds,
             logs=[ExerciseLogResponse.from_dto(log) for log in dto.logs],
+            swaps=[ExerciseSwapResponse.from_dto(swap) for swap in dto.swaps],
         )
 
 
