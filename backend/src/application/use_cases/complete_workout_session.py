@@ -80,8 +80,10 @@ class CompleteWorkoutSessionUseCase:
             return
 
         # Logs reference plan rows; records are keyed by catalog exercise.
+        # A swapped slot counts for the exercise actually done this session.
         workout_exercise_ids = list({str(log.workout_exercise_id.value) for log in weighted_logs})
         catalog_ids = await self._pr_repo.get_catalog_exercise_ids(workout_exercise_ids)
+        catalog_ids.update({str(we_id.value): exercise_id for we_id, exercise_id in session.swaps.items()})
 
         # Reduce to the heaviest set per catalog exercise in this session.
         max_per_exercise: dict[str, float] = {}

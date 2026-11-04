@@ -14,6 +14,7 @@ from backend.src.domain.repositories.personal_record_repository import (
 )
 from backend.src.infrastructure.persistence.models import (
     PersonalRecordModel,
+    SessionExerciseSwapModel,
     WorkoutExerciseModel,
     WorkoutLogModel,
     WorkoutSessionModel,
@@ -50,14 +51,23 @@ class SqlAlchemyPersonalRecordRepository(PersonalRecordRepository):
             return {}
         # One batch query over the user's full completed-log history (ADR 5):
         # logs → plan rows (catalog id) → sessions (owner + completed filter).
+        # A session swap replaces the plan row's catalog id for that session.
+        done_exercise_id = func.coalesce(
+            SessionExerciseSwapModel.exercise_id, WorkoutExerciseModel.exercise_id
+        )
         stmt = (
             select(
-                WorkoutExerciseModel.exercise_id,
+                done_exercise_id.label("exercise_id"),
                 func.max(WorkoutLogModel.weight_kg).label("max_weight"),
             )
             .join(
                 WorkoutExerciseModel,
                 WorkoutLogModel.workout_exercise_id == WorkoutExerciseModel.id,
+            )
+            .outerjoin(
+                SessionExerciseSwapModel,
+                (SessionExerciseSwapModel.session_id == WorkoutLogModel.session_id)
+                & (SessionExerciseSwapModel.workout_exercise_id == WorkoutLogModel.workout_exercise_id),
             )
             .join(
                 WorkoutSessionModel,
@@ -67,10 +77,10 @@ class SqlAlchemyPersonalRecordRepository(PersonalRecordRepository):
                 WorkoutSessionModel.user_id == user_id,
                 WorkoutSessionModel.completed_at.is_not(None),
                 WorkoutSessionModel.id != exclude_session_id,
-                WorkoutExerciseModel.exercise_id.in_(exercise_ids),
+                done_exercise_id.in_(exercise_ids),
                 WorkoutLogModel.weight_kg.is_not(None),
             )
-            .group_by(WorkoutExerciseModel.exercise_id)
+            .group_by(done_exercise_id)
         )
         rows = (await self._session.execute(stmt)).all()
         return {row.exercise_id: row.max_weight for row in rows}

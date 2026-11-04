@@ -172,3 +172,34 @@ async def test_completed_session_history_includes_duration_seconds(client) -> No
     r3 = await client.post(f"/workouts/{wid}/days/{day_id}/sessions", json={})
     assert r3.status_code == 201
     assert r3.json()["duration_seconds"] is None
+
+
+async def test_swapped_exercise_records_pr_for_the_substitute(client) -> None:
+    wid, day_id = await create_workout_with_day(client, "SATURDAY")
+    ex_id = await add_exercise_to_day(client, wid, "SATURDAY", "barbell-row")
+
+    s1, _ = await start_session_with_log(client, wid, day_id, ex_id, 100.0)
+    assert (await client.post(f"/sessions/{s1}/complete", json={})).status_code == 200
+    assert await pr_count_for(client, s1) == 1
+
+    # Swapped to cable crossover: 20 kg is far below the row's 100 kg, but it
+    # is the first cable crossover ever → PR for the substitute.
+    r = await client.post(f"/workouts/{wid}/days/{day_id}/sessions", json={})
+    s2 = r.json()["id"]
+    r = await client.put(f"/sessions/{s2}/exercises/{ex_id}/swap", json={"exercise_id": "cable-crossover"})
+    assert r.status_code == 200
+    r = await client.post(
+        f"/sessions/{s2}/logs",
+        json={"workout_exercise_id": ex_id, "set_number": 1, "reps_completed": 12, "weight_kg": 20.0},
+    )
+    assert r.status_code == 201
+    assert (await client.post(f"/sessions/{s2}/complete", json={})).status_code == 200
+    assert await pr_count_for(client, s2) == 1
+
+    # A routine where cable crossover is planned sees the swapped session's
+    # 20 kg as the previous max → 18 kg is no PR.
+    wid2, day2 = await create_workout_with_day(client, "SATURDAY")
+    ex2 = await add_exercise_to_day(client, wid2, "SATURDAY", "cable-crossover")
+    s3, _ = await start_session_with_log(client, wid2, day2, ex2, 18.0)
+    assert (await client.post(f"/sessions/{s3}/complete", json={})).status_code == 200
+    assert await pr_count_for(client, s3) == 0

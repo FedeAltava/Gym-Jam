@@ -286,3 +286,34 @@ async def test_history_fires_exactly_two_queries(client, engine) -> None:
     # 3 SELECTs: 1 COUNT for total, 1 for the session page, 1 IN for logs.
     # Still O(1) regardless of page size — no N+1.
     assert len(statements) == 3, f"expected 3 SELECTs, got {len(statements)}: {statements}"
+
+
+# ── Swapped exercises ─────────────────────────────────────────────────────────
+
+async def test_history_shows_the_substitute_of_a_swapped_exercise(client) -> None:
+    wid, day_id = await create_workout_with_day(client, "TUESDAY")
+    planned_id = await add_exercise_to_day(client, wid, "TUESDAY", "arnold-press")
+    kept_id = await add_exercise_to_day(client, wid, "TUESDAY", "hack-squat")
+    session_id = await start_session(client, wid, day_id)
+    r = await client.put(
+        f"/sessions/{session_id}/exercises/{planned_id}/swap",
+        json={"exercise_id": "cable-crossover"},
+    )
+    assert r.status_code == 200
+    for ex_id in (planned_id, kept_id):
+        r = await client.post(
+            f"/sessions/{session_id}/logs",
+            json={"workout_exercise_id": ex_id, "set_number": 1, "reps_completed": 12, "weight_kg": 15.0},
+        )
+        assert r.status_code == 201
+    await complete_session(client, session_id)
+
+    detail = (await client.get(f"/sessions/{session_id}")).json()
+    listed = next(s for s in (await client.get("/sessions")).json()["items"] if s["id"] == session_id)
+
+    for item in (detail, listed):
+        by_slot = {log["workout_exercise_id"]: log for log in item["logs"]}
+        assert by_slot[planned_id]["exercise_name"] == "Cruce de poleas"
+        assert by_slot[planned_id]["muscle_group"] == "Pecho"
+        # Slots without a swap still resolve the planned exercise.
+        assert by_slot[kept_id]["exercise_name"] == "Sentadilla hack"

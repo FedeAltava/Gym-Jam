@@ -16,6 +16,7 @@ from backend.src.infrastructure.persistence.mappers import WorkoutSessionMapper
 from backend.src.infrastructure.persistence.models import (
     ExerciseModel,
     PersonalRecordModel,
+    SessionExerciseSwapModel,
     TrainingDayModel,
     WorkoutExerciseModel,
     WorkoutLogModel,
@@ -262,11 +263,15 @@ class SqlAlchemySessionRepository(SessionRepository):
         # one IN query. Outer join to the catalog: workout_exercises.exercise_id
         # is a soft reference (see models.py) — legacy rows can hold free-text
         # ids with no catalog row, and those logs must not be dropped.
+        # A session swap replaces the planned exercise for that session only.
         session_ids = [row.id for row in rows]
         logs_by_session: dict[str, list[SessionLogSnapshot]] = {
             sid: [] for sid in session_ids
         }
         if session_ids:
+            done_exercise_id = func.coalesce(
+                SessionExerciseSwapModel.exercise_id, WorkoutExerciseModel.exercise_id
+            )
             logs_stmt = (
                 select(
                     WorkoutLogModel.id,
@@ -275,7 +280,7 @@ class SqlAlchemySessionRepository(SessionRepository):
                     WorkoutLogModel.set_number,
                     WorkoutLogModel.reps_completed,
                     WorkoutLogModel.weight_kg,
-                    WorkoutExerciseModel.exercise_id,
+                    done_exercise_id.label("exercise_id"),
                     ExerciseModel.name.label("exercise_name"),
                     ExerciseModel.muscle_group.label("muscle_group"),
                 )
@@ -284,8 +289,13 @@ class SqlAlchemySessionRepository(SessionRepository):
                     WorkoutLogModel.workout_exercise_id == WorkoutExerciseModel.id,
                 )
                 .outerjoin(
+                    SessionExerciseSwapModel,
+                    (SessionExerciseSwapModel.session_id == WorkoutLogModel.session_id)
+                    & (SessionExerciseSwapModel.workout_exercise_id == WorkoutLogModel.workout_exercise_id),
+                )
+                .outerjoin(
                     ExerciseModel,
-                    WorkoutExerciseModel.exercise_id == ExerciseModel.id,
+                    done_exercise_id == ExerciseModel.id,
                 )
                 .where(WorkoutLogModel.session_id.in_(session_ids))
                 .order_by(WorkoutLogModel.set_number)
