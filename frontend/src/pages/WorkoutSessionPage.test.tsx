@@ -78,6 +78,8 @@ function makeSessionFixture() {
 const EXERCISES_FIXTURE = [
   { id: 'e1', name: 'Press banca', muscle_group: 'Pecho', is_bodyweight: false },
   { id: 'e2', name: 'Dominadas', muscle_group: 'Espalda', is_bodyweight: true },
+  { id: 'e3', name: 'Aperturas con mancuernas', muscle_group: 'Pecho', is_bodyweight: false },
+  { id: 'e4', name: 'Remo con barra', muscle_group: 'Espalda', is_bodyweight: false },
 ];
 
 const PREFS_FIXTURE = {
@@ -437,5 +439,97 @@ describe('Rest Timer — countdown (fake timers)', () => {
     await waitFor(() => {
       expect(screen.getByLabelText('Tiempo del cronómetro')).toHaveTextContent('0:05');
     });
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Exercise swap — replace a planned exercise for this session only
+// ---------------------------------------------------------------------------
+
+type SwapFixture = { workout_exercise_id: string; exercise_id: string };
+
+/** Resume an in-progress session whose swaps live on a fake server. */
+async function resumeSession(
+  initial: { swaps?: SwapFixture[]; logs?: unknown[] } = {},
+) {
+  const live = { ...makeSessionFixture(), logs: initial.logs ?? [], swaps: initial.swaps ?? [] };
+  sessionStorage.setItem('gymjam:active-session:w1:day1', 'sess1');
+  mockApiFetch.mockImplementation((path: string, options?: RequestInit) => {
+    if (path === '/auth/me') return Promise.resolve(PREFS_FIXTURE);
+    const swap = path.match(/^\/sessions\/sess1\/exercises\/(\w+)\/swap$/);
+    if (swap && options?.method === 'PUT') {
+      const { exercise_id } = JSON.parse(options.body as string);
+      live.swaps = [
+        ...live.swaps.filter((s) => s.workout_exercise_id !== swap[1]),
+        { workout_exercise_id: swap[1], exercise_id },
+      ];
+      return Promise.resolve(live);
+    }
+    if (swap && options?.method === 'DELETE') {
+      live.swaps = live.swaps.filter((s) => s.workout_exercise_id !== swap[1]);
+      return Promise.resolve(live);
+    }
+    if (path.startsWith('/workouts/w1/days/day1/sessions')) return Promise.resolve([live]);
+    if (path.startsWith('/workouts')) return Promise.resolve(WORKOUT_FIXTURE);
+    if (path.startsWith('/exercises')) return Promise.resolve(EXERCISES_FIXTURE);
+    return Promise.resolve(undefined);
+  });
+  const user = userEvent.setup();
+  renderWithProviders(<WorkoutSessionPage />);
+  await screen.findByText('Dominadas');
+  return user;
+}
+
+describe('Exercise swap', () => {
+  afterEach(() => sessionStorage.clear());
+
+  it('swaps a planned exercise for another catalog exercise', async () => {
+    const user = await resumeSession();
+
+    await user.click(screen.getByRole('button', { name: 'Cambiar ejercicio Press banca' }));
+    const dialog = screen.getByRole('dialog', { name: 'Cambiar Press banca' });
+    // Defaults to the same muscle group and hides the current exercise.
+    expect(within(dialog).getByText('Aperturas con mancuernas')).toBeInTheDocument();
+    expect(within(dialog).queryByText('Remo con barra')).not.toBeInTheDocument();
+    expect(within(dialog).queryByText('Press banca')).not.toBeInTheDocument();
+    await user.click(within(dialog).getByRole('button', { name: 'Todos' }));
+    expect(within(dialog).getByText('Remo con barra')).toBeInTheDocument();
+
+    await user.click(within(dialog).getByText('Aperturas con mancuernas'));
+
+    expect(mockApiFetch).toHaveBeenCalledWith('/sessions/sess1/exercises/we1/swap', {
+      method: 'PUT',
+      body: JSON.stringify({ exercise_id: 'e3' }),
+    });
+    expect(await screen.findByRole('heading', { name: 'Aperturas con mancuernas' })).toBeInTheDocument();
+    expect(screen.getByText('En lugar de Press banca')).toBeInTheDocument();
+    expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
+  });
+
+  it('shows the substitute without the planned weight and can undo the swap', async () => {
+    const user = await resumeSession({ swaps: [{ workout_exercise_id: 'we1', exercise_id: 'e3' }] });
+
+    expect(await screen.findByRole('heading', { name: 'Aperturas con mancuernas' })).toBeInTheDocument();
+    expect(screen.getByText('En lugar de Press banca')).toBeInTheDocument();
+    // The plan's 80 kg belongs to Press banca, not to the substitute.
+    const weightGroup = screen.getAllByRole('group', { name: /Peso kg, serie 1/ })[0];
+    expect((within(weightGroup).getByRole('textbox') as HTMLInputElement).value).toBe('0');
+
+    await user.click(screen.getByRole('button', { name: 'Deshacer cambio de Aperturas con mancuernas' }));
+
+    expect(mockApiFetch).toHaveBeenCalledWith('/sessions/sess1/exercises/we1/swap', { method: 'DELETE' });
+    expect(await screen.findByRole('heading', { name: 'Press banca' })).toBeInTheDocument();
+    expect(screen.queryByText('En lugar de Press banca')).not.toBeInTheDocument();
+  });
+
+  it('does not offer a swap once a set of that exercise is logged', async () => {
+    await resumeSession({
+      logs: [
+        { id: 'l1', session_id: 'sess1', workout_exercise_id: 'we1', set_number: 1, reps_completed: 10, weight_kg: 80 },
+      ],
+    });
+
+    expect(screen.queryByRole('button', { name: 'Cambiar ejercicio Press banca' })).not.toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Cambiar ejercicio Dominadas' })).toBeInTheDocument();
   });
 });

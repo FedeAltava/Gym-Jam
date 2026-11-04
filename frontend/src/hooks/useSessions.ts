@@ -216,3 +216,46 @@ export function useDeleteExerciseLog() {
     },
   });
 }
+
+interface SwapExerciseContext {
+  sessionId: string;
+  workoutExerciseId: string;
+  // context for cache invalidation
+  workoutId: string;
+  dayId: string;
+}
+
+function invalidateAfterSwap(
+  qc: ReturnType<typeof useQueryClient>,
+  { workoutId, dayId }: SwapExerciseContext,
+) {
+  qc.invalidateQueries({ queryKey: ['sessions', workoutId, dayId] });
+  qc.invalidateQueries({ queryKey: ['sessions', 'history'] });
+  qc.invalidateQueries({ queryKey: ['sessions', 'detail'] });
+}
+
+/** Do another catalog exercise instead of the planned one, this session only. */
+export function useSwapExercise() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: ({ sessionId, workoutExerciseId, exerciseId }: SwapExerciseContext & { exerciseId: string }) =>
+      apiFetch<WorkoutSessionResponse>(
+        `/sessions/${sessionId}/exercises/${workoutExerciseId}/swap`,
+        { method: 'PUT', body: JSON.stringify({ exercise_id: exerciseId }) },
+      ),
+    onSuccess: (_data, ctx) => invalidateAfterSwap(qc, ctx),
+  });
+}
+
+/** Go back to the planned exercise. */
+export function useUndoExerciseSwap() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: ({ sessionId, workoutExerciseId }: SwapExerciseContext) =>
+      apiFetch<WorkoutSessionResponse>(
+        `/sessions/${sessionId}/exercises/${workoutExerciseId}/swap`,
+        { method: 'DELETE' },
+      ),
+    onSuccess: (_data, ctx) => invalidateAfterSwap(qc, ctx),
+  });
+}

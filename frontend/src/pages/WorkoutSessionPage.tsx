@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { CheckCircle2 } from 'lucide-react';
+import { ArrowLeftRight, CheckCircle2 } from 'lucide-react';
 import { useWorkout } from '../hooks/useWorkouts';
 import { useExercises } from '../hooks/useExercises';
 import {
@@ -11,13 +11,18 @@ import {
   useSessionsForDay,
   useDeleteExerciseLog,
   useDeleteSession,
+  useSwapExercise,
+  useUndoExerciseSwap,
 } from '../hooks/useSessions';
 import { Spinner } from '../components/Spinner';
+import { ExerciseSwapSheet } from '../components/sessions/ExerciseSwapSheet';
+import { ApiError } from '../lib/api';
 import { DAY_LABEL } from '../lib/days';
 import type {
   TrainingDayResponse,
   WorkoutExerciseResponse,
   ExerciseLogResponse,
+  ExerciseSwapResponse,
 } from '../types/api';
 
 // ---------------------------------------------------------------------------
@@ -398,6 +403,12 @@ interface ExerciseBlockProps {
   onDoneSetsChange: (delta: number) => void;
   extraSets: number;
   onAddExtraSet: () => void;
+  // Planned exercise's name when this session does another one instead.
+  swappedFrom: string | null;
+  canSwap: boolean;
+  onSwap: () => void;
+  onUndoSwap: () => void;
+  undoErrorMessage: string | null;
 }
 
 function ExerciseBlock({
@@ -414,18 +425,71 @@ function ExerciseBlock({
   onDoneSetsChange,
   extraSets,
   onAddExtraSet,
+  swappedFrom,
+  canSwap,
+  onSwap,
+  onUndoSwap,
+  undoErrorMessage,
 }: ExerciseBlockProps) {
   const logsBySet = new Map(logs.map((l) => [l.set_number, l]));
   const totalSets = exercise.sets + extraSets;
+  // The plan's weight belongs to the planned exercise, not to a substitute.
+  const planWeight = swappedFrom ? null : exercise.weight_kg;
 
   return (
     <div style={{ borderRadius: '20px', padding: '18px', background: '#111511', border: '1px solid rgba(255,255,255,0.07)' }}>
-      <div className="mb-3">
-        <h3 style={{ fontSize: '17px', fontWeight: 700, color: 'var(--text)', fontFamily: "'Barlow Semi Condensed', sans-serif", margin: 0 }}>{exerciseName}</h3>
-        <p style={{ fontSize: '12px', color: 'var(--text-muted)', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.5px', marginTop: '4px' }}>
-          {muscleGroup && `${muscleGroup} · `}
-          {exercise.sets} series · {exercise.reps_per_set} reps
-        </p>
+      <div className="mb-3" style={{ display: 'flex', alignItems: 'flex-start', gap: '8px' }}>
+        <div style={{ flex: 1, minWidth: 0 }}>
+          <h3 style={{ fontSize: '17px', fontWeight: 700, color: 'var(--text)', fontFamily: "'Barlow Semi Condensed', sans-serif", margin: 0 }}>{exerciseName}</h3>
+          {swappedFrom && (
+            <p style={{ fontSize: '12px', color: 'var(--neon-green)', fontWeight: 600, marginTop: '2px' }}>
+              <span>En lugar de {swappedFrom}</span>
+              {canSwap && (
+                <>
+                  {' · '}
+                  <button
+                    type="button"
+                    onClick={onUndoSwap}
+                    aria-label={`Deshacer cambio de ${exerciseName}`}
+                    style={{ background: 'none', border: 'none', padding: 0, color: 'var(--text-muted)', fontSize: '12px', fontWeight: 600, textDecoration: 'underline', cursor: 'pointer' }}
+                  >
+                    Deshacer
+                  </button>
+                </>
+              )}
+            </p>
+          )}
+          <p style={{ fontSize: '12px', color: 'var(--text-muted)', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.5px', marginTop: '4px' }}>
+            {muscleGroup && `${muscleGroup} · `}
+            {exercise.sets} series · {exercise.reps_per_set} reps
+          </p>
+          {undoErrorMessage && <p className="text-xs text-danger" style={{ marginTop: '4px' }}>{undoErrorMessage}</p>}
+        </div>
+        {canSwap && (
+          <button
+            type="button"
+            onClick={onSwap}
+            aria-label={`Cambiar ejercicio ${exerciseName}`}
+            style={{
+              display: 'inline-flex',
+              alignItems: 'center',
+              gap: '4px',
+              height: '28px',
+              padding: '0 10px',
+              borderRadius: '10px',
+              background: '#0f130f',
+              border: '1px solid rgba(255,255,255,0.08)',
+              color: 'var(--text-muted)',
+              fontSize: '12px',
+              fontWeight: 600,
+              cursor: 'pointer',
+              flexShrink: 0,
+            }}
+          >
+            <ArrowLeftRight size={14} />
+            Cambiar
+          </button>
+        )}
       </div>
       <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
         {Array.from({ length: totalSets }, (_, i) => i + 1).map((setNum) => {
@@ -437,7 +501,7 @@ function ExerciseBlock({
               exercise={exercise}
               setNumber={setNum}
               suggestedReps={lastLog?.reps_completed ?? exercise.reps_per_set}
-              suggestedWeight={lastLog?.weight_kg ?? exercise.weight_kg}
+              suggestedWeight={lastLog?.weight_kg ?? planWeight}
               isBodyweight={isBodyweight}
               existingLog={logsBySet.get(setNum)}
               workoutId={workoutId}
@@ -484,6 +548,10 @@ export function WorkoutSessionPage() {
   const startSession = useStartSession();
   const completeSession = useCompleteSession();
   const deleteSession = useDeleteSession();
+  const swapExercise = useSwapExercise();
+  const undoSwap = useUndoExerciseSwap();
+  // Planned slot whose replacement is being picked.
+  const [swapSlot, setSwapSlot] = useState<WorkoutExerciseResponse | null>(null);
 
   // Existing sessions for this day — resume an in_progress session instead of
   // creating a zombie duplicate on every page visit.
@@ -839,6 +907,29 @@ export function WorkoutSessionPage() {
     ]),
   );
 
+  // Swaps and logged slots come from the server copy of the active session:
+  // the local `session` snapshot is not refreshed after each mutation.
+  const liveSession = (pastSessions ?? []).find((s) => s.id === session?.id);
+  const loggedSlots = new Set((liveSession?.logs ?? []).map((l) => l.workout_exercise_id));
+  const doneExerciseId = (
+    swaps: ExerciseSwapResponse[] | undefined,
+    exercise: WorkoutExerciseResponse,
+  ) => swaps?.find((s) => s.workout_exercise_id === exercise.id)?.exercise_id ?? exercise.exercise_id;
+
+  function handleSwapSelect(exerciseId: string) {
+    if (!session || !swapSlot) return;
+    swapExercise.mutate(
+      { sessionId: session.id, workoutExerciseId: swapSlot.id, exerciseId, workoutId, dayId },
+      { onSuccess: () => setSwapSlot(null) },
+    );
+  }
+
+  const swapErrorMessage = !swapExercise.isError
+    ? null
+    : swapExercise.error instanceof ApiError && swapExercise.error.status === 409
+      ? 'Ya hay series registradas en este ejercicio. Bórralas para poder cambiarlo.'
+      : 'No se pudo cambiar el ejercicio. Inténtalo de nuevo.';
+
   // Progress bar stats — includes extra sets added during this session
   const totalSets = sortedExercises.reduce((sum, ex) => sum + ex.sets + (extraSetsMap[ex.id] ?? 0), 0);
   const progressPct = totalSets > 0 ? Math.min(100, (doneSets / totalSets) * 100) : 0;
@@ -1081,17 +1172,37 @@ export function WorkoutSessionPage() {
               const exerciseLogs = session.logs.filter(
                 (l) => l.workout_exercise_id === exercise.id,
               );
-              const catalogExercise = exerciseById.get(exercise.exercise_id);
+              const doneId = doneExerciseId(liveSession?.swaps, exercise);
+              const catalogExercise = exerciseById.get(doneId);
+              const plannedExercise = exerciseById.get(exercise.exercise_id);
+              const isSwapped = doneId !== exercise.exercise_id;
+              // Last session's sets only help if it did the same exercise.
+              const sameAsLast = doneExerciseId(lastCompletedSession?.swaps, exercise) === doneId;
               return (
                 <ExerciseBlock
-                  key={exercise.id}
+                  // Remount on swap so set rows re-seed their suggestions.
+                  key={`${exercise.id}:${doneId}`}
                   sessionId={session.id}
                   exercise={exercise}
-                  exerciseName={catalogExercise?.name ?? exercise.exercise_id}
+                  exerciseName={catalogExercise?.name ?? doneId}
                   muscleGroup={catalogExercise?.muscle_group ?? ''}
                   isBodyweight={catalogExercise?.is_bodyweight ?? false}
                   logs={exerciseLogs}
-                  lastSessionLogs={lastSessionLogs}
+                  lastSessionLogs={sameAsLast ? lastSessionLogs : new Map()}
+                  swappedFrom={isSwapped ? (plannedExercise?.name ?? exercise.exercise_id) : null}
+                  canSwap={session.status === 'in_progress' && !loggedSlots.has(exercise.id)}
+                  onSwap={() => {
+                    swapExercise.reset();
+                    setSwapSlot(exercise);
+                  }}
+                  onUndoSwap={() =>
+                    undoSwap.mutate({ sessionId: session.id, workoutExerciseId: exercise.id, workoutId, dayId })
+                  }
+                  undoErrorMessage={
+                    undoSwap.isError && undoSwap.variables?.workoutExerciseId === exercise.id
+                      ? 'No se pudo deshacer el cambio. Inténtalo de nuevo.'
+                      : null
+                  }
                   workoutId={workoutId}
                   dayId={dayId}
                   sessionCompleted={session.status === 'completed'}
@@ -1131,6 +1242,21 @@ export function WorkoutSessionPage() {
             <p className="mt-3 text-xs text-danger text-right">
               {(completeSession.error as Error).message}
             </p>
+          )}
+
+          {swapSlot && (
+            <ExerciseSwapSheet
+              current={exerciseById.get(doneExerciseId(liveSession?.swaps, swapSlot))}
+              currentName={
+                exerciseById.get(doneExerciseId(liveSession?.swaps, swapSlot))?.name ??
+                doneExerciseId(liveSession?.swaps, swapSlot)
+              }
+              catalog={exercises ?? []}
+              isPending={swapExercise.isPending}
+              errorMessage={swapErrorMessage}
+              onSelect={handleSwapSelect}
+              onClose={() => setSwapSlot(null)}
+            />
           )}
         </>
       )}

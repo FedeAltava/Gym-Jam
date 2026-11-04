@@ -43,6 +43,12 @@ export interface ExerciseLogResponse {
   weight_kg: number | null;
 }
 
+// A planned exercise replaced by another catalog exercise for one session only.
+export interface ExerciseSwapResponse {
+  workout_exercise_id: string;
+  exercise_id: string;
+}
+
 export interface WorkoutSessionResponse {
   id: string;
   workout_id: string;
@@ -51,6 +57,7 @@ export interface WorkoutSessionResponse {
   status: 'in_progress' | 'completed';
   completed_at: string | null;
   logs: ExerciseLogResponse[];
+  swaps: ExerciseSwapResponse[];
 }
 
 export interface WorkoutResponse {
