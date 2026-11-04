@@ -108,10 +108,12 @@ async def record_body_weight(
 ) -> BodyWeightEntryResponse:
     """Record the weight for a day; a day that already has one is replaced."""
     cmd = RecordBodyWeightCommand(user_id=user_id, measured_on=measured_on, weight_kg=body.weight_kg)
-    result = await uc.execute(cmd)
-    if isinstance(result, Failure):
-        raise result.failure()
+    # The repository flushes the upsert, so a concurrent first insert for the
+    # same day fails inside execute(), not only at commit.
     try:
+        result = await uc.execute(cmd)
+        if isinstance(result, Failure):
+            raise result.failure()
         await session.commit()
     except IntegrityError:
         await session.rollback()
