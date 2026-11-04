@@ -44,17 +44,19 @@ async def test_list_is_newest_first(client) -> None:
     assert days == sorted(days, reverse=True)
 
 
-async def test_today_and_tomorrow_accepted_day_after_rejected(client) -> None:
+async def test_today_and_tomorrow_accepted_later_days_rejected(client) -> None:
     today = datetime.now(UTC).date()
     tomorrow = (today + timedelta(days=1)).isoformat()
-    day_after = (today + timedelta(days=2)).isoformat()
+    # Three days ahead stays rejected even if UTC midnight passes mid-test;
+    # the exact +1/+2 boundary is pinned by the fixed-clock unit test.
+    later = (today + timedelta(days=3)).isoformat()
 
     assert (await client.put(f"{BW}/{today.isoformat()}", json={"weight_kg": 84.0})).status_code == 200
     # UTC+1 slack: a client ahead of UTC may already be on the next day.
     assert (await client.put(f"{BW}/{tomorrow}", json={"weight_kg": 84.0})).status_code == 200
 
     before = await _snapshot(client)
-    r = await client.put(f"{BW}/{day_after}", json={"weight_kg": 84.0})
+    r = await client.put(f"{BW}/{later}", json={"weight_kg": 84.0})
     assert r.status_code == 422
     assert "future" in r.text.lower()
     assert await _snapshot(client) == before
