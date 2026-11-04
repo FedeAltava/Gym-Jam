@@ -208,3 +208,21 @@ class DietPlanProcessingError(ApplicationError):
         object.__setattr__(self, "reason", reason)
         super().__init__(f"Diet plan processing failed: {reason}")
 
+
+
+@dataclass
+class InvalidBodyWeightError(ApplicationError):
+    message: str
+
+    def __init__(self, message: str) -> None:
+        object.__setattr__(self, "message", message)
+        super().__init__(message)
+
+
+@dataclass
+class BodyWeightEntryNotFoundError(ApplicationError):
+    measured_on: str
+
+    def __init__(self, measured_on: str) -> None:
+        object.__setattr__(self, "measured_on", measured_on)
+        super().__init__(f"No body weight recorded on {measured_on}.")

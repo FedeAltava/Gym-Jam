@@ -1,6 +1,6 @@
 from __future__ import annotations
-from datetime import datetime, UTC
-from sqlalchemy import String, Boolean, Integer, Float, ForeignKey, Text, UniqueConstraint, Index, DateTime, func, text
+from datetime import date, datetime, UTC
+from sqlalchemy import String, Boolean, Integer, Float, ForeignKey, Text, UniqueConstraint, Index, Date, DateTime, func, text
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column, relationship
 
 
@@ -202,6 +202,17 @@ class PasswordResetTokenModel(Base):
     expires_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
     used_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now(), nullable=False)
+
+
+class BodyWeightEntryModel(Base):
+    # One weigh-in per user and day; recording the same day again updates the
+    # row. Kept in sync with migration 022.
+    __tablename__ = "body_weight_entries"
+    user_id: Mapped[str] = mapped_column(
+        String(36), ForeignKey("users.id", ondelete="CASCADE"), primary_key=True
+    )
+    measured_on: Mapped[date] = mapped_column(Date, primary_key=True)
+    weight_kg: Mapped[float] = mapped_column(Float, nullable=False)
 
 
 class DietPlanModel(Base):

@@ -5,6 +5,8 @@ from typing import Literal
 
 from pydantic import BaseModel, Field
 
+from backend.src.application.dtos import BodyWeightEntryDTO
+
 
 class UserPreferencesRequest(BaseModel):
     """Partial update: omitted/None fields are left unchanged."""
@@ -20,3 +22,16 @@ class UserStatsResponse(BaseModel):
     weekly_volume_kg: float
     weekly_sessions: int
     weekly_prs: int
+
+
+class BodyWeightRequest(BaseModel):
+    weight_kg: float = Field(gt=0, le=400)
+
+
+class BodyWeightEntryResponse(BaseModel):
+    measured_on: str  # YYYY-MM-DD
+    weight_kg: float
+
+    @classmethod
+    def from_dto(cls, dto: BodyWeightEntryDTO) -> "BodyWeightEntryResponse":
+        return cls(measured_on=dto.measured_on, weight_kg=dto.weight_kg)

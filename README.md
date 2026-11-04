@@ -177,6 +177,9 @@ Infrastructure (SQLAlchemy, JWT, bcrypt, Redis, SMTP)
 |--------|------|-------------|
 | `GET` | `/users/me/stats` | Aggregate stats: total sessions, streak, PRs, weekly volume |
 | `PATCH` | `/users/me/preferences` | Update rest timer and weight units |
+| `GET` | `/users/me/body-weight` | Body weight history, newest day first |
+| `PUT` | `/users/me/body-weight/{YYYY-MM-DD}` | Record that day's body weight (`{"weight_kg": ...}`, 0 < kg ≤ 400; replaces the day's previous value; future dates → 422) |
+| `DELETE` | `/users/me/body-weight/{YYYY-MM-DD}` | Delete that day's body weight |
 
 ### Exercise catalog
 

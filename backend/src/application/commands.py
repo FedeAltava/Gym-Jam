@@ -209,3 +209,16 @@ class DeleteDietPlanCommand:
 class ListDietPlansQuery:
     user_id: str
 
+
+
+@dataclass(frozen=True)
+class RecordBodyWeightCommand:
+    user_id: str
+    measured_on: date
+    weight_kg: float
+
+
+@dataclass(frozen=True)
+class DeleteBodyWeightCommand:
+    user_id: str
+    measured_on: date

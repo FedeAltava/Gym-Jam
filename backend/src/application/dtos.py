@@ -4,6 +4,7 @@ from dataclasses import dataclass
 from datetime import datetime
 
 from backend.src.domain.aggregates.workout import Workout
+from backend.src.domain.entities.body_weight_entry import BodyWeightEntry
 from backend.src.domain.entities.diet_plan import DietPlan
 from backend.src.domain.entities.exercise import Exercise
 from backend.src.domain.entities.exercise_log import ExerciseLog
@@ -275,3 +276,13 @@ class DietPlanSummaryDTO:
             group_id=plan.group_id,
             person=plan.person,
         )
+
+
+@dataclass(frozen=True)
+class BodyWeightEntryDTO:
+    measured_on: str  # ISO date, YYYY-MM-DD
+    weight_kg: float
+
+    @classmethod
+    def from_entity(cls, entry: BodyWeightEntry) -> "BodyWeightEntryDTO":
+        return cls(measured_on=entry.measured_on.isoformat(), weight_kg=entry.weight_kg)

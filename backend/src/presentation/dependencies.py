@@ -60,6 +60,13 @@ from backend.src.application.use_cases.get_sessions_for_day import GetSessionsFo
 from backend.src.application.use_cases.get_session_history import GetSessionHistoryUseCase
 from backend.src.application.use_cases.get_workout_session import GetWorkoutSessionUseCase
 from backend.src.application.use_cases.get_user_stats import GetUserStatsUseCase
+from backend.src.application.use_cases.body_weight import (
+    DeleteBodyWeightUseCase,
+    ListBodyWeightUseCase,
+    RecordBodyWeightUseCase,
+)
+from backend.src.domain.repositories.body_weight_repository import BodyWeightRepository
+from backend.src.infrastructure.persistence.body_weight_repository import SqlAlchemyBodyWeightRepository
 from backend.src.application.use_cases.forgot_password import ForgotPasswordUseCase
 from backend.src.application.use_cases.reset_password import ResetPasswordUseCase
 from backend.src.application.use_cases.change_password import ChangePasswordUseCase
@@ -411,3 +418,25 @@ def get_delete_diet_plan_use_case(
     repo: DietPlanRepository = Depends(get_diet_plan_repository),
 ) -> DeleteDietPlanUseCase:
     return DeleteDietPlanUseCase(repo=repo)
+
+
+def get_body_weight_repository(session: AsyncSession = Depends(get_session)) -> BodyWeightRepository:
+    return SqlAlchemyBodyWeightRepository(session)
+
+
+def get_record_body_weight_uc(
+    repo: BodyWeightRepository = Depends(get_body_weight_repository),
+) -> RecordBodyWeightUseCase:
+    return RecordBodyWeightUseCase(repo)
+
+
+def get_list_body_weight_uc(
+    repo: BodyWeightRepository = Depends(get_body_weight_repository),
+) -> ListBodyWeightUseCase:
+    return ListBodyWeightUseCase(repo)
+
+
+def get_delete_body_weight_uc(
+    repo: BodyWeightRepository = Depends(get_body_weight_repository),
+) -> DeleteBodyWeightUseCase:
+    return DeleteBodyWeightUseCase(repo)
