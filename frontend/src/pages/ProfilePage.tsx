@@ -7,6 +7,7 @@ import { useActiveWorkout } from '../hooks/useActiveWorkout';
 import { useChangePassword } from '../hooks/useProfile';
 import { useLogout } from '../hooks/useAuth';
 import { Spinner } from '../components/Spinner';
+import { BodyWeightCard } from '../components/profile/BodyWeightCard';
 import { DAY_SHORT } from '../lib/days';
 import type { DayKey } from '../lib/days';
 
@@ -249,6 +250,9 @@ export function ProfilePage() {
           </>
         )}
       </div>
+
+      {/* ─── Body weight ─── */}
+      <BodyWeightCard />
 
       {/* ─── Settings list ─── */}
       <div

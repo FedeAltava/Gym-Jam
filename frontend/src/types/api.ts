@@ -165,3 +165,9 @@ export interface SessionHistoryItemResponse {
   pr_count: number;
   logs: SessionHistoryLogResponse[];
 }
+
+// One body weight measurement per day (kg).
+export interface BodyWeightEntryResponse {
+  measured_on: string; // YYYY-MM-DD
+  weight_kg: number;
+}

@@ -62,6 +62,13 @@ afterEach(() => {
 });
 
 describe('ProfilePage', () => {
+  it('shows the body weight card', async () => {
+    mockApi();
+    renderWithProviders(<ProfilePage />);
+
+    expect(await screen.findByRole('heading', { name: 'Peso corporal' })).toBeInTheDocument();
+  });
+
   it('renders the stats bar with sessions, streak, and PRs from useUserStats', async () => {
     mockApi();
     renderWithProviders(<ProfilePage />);
