@@ -154,7 +154,7 @@ async def test_swap_allowed_again_after_deleting_logged_set(client) -> None:
     assert r.json()["workout_exercise_id"] == ex
     listed = (await client.get(f"/workouts/{wid}/days/{days['MONDAY']}/sessions")).json()
     assert listed[0]["swaps"] == [{"workout_exercise_id": ex, "exercise_id": "dumbbell-fly"}]
-    assert [l["workout_exercise_id"] for l in listed[0]["logs"]] == [ex]
+    assert [log["workout_exercise_id"] for log in listed[0]["logs"]] == [ex]
     assert (await client.delete(f"/sessions/{sid}/exercises/{ex}/swap")).status_code == 409
 
 
