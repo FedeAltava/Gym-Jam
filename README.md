@@ -210,6 +210,8 @@ Infrastructure (SQLAlchemy, JWT, bcrypt, Redis, SMTP)
 | `POST` | `/sessions/{id}/logs` | Log a set (reps + weight) |
 | `PATCH` | `/sessions/{id}/logs/{log_id}` | Update a logged set (partial — only sent fields updated) |
 | `DELETE` | `/sessions/{id}/logs/{log_id}` | Delete a logged set |
+| `PUT` | `/sessions/{id}/exercises/{workout_exercise_id}/swap` | Do another catalog exercise instead of the planned one, this session only (`{"exercise_id": ...}`; 409 once that exercise has logged sets or the session is completed) |
+| `DELETE` | `/sessions/{id}/exercises/{workout_exercise_id}/swap` | Undo a swap: back to the planned exercise |
 | `POST` | `/sessions/{id}/complete` | Complete a session + detect personal records |
 | `DELETE` | `/sessions/{id}` | Delete a session |
 | `GET` | `/sessions` | Session history with filters (status, workout, date range, pagination) |
