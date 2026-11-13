@@ -71,8 +71,11 @@ function NumericInput({
   suffix,
   integer = false,
 }: NumericInputProps) {
+  // Spanish decimals: shown with a comma, typed with a comma or a point.
   const fmt = (v: number) =>
-    integer ? String(Math.round(v)) : Number.isInteger(v) ? String(v) : v.toFixed(1);
+    integer
+      ? String(Math.round(v))
+      : v.toLocaleString('es-ES', { maximumFractionDigits: 2, useGrouping: false });
 
   const [raw, setRaw] = useState(() => fmt(value));
   const [prevValue, setPrevValue] = useState(value);
@@ -82,7 +85,7 @@ function NumericInput({
   }
 
   function commit() {
-    const parsed = parseFloat(raw);
+    const parsed = parseFloat(raw.trim().replace(',', '.'));
     const valid = Number.isFinite(parsed) && parsed >= min;
     const committed = valid ? (integer ? Math.round(parsed) : parsed) : value;
     setRaw(fmt(committed));

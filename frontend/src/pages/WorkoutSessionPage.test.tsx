@@ -257,6 +257,22 @@ describe('WorkoutSessionPage', () => {
     expect(weightInput.value).toBe('20');
   });
 
+  it.each(['12,5', '12.5'])('accepts a decimal weight typed as %s and logs it', async (typed) => {
+    const user = await startSession();
+    const weightInput = within(screen.getAllByRole('group', { name: /Peso kg, serie 1/ })[0]).getByRole(
+      'textbox',
+    ) as HTMLInputElement;
+
+    await user.clear(weightInput);
+    await user.type(weightInput, typed);
+    await user.tab(); // blur to commit
+
+    expect(weightInput.value).toBe('12,5');
+    await user.click(screen.getAllByRole('button', { name: 'Marcar serie 1 como hecha' })[0]);
+    const post = mockApiFetch.mock.calls.find(([path, options]) => path === '/sessions/sess1/logs' && options?.method === 'POST');
+    expect(JSON.parse(post?.[1]?.body as string).weight_kg).toBe(12.5);
+  });
+
   it('hides the weight stepper for bodyweight exercises', async () => {
     await startSession();
 
@@ -705,7 +721,7 @@ describe('Set suggestions from the last time the exercise was done', () => {
     await resumeSession({ lastSets: [lastSet('e1', 1, 9, 90), lastSet('e1', 2, 8, 92.5)] });
 
     await waitFor(() => expect(suggestedSet(1)).toEqual({ reps: '9', weight: '90' }));
-    expect(suggestedSet(2)).toEqual({ reps: '8', weight: '92.5' });
+    expect(suggestedSet(2)).toEqual({ reps: '8', weight: '92,5' });
     // No logged set 3 for this exercise yet: plan values.
     expect(suggestedSet(3)).toEqual({ reps: '10', weight: '80' });
   });
