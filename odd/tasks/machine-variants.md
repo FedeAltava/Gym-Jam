@@ -23,8 +23,8 @@ Branch: `feat/machine-variants` · Delivery: work-unit commits, merge/push on us
 | T1 | S1 catalog migration 023 + seed + test | inline | done | 66740be; RED KeyError → GREEN; Postgres 16: 88→120, downgrade 88, upgrade 120; backend 716 passed |
 | T2 | S3 backend: `GET /exercises/last-sets` | inline (frontend depends on it) | done | 5587661; RED 6 failing (no route) → GREEN; backend 722 passed; ruff clean; mypy unchanged (36 pre-existing) |
 | T3 | S2, S3 frontend: twin button, suggestions from T2, SetRow re-seeds late suggestions | inline (same file as T2's consumer) | done | 6632505 + 2d9ff5f (verifier blocker: stale sheet error inline after closing → reset on close; probes committed); RED 6 failing → GREEN; frontend 295 passed, backend 726; tsc + eslint + ruff clean; not checked in the real app |
-| T4 | Deploy (user runs the script) | user | pending | |
-| T5 | S4 prod routines (dry run, then commit) | inline script, user-authorized | pending | |
+| T4 | Deploy | inline script (user-authorized) | done | main 26079e8 pushed; prod backup ~/backups/gymjam-pre-machine-variants-*.sql.gz; alembic 023 (head); exercises 120 (16 discos + 16 placas); /health ok |
+| T5 | S4 prod routines (dry run, then commit) | inline script, user-authorized | dry run OK, awaiting approval | Fede 12/16/13/16 sets, Belén 12/16/13/16; old routines renamed "(anterior)" and inactive; rolled back |
 
 ## Log
 
