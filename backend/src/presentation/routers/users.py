@@ -23,6 +23,7 @@ from backend.src.application.use_cases.get_user_stats import GetUserStatsUseCase
 from backend.src.application.use_cases.update_user_preferences import UpdateUserPreferencesUseCase
 from backend.src.infrastructure.database import get_session
 from backend.src.presentation.dependencies import (
+    complete_idle_sessions,
     get_current_user_id,
     get_delete_body_weight_uc,
     get_list_body_weight_uc,
@@ -67,7 +68,8 @@ async def update_preferences(
     )
 
 
-@router.get("/users/me/stats", response_model=UserStatsResponse)
+# Idle sessions are completed first so the streak and totals include them.
+@router.get("/users/me/stats", response_model=UserStatsResponse, dependencies=[Depends(complete_idle_sessions)])
 async def get_user_stats(
     user_id: str = Depends(get_current_user_id),
     uc: GetUserStatsUseCase = Depends(get_user_stats_uc),

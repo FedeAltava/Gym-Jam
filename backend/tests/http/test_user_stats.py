@@ -3,13 +3,14 @@ from __future__ import annotations
 
 import uuid
 from collections.abc import AsyncGenerator
-from datetime import UTC, datetime
+from datetime import UTC, datetime, timedelta
 
 import pytest
 from httpx import ASGITransport, AsyncClient
+from sqlalchemy import update
 
 from backend.src.infrastructure.database import get_session
-from backend.src.infrastructure.persistence.models import UserModel
+from backend.src.infrastructure.persistence.models import UserModel, WorkoutLogModel, WorkoutSessionModel
 from backend.src.main import create_app
 from backend.src.presentation.dependencies import get_current_user_id
 
@@ -123,3 +124,49 @@ async def test_get_user_stats_reflects_completed_session(fresh_user_client) -> N
     assert body["total_prs"] == 1  # first-ever weighted log is a PR
     assert body["weekly_prs"] == 1
     assert body["weekly_volume_kg"] == 800.0  # 10 reps × 80 kg
+
+
+async def _session_on_day(client, day: str) -> tuple[str, str]:
+    """Workout with one plan day; start its session and log one set. Returns (session_id, log_id)."""
+    r = await client.post("/workouts", json={"name": "Streak Workout", "training_days": []})
+    wid = r.json()["id"]
+    assert (await client.post(f"/workouts/{wid}/training-days", json={"day_of_week": day})).status_code == 201
+    r = await client.post(f"/workouts/{wid}/training-days/{day}/exercises", json={"exercise_id": "bench-press"})
+    ex_id = r.json()["id"]
+    day_id = (await client.get(f"/workouts/{wid}")).json()["training_days"][0]["id"]
+    session_id = (await client.post(f"/workouts/{wid}/days/{day_id}/sessions", json={})).json()["id"]
+    r = await client.post(
+        f"/sessions/{session_id}/logs",
+        json={"workout_exercise_id": ex_id, "set_number": 1, "reps_completed": 10, "weight_kg": 60.0},
+    )
+    assert r.status_code == 201
+    return session_id, r.json()["id"]
+
+
+async def test_streak_counts_a_routine_day_trained_on_another_date(fresh_user_client) -> None:
+    client = fresh_user_client
+    # The only plan day is yesterday's weekday, trained today instead.
+    yesterday_day = _DAY_NAMES[(datetime.now(UTC).weekday() - 1) % 7]
+    session_id, _ = await _session_on_day(client, yesterday_day)
+    assert (await client.post(f"/sessions/{session_id}/complete")).status_code == 200
+
+    r = await client.get("/users/me/stats")
+
+    assert r.status_code == 200
+    assert r.json()["streak"] == 1
+
+
+async def test_stats_complete_idle_sessions_first(fresh_user_client, session) -> None:
+    client = fresh_user_client
+    session_id, log_id = await _session_on_day(client, _DAY_NAMES[datetime.now(UTC).weekday()])
+    idle_since = datetime.now(UTC) - timedelta(hours=2)
+    await session.execute(update(WorkoutSessionModel).where(WorkoutSessionModel.id == session_id).values(started_at=idle_since))
+    await session.execute(update(WorkoutLogModel).where(WorkoutLogModel.id == log_id).values(created_at=idle_since))
+    await session.commit()
+
+    r = await client.get("/users/me/stats")
+
+    assert r.status_code == 200
+    # The session idle for two hours is completed before the stats are read.
+    assert r.json()["total_sessions"] == 1
+

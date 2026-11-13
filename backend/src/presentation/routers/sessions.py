@@ -1,8 +1,7 @@
 """Sessions router — application layer entry point for workout session endpoints."""
 from __future__ import annotations
 
-import logging
-from datetime import UTC, date, datetime
+from datetime import date
 from typing import Literal
 
 from fastapi import APIRouter, Depends, HTTPException, Query
@@ -21,7 +20,6 @@ from backend.src.application.commands import (
     SwapSessionExerciseCommand,
     UpdateExerciseLogCommand,
 )
-from backend.src.application.use_cases.complete_idle_sessions import CompleteIdleSessionsUseCase
 from backend.src.application.use_cases.complete_workout_session import CompleteWorkoutSessionUseCase
 from backend.src.application.use_cases.delete_exercise_log import DeleteExerciseLogUseCase
 from backend.src.application.use_cases.delete_workout_session import DeleteWorkoutSessionUseCase
@@ -34,7 +32,7 @@ from backend.src.application.use_cases.swap_session_exercise import SwapSessionE
 from backend.src.application.use_cases.update_exercise_log import UpdateExerciseLogUseCase
 from backend.src.infrastructure.database import get_session
 from backend.src.presentation.dependencies import (
-    get_complete_idle_sessions_uc,
+    complete_idle_sessions,
     get_complete_session_uc,
     get_current_user_id,
     get_delete_log_uc,
@@ -57,29 +55,7 @@ from backend.src.presentation.schemas.session_schemas import (
     WorkoutSessionResponse,
 )
 
-logger = logging.getLogger(__name__)
-
 router = APIRouter(redirect_slashes=False)
-
-
-async def complete_idle_sessions(
-    uc: CompleteIdleSessionsUseCase = Depends(get_complete_idle_sessions_uc),
-    user_id: str = Depends(get_current_user_id),
-    session: AsyncSession = Depends(get_session),
-) -> None:
-    """Completes the user's idle sessions before a route lists or starts sessions.
-
-    Best effort: a failed sweep is rolled back and logged so the route still
-    serves the request; the next request retries it.
-    """
-    try:
-        completed = await uc.execute(user_id=user_id, now=datetime.now(UTC))
-        if completed:
-            await session.commit()
-            logger.info("Auto-completed %d idle session(s) for user %s", completed, user_id)
-    except Exception:
-        await session.rollback()
-        logger.warning("Idle session sweep failed for user %s", user_id, exc_info=True)
 
 
 @router.post(

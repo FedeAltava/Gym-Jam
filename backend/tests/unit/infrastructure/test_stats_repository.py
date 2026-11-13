@@ -119,10 +119,10 @@ async def test_active_plan_days_empty_for_new_user(
     assert await repo.get_active_plan_days(user_id) == []
 
 
-# ── get_completed_session_dates ──────────────────────────────────────────────
+# ── get_completed_session_days ───────────────────────────────────────────────
 
 
-async def test_completed_session_dates_filters_status_user_and_since(
+async def test_completed_session_days_filters_status_user_and_since(
     repo: SqlAlchemyStatsRepository, session: AsyncSession
 ) -> None:
     user_id = await _seed_user(session)
@@ -136,10 +136,11 @@ async def test_completed_session_dates_filters_status_user_and_since(
     session.add(_session_model(other_id, ow_id, od_id, NOW, completed=True))
     await session.flush()
 
-    dates = await repo.get_completed_session_dates(user_id, since=NOW.date() - timedelta(days=10))
+    days = await repo.get_completed_session_days(user_id, since=NOW.date() - timedelta(days=10))
 
-    # In-progress, out-of-window, and other users' sessions are excluded.
-    assert dates == {NOW.date()}
+    # In-progress, out-of-window, and other users' sessions are excluded. The
+    # routine day comes from the training day, whatever the session's date.
+    assert days == {(NOW.date(), "MONDAY")}
 
 
 # ── get_aggregates ───────────────────────────────────────────────────────────

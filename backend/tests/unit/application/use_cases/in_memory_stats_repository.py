@@ -13,8 +13,8 @@ class InMemoryStatsRepository(StatsRepository):
     def __init__(self) -> None:
         # day_of_week values ("MONDAY".."SUNDAY") of the active workout.
         self.plan_days: list[str] = []
-        # UTC dates with at least one completed session (seeded per test).
-        self.completed_dates: set[date] = set()
+        # (UTC date, routine day_of_week) of completed sessions (seeded per test).
+        self.completed_days: set[tuple[date, str]] = set()
         self.aggregates = StatsAggregates(
             total_sessions=0,
             total_prs=0,
@@ -29,11 +29,11 @@ class InMemoryStatsRepository(StatsRepository):
     async def get_active_plan_days(self, user_id: str) -> list[str]:
         return list(self.plan_days)
 
-    async def get_completed_session_dates(
+    async def get_completed_session_days(
         self, user_id: str, since: date
-    ) -> set[date]:
+    ) -> set[tuple[date, str]]:
         self.since_seen = since
-        return {d for d in self.completed_dates if d >= since}
+        return {(d, day) for d, day in self.completed_days if d >= since}
 
     async def get_aggregates(
         self, user_id: str, weekly_start: datetime

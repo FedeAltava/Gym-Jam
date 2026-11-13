@@ -22,6 +22,13 @@ THURSDAY = date(2026, 7, 9)
 FRIDAY = date(2026, 7, 10)
 
 QUERY = GetUserStatsQuery(user_id="user-1")
+WEEK = timedelta(days=7)
+_NAMES = ("MONDAY", "TUESDAY", "WEDNESDAY", "THURSDAY", "FRIDAY", "SATURDAY", "SUNDAY")
+
+
+def on_their_day(*dates: date) -> set[tuple[date, str]]:
+    """Sessions done on the date of their own routine day."""
+    return {(d, _NAMES[d.weekday()]) for d in dates}
 
 
 @pytest.fixture
@@ -41,7 +48,7 @@ async def test_streak_zero_when_no_active_workout(
     use_case: GetUserStatsUseCase, stats_repo: InMemoryStatsRepository
 ) -> None:
     stats_repo.plan_days = []
-    stats_repo.completed_dates = {MONDAY, WEDNESDAY}
+    stats_repo.completed_days = on_their_day(MONDAY, WEDNESDAY)
 
     result = await use_case.execute(QUERY, today=FRIDAY)
 
@@ -53,7 +60,7 @@ async def test_streak_zero_when_no_sessions(
     use_case: GetUserStatsUseCase, stats_repo: InMemoryStatsRepository
 ) -> None:
     stats_repo.plan_days = ["MONDAY", "WEDNESDAY", "FRIDAY"]
-    stats_repo.completed_dates = set()
+    stats_repo.completed_days = set()
 
     result = await use_case.execute(QUERY, today=FRIDAY)
 
@@ -65,7 +72,7 @@ async def test_streak_counts_consecutive_plan_days(
     use_case: GetUserStatsUseCase, stats_repo: InMemoryStatsRepository
 ) -> None:
     stats_repo.plan_days = ["MONDAY", "WEDNESDAY", "FRIDAY"]
-    stats_repo.completed_dates = {MONDAY, WEDNESDAY, FRIDAY}
+    stats_repo.completed_days = on_their_day(MONDAY, WEDNESDAY, FRIDAY)
 
     result = await use_case.execute(QUERY, today=FRIDAY)
 
@@ -73,24 +80,61 @@ async def test_streak_counts_consecutive_plan_days(
     assert result.unwrap().streak == 3
 
 
-async def test_streak_breaks_on_missed_plan_day(
+async def test_streak_breaks_on_a_plan_day_missed_in_a_past_week(
     use_case: GetUserStatsUseCase, stats_repo: InMemoryStatsRepository
 ) -> None:
     stats_repo.plan_days = ["MONDAY", "WEDNESDAY", "FRIDAY"]
-    stats_repo.completed_dates = {MONDAY, FRIDAY}  # Wednesday missed
+    # Last week's Wednesday missed; this week only Monday so far.
+    stats_repo.completed_days = on_their_day(MONDAY - WEEK, FRIDAY - WEEK, MONDAY)
+
+    result = await use_case.execute(QUERY, today=WEDNESDAY)
+
+    # This week: Monday counts, today's Wednesday is pending. Last week:
+    # Friday counts, then the missed Wednesday ends the streak.
+    assert result.unwrap().streak == 2
+
+
+async def test_a_routine_day_done_on_another_date_keeps_the_streak(
+    use_case: GetUserStatsUseCase, stats_repo: InMemoryStatsRepository
+) -> None:
+    stats_repo.plan_days = ["MONDAY", "WEDNESDAY", "FRIDAY"]
+    # Monday's routine day done on Tuesday.
+    stats_repo.completed_days = {(TUESDAY, "MONDAY")} | on_their_day(WEDNESDAY, FRIDAY)
 
     result = await use_case.execute(QUERY, today=FRIDAY)
 
-    # Only Friday counts from the end; the walk breaks at the Wednesday gap
-    # before ever reaching Monday.
-    assert result.unwrap().streak == 1
+    assert result.unwrap().streak == 3
+
+
+async def test_days_still_pending_this_week_do_not_break_the_streak(
+    use_case: GetUserStatsUseCase, stats_repo: InMemoryStatsRepository
+) -> None:
+    stats_repo.plan_days = ["MONDAY", "WEDNESDAY", "FRIDAY"]
+    # Last week complete; this week Monday done, Wednesday not done yet.
+    stats_repo.completed_days = on_their_day(MONDAY - WEEK, WEDNESDAY - WEEK, FRIDAY - WEEK, MONDAY)
+
+    result = await use_case.execute(QUERY, today=THURSDAY)
+
+    # Wednesday can still be done this week, so it does not end the streak.
+    assert result.unwrap().streak == 4
+
+
+async def test_two_routine_days_on_the_same_date_both_count(
+    use_case: GetUserStatsUseCase, stats_repo: InMemoryStatsRepository
+) -> None:
+    stats_repo.plan_days = ["MONDAY", "WEDNESDAY", "FRIDAY"]
+    stats_repo.completed_days = {(TUESDAY, "MONDAY"), (TUESDAY, "WEDNESDAY")}
+
+    result = await use_case.execute(QUERY, today=WEDNESDAY)
+
+    assert result.unwrap().streak == 2
 
 
 async def test_streak_ignores_non_plan_days(
     use_case: GetUserStatsUseCase, stats_repo: InMemoryStatsRepository
 ) -> None:
     stats_repo.plan_days = ["MONDAY", "WEDNESDAY"]
-    stats_repo.completed_dates = {MONDAY, WEDNESDAY}
+    stats_repo.completed_days = on_their_day(MONDAY, WEDNESDAY)
 
     # Today is Thursday: Thu (non-plan) and Tue (non-plan) have no sessions —
     # neither breaks the streak.
@@ -103,7 +147,7 @@ async def test_streak_today_pending_does_not_break(
     use_case: GetUserStatsUseCase, stats_repo: InMemoryStatsRepository
 ) -> None:
     stats_repo.plan_days = ["MONDAY", "WEDNESDAY", "FRIDAY"]
-    stats_repo.completed_dates = {MONDAY, WEDNESDAY}  # Friday not trained YET
+    stats_repo.completed_days = on_their_day(MONDAY, WEDNESDAY)  # Friday not trained YET
 
     result = await use_case.execute(QUERY, today=FRIDAY)
 
@@ -118,7 +162,7 @@ async def test_streak_caps_at_365_days(
     stats_repo.plan_days = [
         "MONDAY", "TUESDAY", "WEDNESDAY", "THURSDAY", "FRIDAY", "SATURDAY", "SUNDAY",
     ]
-    stats_repo.completed_dates = {FRIDAY - timedelta(days=i) for i in range(500)}
+    stats_repo.completed_days = on_their_day(*(FRIDAY - timedelta(days=i) for i in range(500)))
 
     result = await use_case.execute(QUERY, today=FRIDAY)
 
@@ -140,7 +184,7 @@ async def test_stats_dto_maps_aggregates(
     use_case: GetUserStatsUseCase, stats_repo: InMemoryStatsRepository
 ) -> None:
     stats_repo.plan_days = ["FRIDAY"]
-    stats_repo.completed_dates = {FRIDAY}
+    stats_repo.completed_days = on_their_day(FRIDAY)
     stats_repo.aggregates = StatsAggregates(
         total_sessions=12,
         total_prs=4,

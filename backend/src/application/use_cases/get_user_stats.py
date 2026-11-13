@@ -56,29 +56,39 @@ class GetUserStatsUseCase:
         )
 
     async def _compute_streak(self, user_id: str, today: date) -> int:
-        """Consecutive plan-days with a completed session, walking back from
-        today. Non-plan days never break the streak; the first plan day
-        without a session ends it — except today, whose session may simply
-        not have happened yet.
+        """Consecutive routine days trained, walking back plan day by plan day.
+
+        A plan day of a week counts as trained when a completed session of
+        that routine day (its training day's day_of_week) started in that
+        week, on whatever date: a Monday trained on Tuesday still counts.
+        Plan days of the current week not trained yet never break the
+        streak, since they can still be trained this week; the first plan
+        day missed in a past week ends it. Non-plan days are ignored.
         """
         plan_days = set(await self._stats_repo.get_active_plan_days(user_id))
         if not plan_days:
             return 0
 
         since = today - timedelta(days=STREAK_LOOKBACK_DAYS - 1)
-        completed = await self._stats_repo.get_completed_session_dates(
-            user_id, since
-        )
+        trained = {
+            (_monday_of(day), routine_day)
+            for day, routine_day in await self._stats_repo.get_completed_session_days(user_id, since)
+        }
+        this_monday = _monday_of(today)
 
         streak = 0
-        for offset in range(STREAK_LOOKBACK_DAYS):
-            day = today - timedelta(days=offset)
-            if _DAY_NAMES[day.weekday()] not in plan_days:
-                continue  # rest day — does not affect the streak
-            if day in completed:
-                streak += 1
-            elif day == today:
-                continue  # today's plan session still pending — don't break
-            else:
-                break  # missed plan day — streak ends here
+        day = this_monday + timedelta(days=6)
+        while day >= since:
+            name = _DAY_NAMES[day.weekday()]
+            if name in plan_days:
+                week = _monday_of(day)
+                if (week, name) in trained:
+                    streak += 1
+                elif week != this_monday:
+                    break  # missed in a finished week — streak ends here
+            day -= timedelta(days=1)
         return streak
+
+
+def _monday_of(day: date) -> date:
+    return day - timedelta(days=day.weekday())

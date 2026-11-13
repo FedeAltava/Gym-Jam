@@ -1,4 +1,5 @@
-from datetime import timedelta
+import logging
+from datetime import UTC, datetime, timedelta
 
 from fastapi import Depends, HTTPException, status
 from fastapi.security import OAuth2PasswordBearer
@@ -455,3 +456,27 @@ def get_last_sets_uc(
     session_repo: SessionRepository = Depends(get_session_repository),
 ) -> GetLastSetsUseCase:
     return GetLastSetsUseCase(session_repo)
+
+
+logger = logging.getLogger(__name__)
+
+
+async def complete_idle_sessions(
+    uc: CompleteIdleSessionsUseCase = Depends(get_complete_idle_sessions_uc),
+    user_id: str = Depends(get_current_user_id),
+    session: AsyncSession = Depends(get_session),
+) -> None:
+    """Completes the user's idle sessions before a route lists or starts sessions,
+    or computes stats from them.
+
+    Best effort: a failed sweep is rolled back and logged so the route still
+    serves the request; the next request retries it.
+    """
+    try:
+        completed = await uc.execute(user_id=user_id, now=datetime.now(UTC))
+        if completed:
+            await session.commit()
+            logger.info("Auto-completed %d idle session(s) for user %s", completed, user_id)
+    except Exception:
+        await session.rollback()
+        logger.warning("Idle session sweep failed for user %s", user_id, exc_info=True)

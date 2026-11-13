@@ -35,20 +35,24 @@ class SqlAlchemyStatsRepository(StatsRepository):
         )
         return list((await self._session.execute(stmt)).scalars().all())
 
-    async def get_completed_session_dates(
+    async def get_completed_session_days(
         self, user_id: str, since: date
-    ) -> set[date]:
-        stmt = select(WorkoutSessionModel.started_at).where(
-            WorkoutSessionModel.user_id == user_id,
-            WorkoutSessionModel.completed_at.is_not(None),
-            WorkoutSessionModel.started_at
-            >= datetime.combine(since, time.min, tzinfo=UTC),
+    ) -> set[tuple[date, str]]:
+        stmt = (
+            select(WorkoutSessionModel.started_at, TrainingDayModel.day_of_week)
+            .join(TrainingDayModel, TrainingDayModel.id == WorkoutSessionModel.training_day_id)
+            .where(
+                WorkoutSessionModel.user_id == user_id,
+                WorkoutSessionModel.completed_at.is_not(None),
+                WorkoutSessionModel.started_at
+                >= datetime.combine(since, time.min, tzinfo=UTC),
+            )
         )
-        rows = (await self._session.execute(stmt)).scalars().all()
+        rows = (await self._session.execute(stmt)).all()
         # SQLite returns naive datetimes (stored as UTC); normalize either way.
         return {
-            (dt.astimezone(UTC) if dt.tzinfo is not None else dt).date()
-            for dt in rows
+            ((started_at.astimezone(UTC) if started_at.tzinfo is not None else started_at).date(), day.upper())
+            for started_at, day in rows
         }
 
     async def get_aggregates(

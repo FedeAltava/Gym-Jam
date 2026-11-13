@@ -29,11 +29,13 @@ class StatsRepository(ABC):
         ...
 
     @abstractmethod
-    async def get_completed_session_dates(
+    async def get_completed_session_days(
         self, user_id: str, since: date
-    ) -> set[date]:
-        """UTC calendar dates (of started_at) on which the user has at least
-        one COMPLETED session, from `since` (inclusive) to today.
+    ) -> set[tuple[date, str]]:
+        """(UTC calendar date of started_at, day_of_week of the session's
+        routine day) of the user's COMPLETED sessions, from `since`
+        (inclusive) to today. The routine day may differ from the weekday
+        of the date when a day is trained on another date.
         """
         ...
 
