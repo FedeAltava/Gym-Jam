@@ -19,6 +19,30 @@ vi.mock('react-router-dom', async (orig) => {
   };
 });
 
+// Deterministic guides: the real Spanish content is checked in exerciseGuides.test.ts.
+const { GUIDE_BY_EXERCISE } = vi.hoisted(() => {
+  const leverage = {
+    id: 'Leverage_Chest_Press',
+    level: 'beginner',
+    primaryMuscles: ['chest'],
+    secondaryMuscles: ['triceps', 'shoulders'],
+    steps: ['Siéntate con la espalda apoyada.', 'Empuja las asas hasta extender los brazos.', 'Vuelve despacio.'],
+    photos: ['/exercise-guides/Leverage_Chest_Press/0.webp', '/exercise-guides/Leverage_Chest_Press/1.webp'],
+  };
+  const machine = {
+    ...leverage,
+    id: 'Machine_Bench_Press',
+    photos: ['/exercise-guides/Machine_Bench_Press/0.webp', '/exercise-guides/Machine_Bench_Press/1.webp'],
+  };
+  return {
+    GUIDE_BY_EXERCISE: { 'chest-press-plate-loaded': leverage, 'chest-press-selectorized': machine } as Record<string, unknown>,
+  };
+});
+vi.mock('../data/exerciseGuides', async (orig) => ({
+  ...(await orig()),
+  getExerciseGuide: (exerciseId: string) => GUIDE_BY_EXERCISE[exerciseId] ?? null,
+}));
+
 import { apiFetch } from '../lib/api';
 const mockApiFetch = apiFetch as ReturnType<typeof vi.fn>;
 
@@ -877,5 +901,115 @@ describe('Switch to the other machine type', () => {
 
     await screen.findByRole('heading', { name: 'Press pecho en máquina (discos)' });
     expect(screen.queryByRole('button', { name: /Cambiar a (placas|discos)/ })).not.toBeInTheDocument();
+  });
+});
+
+// ---------------------------------------------------------------------------
+// How-to guide — photos and steps of the exercise done in the slot
+// ---------------------------------------------------------------------------
+
+describe('How-to guide', () => {
+  afterEach(() => sessionStorage.clear());
+
+  it('opens the how-to sheet with photos, muscles, level and steps', async () => {
+    const user = await resumeSession({ workout: VARIANT_WORKOUT });
+
+    await user.click(await screen.findByRole('button', { name: 'Cómo se hace: Press pecho en máquina (discos)' }));
+
+    const dialog = screen.getByRole('dialog', { name: 'Cómo se hace: Press pecho en máquina (discos)' });
+    expect(within(dialog).getByRole('heading', { name: 'Press pecho en máquina (discos)' })).toBeInTheDocument();
+    expect(within(dialog).getByRole('img', { name: 'Posición inicial' })).toHaveAttribute(
+      'src',
+      '/exercise-guides/Leverage_Chest_Press/0.webp',
+    );
+    expect(within(dialog).getByRole('img', { name: 'Posición final' })).toHaveAttribute(
+      'src',
+      '/exercise-guides/Leverage_Chest_Press/1.webp',
+    );
+    expect(within(dialog).getByText('1 · Inicio')).toBeInTheDocument();
+    expect(within(dialog).getByText('2 · Final')).toBeInTheDocument();
+    const muscles = within(dialog).getByRole('list', { name: 'Músculos' });
+    expect(within(muscles).getAllByRole('listitem').map((li) => li.textContent)).toEqual([
+      'Pecho',
+      'Tríceps',
+      'Hombros',
+      'Principiante',
+    ]);
+    const steps = within(dialog).getByRole('list', { name: 'Pasos' });
+    expect(within(steps).getAllByRole('listitem').map((li) => li.textContent)).toEqual([
+      '1Siéntate con la espalda apoyada.',
+      '2Empuja las asas hasta extender los brazos.',
+      '3Vuelve despacio.',
+    ]);
+    expect(within(dialog).getByText('Fotos y pasos: Free Exercise DB (dominio público)')).toBeInTheDocument();
+
+    await user.click(within(dialog).getByRole('button', { name: 'Entendido' }));
+    expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
+  });
+
+  it('closes the how-to sheet with the close button and by tapping outside', async () => {
+    const user = await resumeSession({ workout: VARIANT_WORKOUT });
+
+    await user.click(await screen.findByRole('button', { name: 'Cómo se hace: Press pecho en máquina (discos)' }));
+    await user.click(within(screen.getByRole('dialog')).getByRole('button', { name: 'Cerrar' }));
+    expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
+
+    await user.click(screen.getByRole('button', { name: 'Cómo se hace: Press pecho en máquina (discos)' }));
+    await user.click(screen.getByRole('dialog'));
+    expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
+  });
+
+  it('shows no photo on the session card', async () => {
+    await resumeSession({ workout: VARIANT_WORKOUT });
+
+    const card = await screen.findByRole('region', { name: 'Ejercicio Press pecho en máquina (discos)' });
+    expect(card.querySelector('img')).toBeNull();
+  });
+
+  it('offers no how-to for an exercise without a guide', async () => {
+    await resumeSession({ workout: VARIANT_WORKOUT });
+
+    await screen.findByRole('heading', { name: 'Dominadas' });
+    expect(screen.queryByRole('button', { name: 'Cómo se hace: Dominadas' })).not.toBeInTheDocument();
+  });
+
+  it('shows the guide of the swapped-in exercise', async () => {
+    const user = await resumeSession({
+      workout: VARIANT_WORKOUT,
+      swaps: [{ workout_exercise_id: 'we1', exercise_id: 'chest-press-selectorized' }],
+    });
+
+    await user.click(await screen.findByRole('button', { name: 'Cómo se hace: Press pecho en máquina (placas)' }));
+
+    expect(
+      within(screen.getByRole('dialog', { name: 'Cómo se hace: Press pecho en máquina (placas)' })).getByRole('img', {
+        name: 'Posición inicial',
+      }),
+    ).toHaveAttribute('src', '/exercise-guides/Machine_Bench_Press/0.webp');
+  });
+
+  it('keeps the how-to once a set of that exercise is logged', async () => {
+    await resumeSession({
+      workout: VARIANT_WORKOUT,
+      logs: [
+        { id: 'l1', session_id: 'sess1', workout_exercise_id: 'we1', set_number: 1, reps_completed: 10, weight_kg: 80 },
+      ],
+    });
+
+    expect(await screen.findByRole('button', { name: 'Cómo se hace: Press pecho en máquina (discos)' })).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'Cambiar ejercicio Press pecho en máquina (discos)' })).not.toBeInTheDocument();
+  });
+
+  it('shows a photo of each exercise in the swap sheet, or a placeholder without one', async () => {
+    const user = await resumeSession({ workout: VARIANT_WORKOUT });
+
+    await user.click(await screen.findByRole('button', { name: 'Cambiar ejercicio Press pecho en máquina (discos)' }));
+
+    const dialog = screen.getByRole('dialog', { name: 'Cambiar Press pecho en máquina (discos)' });
+    const withGuide = within(dialog).getByRole('button', { name: /Press pecho en máquina \(placas\)/ });
+    expect(withGuide.querySelector('img')).toHaveAttribute('src', '/exercise-guides/Machine_Bench_Press/0.webp');
+    const withoutGuide = within(dialog).getByRole('button', { name: /Press banca/ });
+    expect(withoutGuide.querySelector('img')).toBeNull();
+    expect(within(withoutGuide).getByText('Sin foto todavía')).toBeInTheDocument();
   });
 });

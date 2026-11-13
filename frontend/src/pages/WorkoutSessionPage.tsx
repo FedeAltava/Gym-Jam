@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { ArrowLeftRight, CheckCircle2 } from 'lucide-react';
+import { ArrowLeftRight, CheckCircle2, Info } from 'lucide-react';
 import { useWorkout } from '../hooks/useWorkouts';
 import { useExercises, useLastSets } from '../hooks/useExercises';
 import {
@@ -16,7 +16,9 @@ import {
 } from '../hooks/useSessions';
 import { Spinner } from '../components/Spinner';
 import { MainExerciseBadge } from '../components/MainExerciseBadge';
+import { ExerciseHowToSheet } from '../components/sessions/ExerciseHowToSheet';
 import { ExerciseSwapSheet } from '../components/sessions/ExerciseSwapSheet';
+import { getExerciseGuide, type ResolvedExerciseGuide } from '../data/exerciseGuides';
 import { ApiError } from '../lib/api';
 import { DAY_LABEL } from '../lib/days';
 import { machineTwin } from '../lib/machineVariants';
@@ -440,6 +442,8 @@ interface ExerciseBlockProps {
   // The other machine type of this exercise ("discos" / "placas"), if any.
   twinLabel: string | null;
   onSwapToTwin: () => void;
+  // Opens the photos and steps of the exercise done here; null without a guide.
+  onShowHowTo: (() => void) | null;
   errorMessage: string | null;
 }
 
@@ -456,6 +460,14 @@ const swapButtonStyle = {
   fontSize: '12px',
   fontWeight: 600,
   cursor: 'pointer',
+} as const;
+
+const howToButtonStyle = {
+  ...swapButtonStyle,
+  background: 'rgba(43,229,129,0.12)',
+  border: '1px solid rgba(43,229,129,0.35)',
+  color: 'var(--neon-green)',
+  fontWeight: 700,
 } as const;
 
 function ExerciseBlock({
@@ -479,6 +491,7 @@ function ExerciseBlock({
   isMain,
   twinLabel,
   onSwapToTwin,
+  onShowHowTo,
   errorMessage,
 }: ExerciseBlockProps) {
   const logsBySet = new Map(logs.map((l) => [l.set_number, l]));
@@ -528,25 +541,40 @@ function ExerciseBlock({
           </p>
           {errorMessage && <p className="text-xs text-danger" style={{ marginTop: '4px' }}>{errorMessage}</p>}
         </div>
-        {canSwap && (
-          <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: '6px', flexShrink: 0 }}>
+      </div>
+      {(onShowHowTo || canSwap) && (
+        <div className="mb-3" style={{ display: 'flex', flexWrap: 'wrap', gap: '8px' }}>
+          {onShowHowTo && (
             <button
               type="button"
-              onClick={onSwap}
-              aria-label={`Cambiar ejercicio ${exerciseName}`}
-              style={swapButtonStyle}
+              onClick={onShowHowTo}
+              aria-label={`Cómo se hace: ${exerciseName}`}
+              style={howToButtonStyle}
             >
-              <ArrowLeftRight size={14} />
-              Cambiar
+              <Info size={14} />
+              Cómo se hace
             </button>
-            {twinLabel && (
-              <button type="button" onClick={onSwapToTwin} style={swapButtonStyle}>
-                Cambiar a {twinLabel}
+          )}
+          {canSwap && (
+            <>
+              <button
+                type="button"
+                onClick={onSwap}
+                aria-label={`Cambiar ejercicio ${exerciseName}`}
+                style={swapButtonStyle}
+              >
+                <ArrowLeftRight size={14} />
+                Cambiar
               </button>
-            )}
-          </div>
-        )}
-      </div>
+              {twinLabel && (
+                <button type="button" onClick={onSwapToTwin} style={swapButtonStyle}>
+                  Cambiar a {twinLabel}
+                </button>
+              )}
+            </>
+          )}
+        </div>
+      )}
       <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
         {Array.from({ length: totalSets }, (_, i) => i + 1).map((setNum) => {
           const lastLog = lastSets.get(setNum);
@@ -608,6 +636,7 @@ export function WorkoutSessionPage() {
   const undoSwap = useUndoExerciseSwap();
   // Planned slot whose replacement is being picked.
   const [swapSlot, setSwapSlot] = useState<WorkoutExerciseResponse | null>(null);
+  const [howTo, setHowTo] = useState<{ exerciseName: string; guide: ResolvedExerciseGuide } | null>(null);
 
   // Existing sessions for this day — resume an in_progress session instead of
   // creating a zombie duplicate on every page visit.
@@ -1223,13 +1252,15 @@ export function WorkoutSessionPage() {
               const isSwapped = doneId !== exercise.exercise_id;
               const twin = machineTwin(doneId);
               const twinInCatalog = twin !== null && exerciseById.has(twin.id);
+              const exerciseName = catalogExercise?.name ?? doneId;
+              const guide = getExerciseGuide(doneId);
               return (
                 <ExerciseBlock
                   // Remount on swap so set rows re-seed their suggestions.
                   key={`${exercise.id}:${doneId}`}
                   sessionId={session.id}
                   exercise={exercise}
-                  exerciseName={catalogExercise?.name ?? doneId}
+                  exerciseName={exerciseName}
                   muscleGroup={catalogExercise?.muscle_group ?? ''}
                   isBodyweight={catalogExercise?.is_bodyweight ?? false}
                   logs={exerciseLogs}
@@ -1256,6 +1287,7 @@ export function WorkoutSessionPage() {
                       dayId,
                     });
                   }}
+                  onShowHowTo={guide ? () => setHowTo({ exerciseName, guide }) : null}
                   errorMessage={
                     undoSwap.isError && undoSwap.variables?.workoutExerciseId === exercise.id
                       ? 'No se pudo deshacer el cambio. Inténtalo de nuevo.'
@@ -1321,6 +1353,14 @@ export function WorkoutSessionPage() {
                 swapExercise.reset();
                 setSwapSlot(null);
               }}
+            />
+          )}
+
+          {howTo && (
+            <ExerciseHowToSheet
+              exerciseName={howTo.exerciseName}
+              guide={howTo.guide}
+              onClose={() => setHowTo(null)}
             />
           )}
         </>

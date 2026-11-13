@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
-import { X } from 'lucide-react';
+import { ImageOff, X } from 'lucide-react';
+import { getExerciseGuide } from '../../data/exerciseGuides';
 import type { ExerciseResponse } from '../../types/api';
 
 interface ExerciseSwapSheetProps {
@@ -39,6 +40,13 @@ export function ExerciseSwapSheet({
       const mg = a.muscle_group.localeCompare(b.muscle_group);
       return mg !== 0 ? mg : a.name.localeCompare(b.name);
     });
+
+  const thumbnailStyle = {
+    width: '56px',
+    height: '56px',
+    borderRadius: '10px',
+    flexShrink: 0,
+  } as const;
 
   const chip = (selected: boolean) => ({
     height: '28px',
@@ -117,19 +125,52 @@ export function ExerciseSwapSheet({
           {displayed.length === 0 ? (
             <li className="text-sm italic text-muted px-4 py-6">No hay ejercicios disponibles.</li>
           ) : (
-            displayed.map((exercise) => (
-              <li key={exercise.id} className="border-b border-border">
-                <button
-                  type="button"
-                  disabled={isPending}
-                  onClick={() => onSelect(exercise.id)}
-                  className="w-full text-left px-4 py-3 bg-transparent border-none cursor-pointer"
-                >
-                  <span className="block text-sm font-medium text-text truncate">{exercise.name}</span>
-                  <span className="block text-xs text-muted">{exercise.muscle_group}</span>
-                </button>
-              </li>
-            ))
+            displayed.map((exercise) => {
+              const guide = getExerciseGuide(exercise.id);
+              return (
+                <li key={exercise.id} className="border-b border-border">
+                  <button
+                    type="button"
+                    disabled={isPending}
+                    onClick={() => onSelect(exercise.id)}
+                    className="w-full text-left px-4 py-2 bg-transparent border-none cursor-pointer flex items-center gap-3"
+                  >
+                    {guide ? (
+                      <img
+                        src={guide.photos[0]}
+                        alt=""
+                        loading="lazy"
+                        style={{ ...thumbnailStyle, objectFit: 'cover', background: '#EAF0EA' }}
+                      />
+                    ) : (
+                      <span
+                        aria-hidden="true"
+                        className="flex items-center justify-center text-muted"
+                        style={{
+                          ...thumbnailStyle,
+                          background: 'rgba(255,255,255,0.05)',
+                          border: '1px dashed rgba(255,255,255,0.15)',
+                        }}
+                      >
+                        <ImageOff size={20} />
+                      </span>
+                    )}
+                    <span className="min-w-0 flex-1">
+                      <span className="block text-sm font-medium text-text truncate">{exercise.name}</span>
+                      <span className="block text-xs text-muted">
+                        {exercise.muscle_group}
+                        {!guide && (
+                          <>
+                            {' · '}
+                            <span>Sin foto todavía</span>
+                          </>
+                        )}
+                      </span>
+                    </span>
+                  </button>
+                </li>
+              );
+            })
           )}
         </ul>
       </div>
