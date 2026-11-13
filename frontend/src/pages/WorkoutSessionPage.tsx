@@ -396,7 +396,7 @@ interface ExerciseBlockProps {
   muscleGroup: string;
   isBodyweight: boolean;
   logs: ExerciseLogResponse[];
-  lastSessionLogs: Map<string, ExerciseLogResponse>;
+  previousLogs: Map<string, ExerciseLogResponse>;
   workoutId: string;
   dayId: string;
   sessionCompleted: boolean;
@@ -418,7 +418,7 @@ function ExerciseBlock({
   muscleGroup,
   isBodyweight,
   logs,
-  lastSessionLogs,
+  previousLogs,
   workoutId,
   dayId,
   sessionCompleted,
@@ -493,7 +493,7 @@ function ExerciseBlock({
       </div>
       <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
         {Array.from({ length: totalSets }, (_, i) => i + 1).map((setNum) => {
-          const lastLog = lastSessionLogs.get(`${exercise.id}:${setNum}`);
+          const lastLog = previousLogs.get(`${exercise.id}:${setNum}`);
           return (
             <SetRow
               key={setNum}
@@ -891,22 +891,6 @@ export function WorkoutSessionPage() {
 
   const sortedExercises = [...day.exercises].sort((a, b) => a.order - b.order);
 
-  // Pre-fill placeholders from the most recent completed session for this
-  // training day (any calendar date). Falls back to plan values if no history.
-  const lastCompletedSession = (pastSessions ?? [])
-    .filter((s) => s.status === 'completed')
-    .sort(
-      (a, b) =>
-        new Date(b.started_at).getTime() - new Date(a.started_at).getTime(),
-    )[0];
-
-  const lastSessionLogs = new Map(
-    (lastCompletedSession?.logs ?? []).map((l) => [
-      `${l.workout_exercise_id}:${l.set_number}`,
-      l,
-    ]),
-  );
-
   // Swaps and logged slots come from the server copy of the active session:
   // the local `session` snapshot is not refreshed after each mutation.
   const liveSession = (pastSessions ?? []).find((s) => s.id === session?.id);
@@ -915,6 +899,29 @@ export function WorkoutSessionPage() {
     swaps: ExerciseSwapResponse[] | undefined,
     exercise: WorkoutExerciseResponse,
   ) => swaps?.find((s) => s.workout_exercise_id === exercise.id)?.exercise_id ?? exercise.exercise_id;
+
+  // Earlier sessions of this training day (any calendar date), newest first.
+  const earlierSessions = (pastSessions ?? [])
+    .filter((s) => s.id !== session?.id)
+    .sort(
+      (a, b) =>
+        new Date(b.started_at).getTime() - new Date(a.started_at).getTime(),
+    );
+
+  // Pre-fill each set from the latest earlier session that logged it doing the
+  // same exercise, so a skipped or swapped exercise in the last session does
+  // not erase its history. Sets never done fall back to plan values.
+  function previousLogsFor(exercise: WorkoutExerciseResponse, exerciseId: string) {
+    const logs = new Map<string, ExerciseLogResponse>();
+    for (const past of earlierSessions) {
+      if (doneExerciseId(past.swaps, exercise) !== exerciseId) continue;
+      for (const log of past.logs) {
+        const key = `${log.workout_exercise_id}:${log.set_number}`;
+        if (log.workout_exercise_id === exercise.id && !logs.has(key)) logs.set(key, log);
+      }
+    }
+    return logs;
+  }
 
   function handleSwapSelect(exerciseId: string) {
     if (!session || !swapSlot) return;
@@ -1176,8 +1183,6 @@ export function WorkoutSessionPage() {
               const catalogExercise = exerciseById.get(doneId);
               const plannedExercise = exerciseById.get(exercise.exercise_id);
               const isSwapped = doneId !== exercise.exercise_id;
-              // Last session's sets only help if it did the same exercise.
-              const sameAsLast = doneExerciseId(lastCompletedSession?.swaps, exercise) === doneId;
               return (
                 <ExerciseBlock
                   // Remount on swap so set rows re-seed their suggestions.
@@ -1188,7 +1193,7 @@ export function WorkoutSessionPage() {
                   muscleGroup={catalogExercise?.muscle_group ?? ''}
                   isBodyweight={catalogExercise?.is_bodyweight ?? false}
                   logs={exerciseLogs}
-                  lastSessionLogs={sameAsLast ? lastSessionLogs : new Map()}
+                  previousLogs={previousLogsFor(exercise, doneId)}
                   swappedFrom={isSwapped ? (plannedExercise?.name ?? exercise.exercise_id) : null}
                   canSwap={session.status === 'in_progress' && !loggedSlots.has(exercise.id)}
                   onSwap={() => {

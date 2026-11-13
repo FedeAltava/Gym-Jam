@@ -450,7 +450,7 @@ type SwapFixture = { workout_exercise_id: string; exercise_id: string };
 
 /** Resume an in-progress session whose swaps live on a fake server. */
 async function resumeSession(
-  initial: { swaps?: SwapFixture[]; logs?: unknown[] } = {},
+  initial: { swaps?: SwapFixture[]; logs?: unknown[]; history?: unknown[] } = {},
 ) {
   const live = { ...makeSessionFixture(), logs: initial.logs ?? [], swaps: initial.swaps ?? [] };
   sessionStorage.setItem('gymjam:active-session:w1:day1', 'sess1');
@@ -469,7 +469,7 @@ async function resumeSession(
       live.swaps = live.swaps.filter((s) => s.workout_exercise_id !== swap[1]);
       return Promise.resolve(live);
     }
-    if (path.startsWith('/workouts/w1/days/day1/sessions')) return Promise.resolve([live]);
+    if (path.startsWith('/workouts/w1/days/day1/sessions')) return Promise.resolve([live, ...(initial.history ?? [])]);
     if (path.startsWith('/workouts')) return Promise.resolve(WORKOUT_FIXTURE);
     if (path.startsWith('/exercises')) return Promise.resolve(EXERCISES_FIXTURE);
     return Promise.resolve(undefined);
@@ -531,5 +531,87 @@ describe('Exercise swap', () => {
 
     expect(screen.queryByRole('button', { name: 'Cambiar ejercicio Press banca' })).not.toBeInTheDocument();
     expect(screen.getByRole('button', { name: 'Cambiar ejercicio Dominadas' })).toBeInTheDocument();
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Set suggestions — seeded from the latest earlier session that did each set
+// ---------------------------------------------------------------------------
+
+function pastSession(
+  id: string,
+  daysAgo: number,
+  logs: { workout_exercise_id: string; set_number: number; reps_completed: number; weight_kg: number | null }[],
+  swaps: SwapFixture[] = [],
+) {
+  const startedAt = new Date(Date.now() - daysAgo * 86_400_000).toISOString();
+  return {
+    id,
+    workout_id: 'w1',
+    training_day_id: 'day1',
+    started_at: startedAt,
+    status: 'completed',
+    completed_at: startedAt,
+    logs: logs.map((l, i) => ({ id: `${id}-l${i}`, session_id: id, ...l })),
+    swaps,
+  };
+}
+
+function suggestedSet(setNumber: number) {
+  const reps = screen.getAllByRole('group', { name: `Repeticiones, serie ${setNumber}` })[0];
+  const weight = screen.getAllByRole('group', { name: `Peso kg, serie ${setNumber}` })[0];
+  return {
+    reps: (within(reps).getByRole('textbox') as HTMLInputElement).value,
+    weight: (within(weight).getByRole('textbox') as HTMLInputElement).value,
+  };
+}
+
+describe('Set suggestions from earlier sessions', () => {
+  afterEach(() => sessionStorage.clear());
+
+  it('suggests the values logged in the most recent earlier session', async () => {
+    await resumeSession({
+      history: [
+        pastSession('old', 14, [{ workout_exercise_id: 'we1', set_number: 1, reps_completed: 8, weight_kg: 85 }]),
+        pastSession('last', 7, [{ workout_exercise_id: 'we1', set_number: 1, reps_completed: 9, weight_kg: 90 }]),
+      ],
+    });
+
+    expect(suggestedSet(1)).toEqual({ reps: '9', weight: '90' });
+  });
+
+  it('falls back to an older session when the last one skipped the exercise', async () => {
+    await resumeSession({
+      history: [
+        pastSession('old', 14, [{ workout_exercise_id: 'we1', set_number: 1, reps_completed: 8, weight_kg: 85 }]),
+        pastSession('last', 7, [{ workout_exercise_id: 'we2', set_number: 1, reps_completed: 12, weight_kg: null }]),
+      ],
+    });
+
+    expect(suggestedSet(1)).toEqual({ reps: '8', weight: '85' });
+  });
+
+  it('skips a session that swapped the exercise for another one', async () => {
+    await resumeSession({
+      history: [
+        pastSession('old', 14, [{ workout_exercise_id: 'we1', set_number: 1, reps_completed: 8, weight_kg: 85 }]),
+        pastSession(
+          'last',
+          7,
+          [{ workout_exercise_id: 'we1', set_number: 1, reps_completed: 15, weight_kg: 20 }],
+          [{ workout_exercise_id: 'we1', exercise_id: 'e3' }],
+        ),
+      ],
+    });
+
+    expect(suggestedSet(1)).toEqual({ reps: '8', weight: '85' });
+  });
+
+  it('falls back to the plan values when no earlier session did the set', async () => {
+    await resumeSession({
+      history: [pastSession('last', 7, [{ workout_exercise_id: 'we2', set_number: 1, reps_completed: 12, weight_kg: null }])],
+    });
+
+    expect(suggestedSet(1)).toEqual({ reps: '10', weight: '80' });
   });
 });
