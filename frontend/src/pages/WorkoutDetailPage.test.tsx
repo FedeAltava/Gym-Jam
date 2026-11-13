@@ -48,7 +48,7 @@ function makeApiFetchHandler(overrides: Record<string, unknown> = {}) {
     }
 
     if (path === '/exercises' && method === 'GET') {
-      return Promise.resolve([]);
+      return Promise.resolve(overrides['/exercises'] ?? []);
     }
 
     if (path.startsWith('/workouts/w1/days/') && path.endsWith('/sessions') && method === 'GET') {
@@ -83,11 +83,11 @@ function makeApiFetchHandler(overrides: Record<string, unknown> = {}) {
   };
 }
 
-function renderPage(workoutOverride?: Partial<typeof WORKOUT_FIXTURE>) {
+function renderPage(workoutOverride?: Partial<typeof WORKOUT_FIXTURE>, catalog: unknown[] = []) {
   const fixture = workoutOverride
     ? { ...WORKOUT_FIXTURE, ...workoutOverride }
     : WORKOUT_FIXTURE;
-  mockApiFetch.mockImplementation(makeApiFetchHandler({ '/workouts/w1': fixture }));
+  mockApiFetch.mockImplementation(makeApiFetchHandler({ '/workouts/w1': fixture, '/exercises': catalog }));
 
   return renderWithProviders(
     <Routes>
@@ -335,5 +335,57 @@ describe('rename workout', () => {
 
     expect(screen.queryByRole('textbox', { name: 'Nuevo nombre del entrenamiento' })).not.toBeInTheDocument();
     expect(screen.getByRole('heading', { name: 'Mi Rutina' })).toBeInTheDocument();
+  });
+});
+
+describe('exercise how-to from the routine', () => {
+  const planned = (id: string, exercise_id: string, order: number) => ({
+    id, exercise_id, order, sets: 3, reps_per_set: 10, weight_kg: null,
+  });
+  const routine = {
+    training_days: [
+      {
+        id: 'day-mon',
+        day_of_week: 'MONDAY',
+        order: 0,
+        exercises: [planned('we1', 'leg-press-plate-loaded', 1), planned('we2', 'not-in-guides', 2)],
+      },
+    ],
+  } as Partial<typeof WORKOUT_FIXTURE>;
+  const catalog = [
+    { id: 'leg-press-plate-loaded', name: 'Prensa de piernas (discos)', muscle_group: 'Piernas', is_bodyweight: false },
+    { id: 'not-in-guides', name: 'Ejercicio sin guía', muscle_group: 'Piernas', is_bodyweight: false },
+  ];
+
+  it('opens the how-to sheet when tapping an exercise', async () => {
+    const user = userEvent.setup();
+    renderPage(routine, catalog);
+
+    await user.click(await screen.findByRole('button', { name: 'Cómo se hace: Prensa de piernas (discos)' }));
+
+    const dialog = screen.getByRole('dialog', { name: 'Cómo se hace: Prensa de piernas (discos)' });
+    expect(within(dialog).getByRole('img', { name: 'Posición inicial' })).toHaveAttribute(
+      'src',
+      '/exercise-guides/Leg_Press/0.webp',
+    );
+    expect(within(within(dialog).getByRole('list', { name: 'Pasos' })).getAllByRole('listitem').length).toBeGreaterThan(0);
+
+    await user.click(within(dialog).getByRole('button', { name: 'Entendido' }));
+    expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
+  });
+
+  it('does not make an exercise without a guide tappable', async () => {
+    renderPage(routine, catalog);
+
+    expect(await screen.findByText('Ejercicio sin guía')).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'Cómo se hace: Ejercicio sin guía' })).not.toBeInTheDocument();
+  });
+
+  it('offers no way to reorder the exercises and keeps removing them', async () => {
+    renderPage(routine, catalog);
+
+    await screen.findByText('Ejercicio sin guía');
+    expect(screen.queryByRole('button', { name: 'Reordenar ejercicio' })).not.toBeInTheDocument();
+    expect(screen.getAllByRole('button', { name: 'Quitar ejercicio' })).toHaveLength(2);
   });
 });
