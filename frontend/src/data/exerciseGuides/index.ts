@@ -4,12 +4,12 @@ import { GUIDE_ID_BY_EXERCISE } from './catalogMapping';
 import { CHEST_GUIDES } from './chest';
 import { CORE_GUIDES } from './core';
 import { LEGS_GUIDES } from './legs';
-import { OWN_GUIDES } from './own';
+import { OWN_GUIDES, OWN_GUIDE_PHOTOS } from './own';
 import { SHOULDERS_GUIDES } from './shoulders';
 import type { ExerciseGuide, GuideLevel, GuideMuscle } from './types';
 
 export type { ExerciseGuide, GuideLevel, GuideMuscle } from './types';
-export { OWN_GUIDES } from './own';
+export { OWN_GUIDES, OWN_GUIDE_PHOTOS } from './own';
 
 // How-to guides from Free Exercise DB (https://github.com/yuhonas/free-exercise-db,
 // public domain). Photos are self-hosted under public/exercise-guides/<guide id>/.
@@ -28,13 +28,16 @@ const FREE_EXERCISE_DB_CREDIT = 'Fotos y pasos: Free Exercise DB (dominio públi
 
 export interface ResolvedExerciseGuide extends ExerciseGuide {
   id: string;
-  // Start and end position; empty when the guide has no photos yet.
+  // Start and end position, or a single photo; empty when the guide has none yet.
   photos: string[];
-  // Attribution shown with the guide, if any.
+  // CSS aspect ratio of the photos.
+  photoAspect: string;
+  // Attribution shown with the guide, if any, and the link it requires.
   credit: string | null;
+  creditUrl: string | null;
 }
 
-function photoUrl(guideId: string, index: 0 | 1): string {
+function photoUrl(guideId: string, index: number): string {
   return `${import.meta.env.BASE_URL}exercise-guides/${guideId}/${index}.webp`;
 }
 
@@ -43,8 +46,26 @@ export function getExerciseGuide(exerciseId: string): ResolvedExerciseGuide | nu
   const id = GUIDE_ID_BY_EXERCISE[exerciseId];
   const guide = id === undefined ? undefined : GUIDES[id];
   if (id === undefined || guide === undefined) return null;
-  if (FREE_EXERCISE_DB_GUIDES[id] === undefined) return { ...guide, id, photos: [], credit: null };
-  return { ...guide, id, photos: [photoUrl(id, 0), photoUrl(id, 1)], credit: FREE_EXERCISE_DB_CREDIT };
+  if (FREE_EXERCISE_DB_GUIDES[id] !== undefined) {
+    return {
+      ...guide,
+      id,
+      photos: [photoUrl(id, 0), photoUrl(id, 1)],
+      photoAspect: '3 / 2',
+      credit: FREE_EXERCISE_DB_CREDIT,
+      creditUrl: null,
+    };
+  }
+  const own = OWN_GUIDE_PHOTOS[id];
+  if (own === undefined) return { ...guide, id, photos: [], photoAspect: '3 / 2', credit: null, creditUrl: null };
+  return {
+    ...guide,
+    id,
+    photos: Array.from({ length: own.count }, (_, n) => photoUrl(id, n)),
+    photoAspect: own.aspectRatio,
+    credit: own.credit,
+    creditUrl: own.creditUrl,
+  };
 }
 
 export const MUSCLE_LABELS: Record<GuideMuscle, string> = {

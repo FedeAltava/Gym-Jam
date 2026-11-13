@@ -1,5 +1,5 @@
 import { GUIDE_ID_BY_EXERCISE } from './catalogMapping';
-import { FREE_EXERCISE_DB_GUIDES, GUIDES, OWN_GUIDES, getExerciseGuide } from './index';
+import { FREE_EXERCISE_DB_GUIDES, GUIDES, OWN_GUIDES, OWN_GUIDE_PHOTOS, getExerciseGuide } from './index';
 
 // Keys only: the photos are never loaded here.
 const photoFiles = new Set(
@@ -49,13 +49,11 @@ describe('exercise guides', () => {
   it.each([
     'dragon-flag',
     'toe-to-bar',
-    'landmine-press',
     'lateral-raise-machine-plate-loaded',
     'lateral-raise-machine-selectorized',
     'glute-kickback-machine-plate-loaded',
     'glute-kickback-machine-selectorized',
     'push-press',
-    'side-plank',
     'cable-lateral-raise',
   ])('%s has our own guide, without photos', (exerciseId) => {
     const guide = getExerciseGuide(exerciseId);
@@ -74,9 +72,30 @@ describe('exercise guides', () => {
     );
   });
 
-  it.each(Object.keys(OWN_GUIDES))('%s ships no photo files', (id) => {
+  it.each(Object.keys(OWN_GUIDES).filter((id) => OWN_GUIDE_PHOTOS[id] === undefined))('%s ships no photo files', (id) => {
     expect(FREE_EXERCISE_DB_GUIDES[id]).toBeUndefined();
     expect(photoFiles.has(`/exercise-guides/${id}/0.webp`)).toBe(false);
+  });
+
+  it.each(Object.entries(OWN_GUIDE_PHOTOS))('%s ships its photos and their attribution', (id, photos) => {
+    expect(OWN_GUIDES[id]).toBeDefined();
+    for (let n = 0; n < photos.count; n++) expect(photoFiles.has(`/exercise-guides/${id}/${n}.webp`)).toBe(true);
+    expect(photoFiles.has(`/exercise-guides/${id}/${photos.count}.webp`)).toBe(false);
+    expect(photos.credit).toMatch(/^Fotos?: .+, CC BY/);
+    expect(photos.creditUrl).toMatch(/^https:\/\/creativecommons\.org\/licenses\//);
+  });
+
+  it('resolves our own guides with photos, their shape and attribution', () => {
+    const sidePlank = getExerciseGuide('side-plank');
+    expect(sidePlank?.photos).toEqual(['/exercise-guides/side-plank/0.webp']);
+    expect(sidePlank?.photoAspect).toBe('3 / 2');
+    expect(sidePlank?.credit).toBe('Foto: Tyler Read (PTPioneer), CC BY 2.0, redimensionada.');
+    expect(sidePlank?.creditUrl).toBe('https://creativecommons.org/licenses/by/2.0/deed.es');
+    const landmine = getExerciseGuide('landmine-press');
+    expect(landmine?.photos).toEqual(['/exercise-guides/landmine-press/0.webp', '/exercise-guides/landmine-press/1.webp']);
+    expect(landmine?.photoAspect).toBe('3 / 4');
+    expect(getExerciseGuide('leg-press')?.photoAspect).toBe('3 / 2');
+    expect(getExerciseGuide('leg-press')?.creditUrl).toBeNull();
   });
 
   it('has no guide for an exercise outside the catalog', () => {

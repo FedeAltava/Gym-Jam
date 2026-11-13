@@ -98,7 +98,7 @@ export function ExerciseHowToSheet({ exerciseName, guide, onClose }: ExerciseHow
                       alt={alt}
                       style={{
                         width: '100%',
-                        aspectRatio: '3 / 2',
+                        aspectRatio: guide.photoAspect,
                         objectFit: 'cover',
                         borderRadius: '14px',
                         background: '#EAF0EA',
@@ -170,7 +170,17 @@ export function ExerciseHowToSheet({ exerciseName, guide, onClose }: ExerciseHow
             ))}
           </ol>
 
-          {guide.credit && <p style={{ margin: 0, fontSize: '11px', color: 'var(--text-muted)' }}>{guide.credit}</p>}
+          {guide.credit && (
+            <p style={{ margin: 0, fontSize: '11px', color: 'var(--text-muted)' }}>
+              {guide.creditUrl ? (
+                <a href={guide.creditUrl} target="_blank" rel="noreferrer" style={{ color: 'inherit' }}>
+                  {guide.credit}
+                </a>
+              ) : (
+                guide.credit
+              )}
+            </p>
+          )}
           <button
             type="button"
             onClick={onClose}

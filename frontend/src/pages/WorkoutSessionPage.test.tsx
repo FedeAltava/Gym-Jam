@@ -28,7 +28,9 @@ const { GUIDE_BY_EXERCISE } = vi.hoisted(() => {
     secondaryMuscles: ['triceps', 'shoulders'],
     steps: ['Siéntate con la espalda apoyada.', 'Empuja las asas hasta extender los brazos.', 'Vuelve despacio.'],
     photos: ['/exercise-guides/Leverage_Chest_Press/0.webp', '/exercise-guides/Leverage_Chest_Press/1.webp'],
+    photoAspect: '3 / 2',
     credit: 'Fotos y pasos: Free Exercise DB (dominio público)',
+    creditUrl: null,
   };
   const machine = {
     ...leverage,
@@ -37,11 +39,20 @@ const { GUIDE_BY_EXERCISE } = vi.hoisted(() => {
   };
   // Written by us: steps without photos.
   const own = { ...leverage, id: 'dumbbell-fly', photos: [], credit: null };
+  // Written by us, with one licensed photo.
+  const ownWithPhoto = {
+    ...leverage,
+    id: 'barbell-row',
+    photos: ['/exercise-guides/barbell-row/0.webp'],
+    credit: 'Foto: Autora, CC BY 2.0, redimensionada.',
+    creditUrl: 'https://creativecommons.org/licenses/by/2.0/deed.es',
+  };
   return {
     GUIDE_BY_EXERCISE: {
       'chest-press-plate-loaded': leverage,
       'chest-press-selectorized': machine,
       e3: own,
+      e4: ownWithPhoto,
     } as Record<string, unknown>,
   };
 });
@@ -1044,5 +1055,27 @@ describe('How-to guide without photos', () => {
     const row = within(screen.getByRole('dialog')).getByRole('button', { name: /Aperturas con mancuernas/ });
     expect(row.querySelector('img')).toBeNull();
     expect(within(row).getByText('Sin foto todavía')).toBeInTheDocument();
+  });
+});
+
+describe('How-to guide with a licensed photo', () => {
+  afterEach(() => sessionStorage.clear());
+
+  it('shows a single photo and links its attribution to the license', async () => {
+    const user = await resumeSession({ swaps: [{ workout_exercise_id: 'we1', exercise_id: 'e4' }] });
+
+    await user.click(await screen.findByRole('button', { name: 'Cómo se hace: Remo con barra' }));
+
+    const dialog = screen.getByRole('dialog', { name: 'Cómo se hace: Remo con barra' });
+    expect(within(dialog).getAllByRole('img')).toHaveLength(1);
+    expect(within(dialog).getByRole('img', { name: 'Cómo se hace' })).toHaveAttribute(
+      'src',
+      '/exercise-guides/barbell-row/0.webp',
+    );
+    expect(within(dialog).queryByText('1 · Inicio')).not.toBeInTheDocument();
+    expect(within(dialog).getByRole('link', { name: 'Foto: Autora, CC BY 2.0, redimensionada.' })).toHaveAttribute(
+      'href',
+      'https://creativecommons.org/licenses/by/2.0/deed.es',
+    );
   });
 });

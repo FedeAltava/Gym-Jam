@@ -38,6 +38,7 @@ export const OWN_GUIDES: Record<string, ExerciseGuide> = {
       'Aprieta el abdomen y mantén el torso firme, con una ligera inclinación hacia delante que siga la diagonal de la barra.',
       'Espira y empuja la barra arriba y adelante siguiendo su arco hasta estirar el brazo, sin echarte atrás ni girar el tronco.',
       'Baja controlado hasta el hombro y, al acabar la serie, repite con el otro brazo.',
+      'También puedes hacerlo con una rodilla en el suelo, como en las fotos: el movimiento del brazo es el mismo.',
     ],
   },
   'lateral-raise-machine': {
@@ -99,5 +100,33 @@ export const OWN_GUIDES: Record<string, ExerciseGuide> = {
       'Aguanta un instante arriba sin encoger el hombro ni balancear el tronco.',
       'Inspira y baja despacio hasta la posición inicial; al acabar la serie, cambia de brazo.',
     ],
+  },
+};
+
+export interface OwnGuidePhotos {
+  // Files 0.webp (and 1.webp) under public/exercise-guides/<guide id>/.
+  count: 1 | 2;
+  // CSS aspect ratio of the files.
+  aspectRatio: string;
+  // The license asks for the author, the license and a link to it.
+  credit: string;
+  creditUrl: string;
+}
+
+// Licensed photos found for some of our own guides (Wikimedia Commons, Flickr).
+export const OWN_GUIDE_PHOTOS: Record<string, OwnGuidePhotos> = {
+  // https://commons.wikimedia.org/wiki/File:Girl_exercising_side_plank.jpg
+  'side-plank': {
+    count: 1,
+    aspectRatio: '3 / 2',
+    credit: 'Foto: Tyler Read (PTPioneer), CC BY 2.0, redimensionada.',
+    creditUrl: 'https://creativecommons.org/licenses/by/2.0/deed.es',
+  },
+  // https://www.flickr.com/photos/121183998@N08/43839321841 and /42031004610
+  'landmine-press': {
+    count: 2,
+    aspectRatio: '3 / 4',
+    credit: 'Fotos: Eric Astrauskas (PTinTO.com), CC BY 2.0, redimensionadas.',
+    creditUrl: 'https://creativecommons.org/licenses/by/2.0/deed.es',
   },
 };
