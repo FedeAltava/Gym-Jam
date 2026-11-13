@@ -19,9 +19,9 @@ Branch: `feat/machine-variants` · Delivery: work-unit commits, merge/push on us
 
 | ID | Specs | Route | Status | Evidence |
 |----|-------|-------|--------|----------|
-| T1 | S1 catalog migration 023 + seed + test | inline | done (uncommitted) | RED KeyError → GREEN; Postgres 16: 88→120, downgrade 88, upgrade 120; backend 716 passed |
-| T2 | S3 backend: `GET /exercises/last-sets` | inline (frontend depends on it) | done | RED 6 failing (no route) → GREEN; backend 722 passed; ruff clean; mypy unchanged (36 pre-existing) |
-| T3 | S2, S3 frontend: twin button, suggestions from T2, SetRow re-seeds late suggestions | inline (same file as T2's consumer) | pending | |
+| T1 | S1 catalog migration 023 + seed + test | inline | done | 66740be; RED KeyError → GREEN; Postgres 16: 88→120, downgrade 88, upgrade 120; backend 716 passed |
+| T2 | S3 backend: `GET /exercises/last-sets` | inline (frontend depends on it) | done | 5587661; RED 6 failing (no route) → GREEN; backend 722 passed; ruff clean; mypy unchanged (36 pre-existing) |
+| T3 | S2, S3 frontend: twin button, suggestions from T2, SetRow re-seeds late suggestions | inline (same file as T2's consumer) | done | RED 6 failing → GREEN 37/37; frontend 289 passed; tsc + eslint clean; not checked in the real app |
 | T4 | Deploy (user runs the script) | user | pending | |
 | T5 | S4 prod routines (dry run, then commit) | inline script, user-authorized | pending | |
 

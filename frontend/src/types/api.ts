@@ -44,6 +44,13 @@ export interface ExerciseLogResponse {
 }
 
 // A planned exercise replaced by another catalog exercise for one session only.
+export interface LastSetResponse {
+  exercise_id: string;
+  set_number: number;
+  reps_completed: number;
+  weight_kg: number | null;
+}
+
 export interface ExerciseSwapResponse {
   workout_exercise_id: string;
   exercise_id: string;

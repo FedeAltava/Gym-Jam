@@ -80,6 +80,8 @@ const EXERCISES_FIXTURE = [
   { id: 'e2', name: 'Dominadas', muscle_group: 'Espalda', is_bodyweight: true },
   { id: 'e3', name: 'Aperturas con mancuernas', muscle_group: 'Pecho', is_bodyweight: false },
   { id: 'e4', name: 'Remo con barra', muscle_group: 'Espalda', is_bodyweight: false },
+  { id: 'chest-press-plate-loaded', name: 'Press pecho en máquina (discos)', muscle_group: 'Pecho', is_bodyweight: false },
+  { id: 'chest-press-selectorized', name: 'Press pecho en máquina (placas)', muscle_group: 'Pecho', is_bodyweight: false },
 ];
 
 const PREFS_FIXTURE = {
@@ -95,6 +97,7 @@ function mockApi(
     sessions?: unknown[];
     prefs?: unknown;
     postSession?: unknown;
+    lastSets?: unknown[];
   } = {},
 ) {
   mockApiFetch.mockImplementation((path: string, options?: RequestInit) => {
@@ -110,6 +113,9 @@ function mockApi(
     }
     if (path.startsWith('/workouts')) {
       return Promise.resolve(WORKOUT_FIXTURE);
+    }
+    if (path.startsWith('/exercises/last-sets')) {
+      return Promise.resolve(overrides.lastSets ?? []);
     }
     if (path.startsWith('/exercises')) {
       return Promise.resolve(EXERCISES_FIXTURE);
@@ -521,7 +527,13 @@ type SwapFixture = { workout_exercise_id: string; exercise_id: string };
 
 /** Resume an in-progress session whose swaps live on a fake server. */
 async function resumeSession(
-  initial: { swaps?: SwapFixture[]; logs?: unknown[]; history?: unknown[] } = {},
+  initial: {
+    swaps?: SwapFixture[];
+    logs?: unknown[];
+    history?: unknown[];
+    lastSets?: unknown[] | Promise<unknown[]>;
+    workout?: typeof WORKOUT_FIXTURE;
+  } = {},
 ) {
   const live = { ...makeSessionFixture(), logs: initial.logs ?? [], swaps: initial.swaps ?? [] };
   sessionStorage.setItem('gymjam:active-session:w1:day1', 'sess1');
@@ -541,7 +553,8 @@ async function resumeSession(
       return Promise.resolve(live);
     }
     if (path.startsWith('/workouts/w1/days/day1/sessions')) return Promise.resolve([live, ...(initial.history ?? [])]);
-    if (path.startsWith('/workouts')) return Promise.resolve(WORKOUT_FIXTURE);
+    if (path.startsWith('/workouts')) return Promise.resolve(initial.workout ?? WORKOUT_FIXTURE);
+    if (path.startsWith('/exercises/last-sets')) return Promise.resolve(initial.lastSets ?? []);
     if (path.startsWith('/exercises')) return Promise.resolve(EXERCISES_FIXTURE);
     return Promise.resolve(undefined);
   });
@@ -606,26 +619,11 @@ describe('Exercise swap', () => {
 });
 
 // ---------------------------------------------------------------------------
-// Set suggestions — seeded from the latest earlier session that did each set
+// Set suggestions — the latest logged sets of the exercise actually done
 // ---------------------------------------------------------------------------
 
-function pastSession(
-  id: string,
-  daysAgo: number,
-  logs: { workout_exercise_id: string; set_number: number; reps_completed: number; weight_kg: number | null }[],
-  swaps: SwapFixture[] = [],
-) {
-  const startedAt = new Date(Date.now() - daysAgo * 86_400_000).toISOString();
-  return {
-    id,
-    workout_id: 'w1',
-    training_day_id: 'day1',
-    started_at: startedAt,
-    status: 'completed',
-    completed_at: startedAt,
-    logs: logs.map((l, i) => ({ id: `${id}-l${i}`, session_id: id, ...l })),
-    swaps,
-  };
+function lastSet(exercise_id: string, set_number: number, reps_completed: number, weight_kg: number | null) {
+  return { exercise_id, set_number, reps_completed, weight_kg };
 }
 
 function suggestedSet(setNumber: number) {
@@ -637,77 +635,102 @@ function suggestedSet(setNumber: number) {
   };
 }
 
-describe('Session completed by the server', () => {
+describe('Set suggestions from the last time the exercise was done', () => {
   afterEach(() => sessionStorage.clear());
 
-  it('offers a new session once the server completes the open one for inactivity', async () => {
-    const live = { ...makeSessionFixture(), logs: [], swaps: [] as SwapFixture[], completed_at: null as string | null };
-    sessionStorage.setItem('gymjam:active-session:w1:day1', 'sess1');
-    mockApiFetch.mockImplementation((path: string) => {
-      if (path === '/auth/me') return Promise.resolve(PREFS_FIXTURE);
-      if (path.startsWith('/workouts/w1/days/day1/sessions')) return Promise.resolve([{ ...live }]);
-      if (path.startsWith('/workouts')) return Promise.resolve(WORKOUT_FIXTURE);
-      if (path.startsWith('/exercises')) return Promise.resolve(EXERCISES_FIXTURE);
-      return Promise.resolve(undefined);
+  it('asks for the last sets of the exercises done this session', async () => {
+    await resumeSession();
+
+    await waitFor(() => {
+      expect(mockApiFetch).toHaveBeenCalledWith('/exercises/last-sets?exercise_id=e1&exercise_id=e2');
     });
-    const { queryClient } = renderWithProviders(<WorkoutSessionPage />);
-    await screen.findByText('Dominadas');
+  });
 
-    live.status = 'completed';
-    live.completed_at = STARTED_AT;
-    await act(() => queryClient.invalidateQueries({ queryKey: ['sessions'] }));
+  it('suggests each set from the last sets of its exercise', async () => {
+    await resumeSession({ lastSets: [lastSet('e1', 1, 9, 90), lastSet('e1', 2, 8, 92.5)] });
 
-    expect(await screen.findByRole('button', { name: /Iniciar sesión/ })).toBeInTheDocument();
-    expect(screen.queryByLabelText('Tiempo transcurrido')).not.toBeInTheDocument();
+    await waitFor(() => expect(suggestedSet(1)).toEqual({ reps: '9', weight: '90' }));
+    expect(suggestedSet(2)).toEqual({ reps: '8', weight: '92.5' });
+    // No logged set 3 for this exercise yet: plan values.
+    expect(suggestedSet(3)).toEqual({ reps: '10', weight: '80' });
+  });
+
+  it('suggests a swapped exercise from its own last sets', async () => {
+    await resumeSession({
+      swaps: [{ workout_exercise_id: 'we1', exercise_id: 'e3' }],
+      lastSets: [lastSet('e1', 1, 9, 90), lastSet('e3', 1, 12, 20)],
+    });
+
+    await waitFor(() => expect(suggestedSet(1)).toEqual({ reps: '12', weight: '20' }));
+  });
+
+  it('falls back to the plan values when the exercise was never logged', async () => {
+    await resumeSession({ lastSets: [] });
+
+    await waitFor(() => expect(mockApiFetch).toHaveBeenCalledWith(expect.stringContaining('/exercises/last-sets')));
+    expect(suggestedSet(1)).toEqual({ reps: '10', weight: '80' });
+  });
+
+  it('applies suggestions that arrive after the sets are shown, unless the set was edited', async () => {
+    let resolveLastSets: (sets: unknown[]) => void = () => {};
+    const lastSets = new Promise<unknown[]>((resolve) => { resolveLastSets = resolve; });
+    const user = await resumeSession({ lastSets });
+    expect(suggestedSet(1)).toEqual({ reps: '10', weight: '80' });
+    const set2Weight = within(screen.getAllByRole('group', { name: 'Peso kg, serie 2' })[0]).getByRole('textbox');
+    await user.clear(set2Weight);
+    await user.type(set2Weight, '70{Enter}');
+
+    await act(async () => { resolveLastSets([lastSet('e1', 1, 9, 90), lastSet('e1', 2, 8, 95)]); });
+
+    await waitFor(() => expect(suggestedSet(1)).toEqual({ reps: '9', weight: '90' }));
+    expect(suggestedSet(2).weight).toBe('70');
   });
 });
 
-describe('Set suggestions from earlier sessions', () => {
+// ---------------------------------------------------------------------------
+// Machine twin — one tap to the other machine type of the same exercise
+// ---------------------------------------------------------------------------
+
+const VARIANT_WORKOUT = {
+  ...WORKOUT_FIXTURE,
+  training_days: [
+    {
+      ...WORKOUT_FIXTURE.training_days[0],
+      exercises: [
+        { ...WORKOUT_FIXTURE.training_days[0].exercises[0], exercise_id: 'chest-press-plate-loaded' },
+        WORKOUT_FIXTURE.training_days[0].exercises[1],
+      ],
+    },
+  ],
+};
+
+describe('Switch to the other machine type', () => {
   afterEach(() => sessionStorage.clear());
 
-  it('suggests the values logged in the most recent earlier session', async () => {
+  it('switches a plate-loaded machine to its selectorized twin in one tap', async () => {
+    const user = await resumeSession({ workout: VARIANT_WORKOUT });
+
+    await user.click(await screen.findByRole('button', { name: 'Cambiar a placas' }));
+
+    expect(mockApiFetch).toHaveBeenCalledWith('/sessions/sess1/exercises/we1/swap', {
+      method: 'PUT',
+      body: JSON.stringify({ exercise_id: 'chest-press-selectorized' }),
+    });
+    expect(await screen.findByRole('heading', { name: 'Press pecho en máquina (placas)' })).toBeInTheDocument();
+    // Back to the planned machine in one tap too; the generic switch stays.
+    expect(screen.getByRole('button', { name: 'Cambiar a discos' })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Cambiar ejercicio Press pecho en máquina (placas)' })).toBeInTheDocument();
+  });
+
+  it('offers no machine switch for exercises without a twin or with logged sets', async () => {
     await resumeSession({
-      history: [
-        pastSession('old', 14, [{ workout_exercise_id: 'we1', set_number: 1, reps_completed: 8, weight_kg: 85 }]),
-        pastSession('last', 7, [{ workout_exercise_id: 'we1', set_number: 1, reps_completed: 9, weight_kg: 90 }]),
+      workout: VARIANT_WORKOUT,
+      logs: [
+        { id: 'l1', session_id: 'sess1', workout_exercise_id: 'we1', set_number: 1, reps_completed: 10, weight_kg: 40 },
       ],
     });
 
-    expect(suggestedSet(1)).toEqual({ reps: '9', weight: '90' });
-  });
-
-  it('falls back to an older session when the last one skipped the exercise', async () => {
-    await resumeSession({
-      history: [
-        pastSession('old', 14, [{ workout_exercise_id: 'we1', set_number: 1, reps_completed: 8, weight_kg: 85 }]),
-        pastSession('last', 7, [{ workout_exercise_id: 'we2', set_number: 1, reps_completed: 12, weight_kg: null }]),
-      ],
-    });
-
-    expect(suggestedSet(1)).toEqual({ reps: '8', weight: '85' });
-  });
-
-  it('skips a session that swapped the exercise for another one', async () => {
-    await resumeSession({
-      history: [
-        pastSession('old', 14, [{ workout_exercise_id: 'we1', set_number: 1, reps_completed: 8, weight_kg: 85 }]),
-        pastSession(
-          'last',
-          7,
-          [{ workout_exercise_id: 'we1', set_number: 1, reps_completed: 15, weight_kg: 20 }],
-          [{ workout_exercise_id: 'we1', exercise_id: 'e3' }],
-        ),
-      ],
-    });
-
-    expect(suggestedSet(1)).toEqual({ reps: '8', weight: '85' });
-  });
-
-  it('falls back to the plan values when no earlier session did the set', async () => {
-    await resumeSession({
-      history: [pastSession('last', 7, [{ workout_exercise_id: 'we2', set_number: 1, reps_completed: 12, weight_kg: null }])],
-    });
-
-    expect(suggestedSet(1)).toEqual({ reps: '10', weight: '80' });
+    await screen.findByRole('heading', { name: 'Press pecho en máquina (discos)' });
+    expect(screen.queryByRole('button', { name: /Cambiar a (placas|discos)/ })).not.toBeInTheDocument();
   });
 });

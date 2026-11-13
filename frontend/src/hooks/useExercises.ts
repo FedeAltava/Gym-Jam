@@ -1,6 +1,12 @@
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { keepPreviousData, useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { apiFetch } from '../lib/api';
-import type { ExerciseResponse, WorkoutExerciseResponse, TrainingDayResponse, WorkoutResponse } from '../types/api';
+import type {
+  ExerciseResponse,
+  LastSetResponse,
+  WorkoutExerciseResponse,
+  TrainingDayResponse,
+  WorkoutResponse,
+} from '../types/api';
 
 export function useExercises(muscleGroup?: string) {
   return useQuery({
@@ -12,6 +18,23 @@ export function useExercises(muscleGroup?: string) {
       return apiFetch<ExerciseResponse[]>(url);
     },
     staleTime: 1000 * 60 * 5,
+  });
+}
+
+/**
+ * Latest logged set per set number of each exercise, in any routine or day.
+ * Keeps the previous data while a swap changes the requested ids.
+ */
+export function useLastSets(exerciseIds: string[]) {
+  const ids = [...new Set(exerciseIds)].sort();
+  return useQuery({
+    queryKey: ['last-sets', ids],
+    queryFn: () =>
+      apiFetch<LastSetResponse[]>(
+        `/exercises/last-sets?${ids.map((id) => `exercise_id=${encodeURIComponent(id)}`).join('&')}`,
+      ),
+    enabled: ids.length > 0,
+    placeholderData: keepPreviousData,
   });
 }
 

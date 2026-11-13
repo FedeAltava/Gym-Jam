@@ -2,7 +2,7 @@ import { useState, useEffect, useCallback, useRef } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { ArrowLeftRight, CheckCircle2 } from 'lucide-react';
 import { useWorkout } from '../hooks/useWorkouts';
-import { useExercises } from '../hooks/useExercises';
+import { useExercises, useLastSets } from '../hooks/useExercises';
 import {
   useStartSession,
   useLogSet,
@@ -18,11 +18,13 @@ import { Spinner } from '../components/Spinner';
 import { ExerciseSwapSheet } from '../components/sessions/ExerciseSwapSheet';
 import { ApiError } from '../lib/api';
 import { DAY_LABEL } from '../lib/days';
+import { machineTwin } from '../lib/machineVariants';
 import type {
   TrainingDayResponse,
   WorkoutExerciseResponse,
   ExerciseLogResponse,
   ExerciseSwapResponse,
+  LastSetResponse,
 } from '../types/api';
 
 // ---------------------------------------------------------------------------
@@ -33,6 +35,14 @@ function formatElapsed(seconds: number): string {
   const m = Math.floor(seconds / 60);
   const s = seconds % 60;
   return `${String(m).padStart(2, '0')}:${String(s).padStart(2, '0')}`;
+}
+
+/** Catalog exercise actually done in a planned slot: its swap, else the plan. */
+function doneExerciseId(
+  swaps: ExerciseSwapResponse[] | undefined,
+  exercise: WorkoutExerciseResponse,
+): string {
+  return swaps?.find((s) => s.workout_exercise_id === exercise.id)?.exercise_id ?? exercise.exercise_id;
 }
 
 // ---------------------------------------------------------------------------
@@ -173,6 +183,16 @@ function SetRow({
   // Latest known log for this set — seeded from the session, kept in sync locally.
   const [log, setLog] = useState<ExerciseLogResponse | undefined>(existingLog);
 
+  // Suggestions can arrive after the row is shown (they load separately).
+  // Apply them while the set is neither logged nor edited by hand.
+  const [seed, setSeed] = useState({ reps: suggestedReps, weight: suggestedWeight });
+  const [edited, setEdited] = useState(false);
+  if (!edited && !log && (seed.reps !== suggestedReps || seed.weight !== suggestedWeight)) {
+    setSeed({ reps: suggestedReps, weight: suggestedWeight });
+    setReps(suggestedReps);
+    setWeight(suggestedWeight ?? 0);
+  }
+
   const logSet = useLogSet();
   const updateLog = useUpdateLog();
   const deleteLog = useDeleteExerciseLog();
@@ -260,6 +280,7 @@ function SetRow({
 
   function handleRepsChange(newReps: number) {
     setReps(newReps);
+    setEdited(true);
     // If already logged, PATCH immediately
     if (isLogged && log) {
       updateLog.mutate(
@@ -278,6 +299,7 @@ function SetRow({
 
   function handleWeightChange(newWeight: number) {
     setWeight(newWeight);
+    setEdited(true);
     // If already logged, PATCH immediately
     if (isLogged && log) {
       const weightKg = Number.isFinite(newWeight) && newWeight >= 0 ? newWeight : 0;
@@ -396,7 +418,8 @@ interface ExerciseBlockProps {
   muscleGroup: string;
   isBodyweight: boolean;
   logs: ExerciseLogResponse[];
-  previousLogs: Map<string, ExerciseLogResponse>;
+  // Latest logged set per set number of the exercise done in this slot.
+  lastSets: Map<number, LastSetResponse>;
   workoutId: string;
   dayId: string;
   sessionCompleted: boolean;
@@ -408,8 +431,26 @@ interface ExerciseBlockProps {
   canSwap: boolean;
   onSwap: () => void;
   onUndoSwap: () => void;
-  undoErrorMessage: string | null;
+  // The other machine type of this exercise ("discos" / "placas"), if any.
+  twinLabel: string | null;
+  onSwapToTwin: () => void;
+  errorMessage: string | null;
 }
+
+const swapButtonStyle = {
+  display: 'inline-flex',
+  alignItems: 'center',
+  gap: '4px',
+  height: '28px',
+  padding: '0 10px',
+  borderRadius: '10px',
+  background: '#0f130f',
+  border: '1px solid rgba(255,255,255,0.08)',
+  color: 'var(--text-muted)',
+  fontSize: '12px',
+  fontWeight: 600,
+  cursor: 'pointer',
+} as const;
 
 function ExerciseBlock({
   sessionId,
@@ -418,7 +459,7 @@ function ExerciseBlock({
   muscleGroup,
   isBodyweight,
   logs,
-  previousLogs,
+  lastSets,
   workoutId,
   dayId,
   sessionCompleted,
@@ -429,7 +470,9 @@ function ExerciseBlock({
   canSwap,
   onSwap,
   onUndoSwap,
-  undoErrorMessage,
+  twinLabel,
+  onSwapToTwin,
+  errorMessage,
 }: ExerciseBlockProps) {
   const logsBySet = new Map(logs.map((l) => [l.set_number, l]));
   const totalSets = exercise.sets + extraSets;
@@ -463,37 +506,30 @@ function ExerciseBlock({
             {muscleGroup && `${muscleGroup} · `}
             {exercise.sets} series · {exercise.reps_per_set} reps
           </p>
-          {undoErrorMessage && <p className="text-xs text-danger" style={{ marginTop: '4px' }}>{undoErrorMessage}</p>}
+          {errorMessage && <p className="text-xs text-danger" style={{ marginTop: '4px' }}>{errorMessage}</p>}
         </div>
         {canSwap && (
-          <button
-            type="button"
-            onClick={onSwap}
-            aria-label={`Cambiar ejercicio ${exerciseName}`}
-            style={{
-              display: 'inline-flex',
-              alignItems: 'center',
-              gap: '4px',
-              height: '28px',
-              padding: '0 10px',
-              borderRadius: '10px',
-              background: '#0f130f',
-              border: '1px solid rgba(255,255,255,0.08)',
-              color: 'var(--text-muted)',
-              fontSize: '12px',
-              fontWeight: 600,
-              cursor: 'pointer',
-              flexShrink: 0,
-            }}
-          >
-            <ArrowLeftRight size={14} />
-            Cambiar
-          </button>
+          <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: '6px', flexShrink: 0 }}>
+            <button
+              type="button"
+              onClick={onSwap}
+              aria-label={`Cambiar ejercicio ${exerciseName}`}
+              style={swapButtonStyle}
+            >
+              <ArrowLeftRight size={14} />
+              Cambiar
+            </button>
+            {twinLabel && (
+              <button type="button" onClick={onSwapToTwin} style={swapButtonStyle}>
+                Cambiar a {twinLabel}
+              </button>
+            )}
+          </div>
         )}
       </div>
       <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
         {Array.from({ length: totalSets }, (_, i) => i + 1).map((setNum) => {
-          const lastLog = previousLogs.get(`${exercise.id}:${setNum}`);
+          const lastLog = lastSets.get(setNum);
           return (
             <SetRow
               key={setNum}
@@ -610,6 +646,19 @@ export function WorkoutSessionPage() {
   const serverCopy = pastSessions?.find((s) => s.id === newSession?.id);
   if (newSession?.status === 'in_progress' && serverCopy?.status === 'completed') {
     setNewSession(null);
+  }
+
+  // Set suggestions: the latest logged sets of each exercise done this
+  // session, in any routine or day. A swap asks for the new exercise's sets.
+  const plannedExercises = workout?.training_days.find((d) => d.id === dayId)?.exercises ?? [];
+  const { data: lastSets } = useLastSets(
+    newSession ? plannedExercises.map((ex) => doneExerciseId(serverCopy?.swaps, ex)) : [],
+  );
+  const lastSetsByExercise = new Map<string, Map<number, LastSetResponse>>();
+  for (const set of lastSets ?? []) {
+    const bySet = lastSetsByExercise.get(set.exercise_id) ?? new Map<number, LastSetResponse>();
+    bySet.set(set.set_number, set);
+    lastSetsByExercise.set(set.exercise_id, bySet);
   }
 
   // Live timer — wall-clock time since the server's started_at, so it keeps
@@ -892,34 +941,6 @@ export function WorkoutSessionPage() {
   // the local `session` snapshot is not refreshed after each mutation.
   const liveSession = (pastSessions ?? []).find((s) => s.id === session?.id);
   const loggedSlots = new Set((liveSession?.logs ?? []).map((l) => l.workout_exercise_id));
-  const doneExerciseId = (
-    swaps: ExerciseSwapResponse[] | undefined,
-    exercise: WorkoutExerciseResponse,
-  ) => swaps?.find((s) => s.workout_exercise_id === exercise.id)?.exercise_id ?? exercise.exercise_id;
-
-  // Earlier sessions of this training day (any calendar date), newest first.
-  const earlierSessions = (pastSessions ?? [])
-    .filter((s) => s.id !== session?.id)
-    .sort(
-      (a, b) =>
-        new Date(b.started_at).getTime() - new Date(a.started_at).getTime(),
-    );
-
-  // Pre-fill each set from the latest earlier session that logged it doing the
-  // same exercise, so a skipped or swapped exercise in the last session does
-  // not erase its history. Sets never done fall back to plan values.
-  function previousLogsFor(exercise: WorkoutExerciseResponse, exerciseId: string) {
-    const logs = new Map<string, ExerciseLogResponse>();
-    for (const past of earlierSessions) {
-      if (doneExerciseId(past.swaps, exercise) !== exerciseId) continue;
-      for (const log of past.logs) {
-        const key = `${log.workout_exercise_id}:${log.set_number}`;
-        if (log.workout_exercise_id === exercise.id && !logs.has(key)) logs.set(key, log);
-      }
-    }
-    return logs;
-  }
-
   function handleSwapSelect(exerciseId: string) {
     if (!session || !swapSlot) return;
     swapExercise.mutate(
@@ -1180,6 +1201,8 @@ export function WorkoutSessionPage() {
               const catalogExercise = exerciseById.get(doneId);
               const plannedExercise = exerciseById.get(exercise.exercise_id);
               const isSwapped = doneId !== exercise.exercise_id;
+              const twin = machineTwin(doneId);
+              const twinInCatalog = twin !== null && exerciseById.has(twin.id);
               return (
                 <ExerciseBlock
                   // Remount on swap so set rows re-seed their suggestions.
@@ -1190,7 +1213,7 @@ export function WorkoutSessionPage() {
                   muscleGroup={catalogExercise?.muscle_group ?? ''}
                   isBodyweight={catalogExercise?.is_bodyweight ?? false}
                   logs={exerciseLogs}
-                  previousLogs={previousLogsFor(exercise, doneId)}
+                  lastSets={lastSetsByExercise.get(doneId) ?? new Map()}
                   swappedFrom={isSwapped ? (plannedExercise?.name ?? exercise.exercise_id) : null}
                   canSwap={session.status === 'in_progress' && !loggedSlots.has(exercise.id)}
                   onSwap={() => {
@@ -1200,10 +1223,24 @@ export function WorkoutSessionPage() {
                   onUndoSwap={() =>
                     undoSwap.mutate({ sessionId: session.id, workoutExerciseId: exercise.id, workoutId, dayId })
                   }
-                  undoErrorMessage={
+                  twinLabel={twinInCatalog ? twin.label : null}
+                  onSwapToTwin={() => {
+                    if (!twin) return;
+                    swapExercise.reset();
+                    swapExercise.mutate({
+                      sessionId: session.id,
+                      workoutExerciseId: exercise.id,
+                      exerciseId: twin.id,
+                      workoutId,
+                      dayId,
+                    });
+                  }}
+                  errorMessage={
                     undoSwap.isError && undoSwap.variables?.workoutExerciseId === exercise.id
                       ? 'No se pudo deshacer el cambio. Inténtalo de nuevo.'
-                      : null
+                      : !swapSlot && swapExercise.isError && swapExercise.variables?.workoutExerciseId === exercise.id
+                        ? swapErrorMessage
+                        : null
                   }
                   workoutId={workoutId}
                   dayId={dayId}
