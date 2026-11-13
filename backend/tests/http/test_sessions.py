@@ -512,7 +512,7 @@ async def test_add_exercise_without_plan_fields_uses_defaults(client) -> None:
     )
     assert r.status_code == 201
     data = r.json()
-    assert data["sets"] == 4
+    assert data["sets"] == 3
     assert data["reps_per_set"] == 10
     assert data["weight_kg"] is None
 
