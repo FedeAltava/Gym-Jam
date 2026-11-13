@@ -30,7 +30,8 @@ const mockApiFetch = apiFetch as ReturnType<typeof vi.fn>;
  *   - Press banca (weighted): 3 sets at 80 kg, 100 kg, 80 kg
  *   - Dominadas (bodyweight): 3 sets, weight_kg null
  *
- * pr_count: 1 → the set with the highest weight_kg (100 kg) gets the PR badge.
+ * pr_count: 1, records: [Press banca 80 kg × 8] → only the first 80 kg × 8
+ * set (set_number 1) gets the PR badge, not the heaviest 100 kg set.
  * duration_seconds: 3600 → "1h 0min"
  * volume = (8 * 80) + (10 * 100) + (8 * 80) + (12 * 0) * 3
  *        = 640 + 1000 + 640 = 2280
@@ -46,10 +47,14 @@ const SESSION_WITH_PR = {
   status: 'completed' as const,
   duration_seconds: 3600,
   pr_count: 1,
+  records: [
+    { exercise_id: 'bench-press', weight_kg: 80, reps: 8, estimated_one_rep_max_kg: 101.3 },
+  ],
   logs: [
     {
       id: 'log1',
       workout_exercise_id: 'we1',
+      exercise_id: 'bench-press',
       exercise_name: 'Press banca',
       muscle_group: 'Pecho',
       set_number: 1,
@@ -59,6 +64,7 @@ const SESSION_WITH_PR = {
     {
       id: 'log2',
       workout_exercise_id: 'we1',
+      exercise_id: 'bench-press',
       exercise_name: 'Press banca',
       muscle_group: 'Pecho',
       set_number: 2,
@@ -68,6 +74,7 @@ const SESSION_WITH_PR = {
     {
       id: 'log3',
       workout_exercise_id: 'we1',
+      exercise_id: 'bench-press',
       exercise_name: 'Press banca',
       muscle_group: 'Pecho',
       set_number: 3,
@@ -77,6 +84,7 @@ const SESSION_WITH_PR = {
     {
       id: 'log4',
       workout_exercise_id: 'we2',
+      exercise_id: 'pull-up',
       exercise_name: 'Dominadas',
       muscle_group: 'Espalda',
       set_number: 1,
@@ -86,6 +94,7 @@ const SESSION_WITH_PR = {
     {
       id: 'log5',
       workout_exercise_id: 'we2',
+      exercise_id: 'pull-up',
       exercise_name: 'Dominadas',
       muscle_group: 'Espalda',
       set_number: 2,
@@ -95,6 +104,7 @@ const SESSION_WITH_PR = {
     {
       id: 'log6',
       workout_exercise_id: 'we2',
+      exercise_id: 'pull-up',
       exercise_name: 'Dominadas',
       muscle_group: 'Espalda',
       set_number: 3,
@@ -108,6 +118,7 @@ const SESSION_WITH_PR = {
 const SESSION_NO_PR = {
   ...SESSION_WITH_PR,
   pr_count: 0,
+  records: [],
 };
 
 /** Empty history — no previous sessions of the same workout. */
@@ -245,32 +256,80 @@ describe('SessionDetailPage — exercise cards', () => {
 });
 
 describe('SessionDetailPage — PR badge', () => {
-  it('shows PR badge on the set with the maximum weight when pr_count > 0', async () => {
+  function rowOf(badge: HTMLElement): HTMLElement {
+    // The set row is the badge's parent: "Serie N · reps · kg · PR".
+    return badge.parentElement as HTMLElement;
+  }
+
+  it('marks only the record set given by records, not the heaviest set', async () => {
     mockApi();
     renderWithProviders(<SessionDetailPage />);
     await screen.findByText('Press banca');
-    // Only set with 100 kg gets the PR badge
     const prBadges = screen.getAllByText('PR');
     expect(prBadges).toHaveLength(1);
+    const row = rowOf(prBadges[0]);
+    expect(row).toHaveTextContent('Serie 1');
+    expect(row).toHaveTextContent('8 reps');
+    expect(row).toHaveTextContent('80 kg');
+    expect(row).not.toHaveTextContent('100 kg');
   });
 
-  it('PR badge is associated with the 100 kg set (set_number 2)', async () => {
+  it('shows the estimated one-rep max next to the badge', async () => {
     mockApi();
     renderWithProviders(<SessionDetailPage />);
     await screen.findByText('Press banca');
-    // 100 kg row renders alongside the PR badge
-    expect(screen.getByText('100 kg')).toBeInTheDocument();
-    expect(screen.getByText('PR')).toBeInTheDocument();
+    const estimate = screen.getByText('≈ 101 kg');
+    expect(rowOf(estimate)).toHaveTextContent('PR');
+    expect(screen.getAllByText(/≈ \d+ kg/)).toHaveLength(1);
   });
 
-  it('does NOT show PR badge when pr_count is 0', async () => {
+  it('marks only the first set matching the record when several sets share weight and reps', async () => {
+    // 85 kg × 5 is the heaviest set; the record is 80 kg × 12, logged twice.
+    mockApi({
+      ...SESSION_WITH_PR,
+      records: [{ exercise_id: 'bench-press', weight_kg: 80, reps: 12, estimated_one_rep_max_kg: 112.0 }],
+      logs: [
+        { id: 'a', workout_exercise_id: 'we1', exercise_id: 'bench-press', exercise_name: 'Press banca', muscle_group: 'Pecho', set_number: 1, reps_completed: 5, weight_kg: 85 },
+        { id: 'b', workout_exercise_id: 'we1', exercise_id: 'bench-press', exercise_name: 'Press banca', muscle_group: 'Pecho', set_number: 2, reps_completed: 12, weight_kg: 80 },
+        { id: 'c', workout_exercise_id: 'we1', exercise_id: 'bench-press', exercise_name: 'Press banca', muscle_group: 'Pecho', set_number: 3, reps_completed: 12, weight_kg: 80 },
+      ],
+    });
+    renderWithProviders(<SessionDetailPage />);
+    await screen.findByText('Press banca');
+    const prBadges = screen.getAllByText('PR');
+    expect(prBadges).toHaveLength(1);
+    const row = rowOf(prBadges[0]);
+    expect(row).toHaveTextContent('Serie 2');
+    expect(row).toHaveTextContent('12 reps');
+    expect(row).toHaveTextContent('80 kg');
+    expect(row).toHaveTextContent('≈ 112 kg');
+  });
+
+  it('never marks a set of another exercise with the same weight and reps', async () => {
+    mockApi({
+      ...SESSION_WITH_PR,
+      records: [{ exercise_id: 'incline-press', weight_kg: 80, reps: 8, estimated_one_rep_max_kg: 101.3 }],
+      logs: [
+        { id: 'a', workout_exercise_id: 'we1', exercise_id: 'bench-press', exercise_name: 'Press banca', muscle_group: 'Pecho', set_number: 1, reps_completed: 8, weight_kg: 80 },
+        { id: 'b', workout_exercise_id: 'we3', exercise_id: 'incline-press', exercise_name: 'Press inclinado', muscle_group: 'Pecho', set_number: 1, reps_completed: 8, weight_kg: 80 },
+      ],
+    });
+    renderWithProviders(<SessionDetailPage />);
+    await screen.findByText('Press inclinado');
+    const prBadges = screen.getAllByText('PR');
+    expect(prBadges).toHaveLength(1);
+    expect(rowOf(prBadges[0]).closest('[data-exercise]')).toHaveAttribute('data-exercise', 'Press inclinado');
+  });
+
+  it('does NOT show PR badge when records is empty', async () => {
     mockApi(SESSION_NO_PR);
     renderWithProviders(<SessionDetailPage />);
     await screen.findByText('Press banca');
     expect(screen.queryByText('PR')).not.toBeInTheDocument();
+    expect(screen.queryByText(/≈ \d+ kg/)).not.toBeInTheDocument();
   });
 
-  it('renders exactly 2 rows with 80 kg (non-PR sets) and 1 row with 100 kg (PR set)', async () => {
+  it('renders exactly 2 rows with 80 kg and 1 row with 100 kg', async () => {
     mockApi();
     renderWithProviders(<SessionDetailPage />);
     await screen.findByText('Press banca');

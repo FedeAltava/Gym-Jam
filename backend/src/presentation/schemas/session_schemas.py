@@ -9,6 +9,7 @@ from backend.src.application.dtos import (
     PaginatedSessionHistoryDTO,
     SessionHistoryItemDTO,
     SessionHistoryLogDTO,
+    SessionRecordDTO,
     WorkoutSessionDTO,
 )
 
@@ -102,6 +103,8 @@ class WorkoutSessionResponse(BaseModel):
 class SessionHistoryLogResponse(BaseModel):
     id: str
     workout_exercise_id: str
+    # Catalog exercise actually done for this set (a swap replaces the plan's).
+    exercise_id: str
     exercise_name: str
     muscle_group: str | None
     set_number: int
@@ -113,11 +116,29 @@ class SessionHistoryLogResponse(BaseModel):
         return cls(
             id=dto.id,
             workout_exercise_id=dto.workout_exercise_id,
+            exercise_id=dto.exercise_id,
             exercise_name=dto.exercise_name,
             muscle_group=dto.muscle_group,
             set_number=dto.set_number,
             reps_completed=dto.reps_completed,
             weight_kg=dto.weight_kg,
+        )
+
+
+class SessionRecordResponse(BaseModel):
+    exercise_id: str
+    weight_kg: float
+    reps: int
+    # Epley estimate of the record set, rounded to 0.1 kg.
+    estimated_one_rep_max_kg: float
+
+    @classmethod
+    def from_dto(cls, dto: SessionRecordDTO) -> "SessionRecordResponse":
+        return cls(
+            exercise_id=dto.exercise_id,
+            weight_kg=dto.weight_kg,
+            reps=dto.reps,
+            estimated_one_rep_max_kg=dto.estimated_one_rep_max_kg,
         )
 
 
@@ -131,7 +152,10 @@ class SessionHistoryItemResponse(BaseModel):
     completed_at: str | None
     status: str  # "completed" | "in_progress" — derived from completed_at
     # PRs achieved in this session — drives the PR badge in Historial.
+    # Always len(records).
     pr_count: int
+    # The records this session holds, with the exact set that achieved each.
+    records: list[SessionRecordResponse]
     # Whole seconds between started_at and completed_at; null in progress.
     duration_seconds: int | None
     logs: list[SessionHistoryLogResponse]
@@ -148,6 +172,7 @@ class SessionHistoryItemResponse(BaseModel):
             completed_at=dto.completed_at,
             status=dto.status,
             pr_count=dto.pr_count,
+            records=[SessionRecordResponse.from_dto(record) for record in dto.records],
             duration_seconds=dto.duration_seconds,
             logs=[SessionHistoryLogResponse.from_dto(log) for log in dto.logs],
         )

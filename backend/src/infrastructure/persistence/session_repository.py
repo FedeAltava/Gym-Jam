@@ -8,7 +8,12 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
 from backend.src.domain.entities.workout_session import WorkoutSession
-from backend.src.domain.read_models import LastSetSnapshot, SessionLogSnapshot, SessionSnapshot
+from backend.src.domain.read_models import (
+    LastSetSnapshot,
+    SessionLogSnapshot,
+    SessionRecordSnapshot,
+    SessionSnapshot,
+)
 from backend.src.domain.repositories.session_repository import SessionRepository
 from backend.src.domain.value_objects import TrainingDayId, WorkoutId
 from backend.src.domain.value_objects.workout_session_id import WorkoutSessionId
@@ -264,7 +269,7 @@ class SqlAlchemySessionRepository(SessionRepository):
     ) -> SessionSnapshot | None:
         # Single-session read model, scoped by user_id so one user cannot fetch
         # another user's session. Reuses list_history_for_user's enriched query
-        # (workout name, day-of-week, exercise names, PR count) instead of the
+        # (workout name, day-of-week, exercise names, records) instead of the
         # bare aggregate — the detail page needs those joined fields.
         items = await self.list_history_for_user(
             user_id=user_id,
@@ -291,22 +296,12 @@ class SqlAlchemySessionRepository(SessionRepository):
         offset: int,
         session_id: str | None = None,
     ) -> list[SessionSnapshot]:
-        # Exactly two queries, zero N+1.
+        # Exactly three queries, zero N+1.
         #
         # Query 1 — page of sessions with workout name + day-of-week.
         # Column-only select ON PURPOSE: loading WorkoutSessionModel entities
-        # would auto-fire the logs relationship (lazy="selectin") — a third
+        # would auto-fire the logs relationship (lazy="selectin") — another
         # query that cannot carry the exercise-name join.
-        # Pre-grouped PR counts per session, attached via LEFT JOIN so
-        # sessions without PRs still return (pr_count = 0).
-        pr_counts = (
-            select(
-                PersonalRecordModel.session_id.label("session_id"),
-                func.count().label("pr_count"),
-            )
-            .group_by(PersonalRecordModel.session_id)
-            .subquery()
-        )
         stmt = (
             select(
                 WorkoutSessionModel.id,
@@ -316,14 +311,12 @@ class SqlAlchemySessionRepository(SessionRepository):
                 WorkoutSessionModel.completed_at,
                 WorkoutModel.name.label("workout_name"),
                 TrainingDayModel.day_of_week,
-                func.coalesce(pr_counts.c.pr_count, 0).label("pr_count"),
             )
             .join(WorkoutModel, WorkoutSessionModel.workout_id == WorkoutModel.id)
             .join(
                 TrainingDayModel,
                 WorkoutSessionModel.training_day_id == TrainingDayModel.id,
             )
-            .outerjoin(pr_counts, pr_counts.c.session_id == WorkoutSessionModel.id)
             .where(WorkoutSessionModel.user_id == user_id)
             .order_by(WorkoutSessionModel.started_at.desc())
             .limit(limit)
@@ -401,6 +394,7 @@ class SqlAlchemySessionRepository(SessionRepository):
                     SessionLogSnapshot(
                         id=log_row.id,
                         workout_exercise_id=log_row.workout_exercise_id,
+                        exercise_id=log_row.exercise_id,
                         exercise_name=(
                             log_row.exercise_name
                             if log_row.exercise_name is not None
@@ -410,6 +404,31 @@ class SqlAlchemySessionRepository(SessionRepository):
                         set_number=log_row.set_number,
                         reps_completed=log_row.reps_completed,
                         weight_kg=log_row.weight_kg,
+                    )
+                )
+
+        # Query 3 — the personal records the page's sessions hold, one IN
+        # query. pr_count is derived from these rows so it always matches.
+        records_by_session: dict[str, list[SessionRecordSnapshot]] = {
+            sid: [] for sid in session_ids
+        }
+        if session_ids:
+            records_stmt = (
+                select(
+                    PersonalRecordModel.session_id,
+                    PersonalRecordModel.exercise_id,
+                    PersonalRecordModel.weight_kg,
+                    PersonalRecordModel.reps,
+                )
+                .where(PersonalRecordModel.session_id.in_(session_ids))
+                .order_by(PersonalRecordModel.exercise_id)
+            )
+            for record_row in (await self._session.execute(records_stmt)).all():
+                records_by_session[record_row.session_id].append(
+                    SessionRecordSnapshot(
+                        exercise_id=record_row.exercise_id,
+                        weight_kg=record_row.weight_kg,
+                        reps=record_row.reps,
                     )
                 )
 
@@ -423,7 +442,8 @@ class SqlAlchemySessionRepository(SessionRepository):
                 started_at=row.started_at,
                 completed_at=row.completed_at,
                 logs=tuple(logs_by_session[row.id]),
-                pr_count=row.pr_count,
+                pr_count=len(records_by_session[row.id]),
+                records=tuple(records_by_session[row.id]),
             )
             for row in rows
         ]

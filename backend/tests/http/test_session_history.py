@@ -283,10 +283,10 @@ async def test_history_fires_exactly_two_queries(client, engine) -> None:
     assert r.status_code == 200
     assert len(r.json()["items"]) == 2
     assert all(len(s["logs"]) == 1 for s in r.json()["items"])
-    # 4 SELECTs: 1 for the idle-session sweep (finds none here), 1 COUNT for
-    # total, 1 for the session page, 1 IN for logs.
-    # Still O(1) regardless of page size — no N+1.
-    assert len(statements) == 4, f"expected 4 SELECTs, got {len(statements)}: {statements}"
+    # 5 SELECTs: 1 for the idle-session sweep (finds none here), 1 COUNT for
+    # total, 1 for the session page, 1 IN for logs, 1 IN for the records the
+    # page's sessions hold. Still O(1) regardless of page size — no N+1.
+    assert len(statements) == 5, f"expected 5 SELECTs, got {len(statements)}: {statements}"
 
 
 # ── Swapped exercises ─────────────────────────────────────────────────────────
@@ -316,5 +316,11 @@ async def test_history_shows_the_substitute_of_a_swapped_exercise(client) -> Non
         by_slot = {log["workout_exercise_id"]: log for log in item["logs"]}
         assert by_slot[planned_id]["exercise_name"] == "Cruce de poleas"
         assert by_slot[planned_id]["muscle_group"] == "Pecho"
+        assert by_slot[planned_id]["exercise_id"] == "cable-crossover"
         # Slots without a swap still resolve the planned exercise.
         assert by_slot[kept_id]["exercise_name"] == "Sentadilla hack"
+        assert by_slot[kept_id]["exercise_id"] == "hack-squat"
+        # First time for both exercises: the session holds a record for the
+        # substitute, not for the planned exercise.
+        assert [rec["exercise_id"] for rec in item["records"]] == ["cable-crossover", "hack-squat"]
+        assert item["pr_count"] == 2

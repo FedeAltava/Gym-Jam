@@ -23,11 +23,22 @@ class LastSetSnapshot:
 class SessionLogSnapshot:
     id: str
     workout_exercise_id: str
+    # Catalog exercise actually done for this set (a swap replaces the plan's).
+    exercise_id: str
     exercise_name: str
     muscle_group: str | None
     set_number: int
     reps_completed: int
     weight_kg: float | None
+
+
+@dataclass(frozen=True)
+class SessionRecordSnapshot:
+    """A personal record set in a session: the exact set that holds it."""
+
+    exercise_id: str
+    weight_kg: float
+    reps: int
 
 
 @dataclass(frozen=True)
@@ -40,4 +51,6 @@ class SessionSnapshot:
     started_at: datetime
     completed_at: datetime | None
     logs: tuple[SessionLogSnapshot, ...]
+    # Number of records the session holds; always len(records).
     pr_count: int = 0
+    records: tuple[SessionRecordSnapshot, ...] = ()

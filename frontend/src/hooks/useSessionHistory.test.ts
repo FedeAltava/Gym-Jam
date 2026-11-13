@@ -29,6 +29,7 @@ function makeSession(id: string): SessionHistoryItemResponse {
     status: 'completed',
     duration_seconds: 3600,
     pr_count: 0,
+    records: [],
     logs: [],
   };
 }

@@ -9,7 +9,7 @@ from returns.result import Success
 from backend.src.application.commands import GetSessionHistoryQuery
 from backend.src.application.dtos import PaginatedSessionHistoryDTO
 from backend.src.application.use_cases.get_session_history import GetSessionHistoryUseCase
-from backend.src.domain.read_models import SessionLogSnapshot, SessionSnapshot
+from backend.src.domain.read_models import SessionLogSnapshot, SessionRecordSnapshot, SessionSnapshot
 from backend.src.domain.value_objects import TrainingDayId, WorkoutId
 from backend.tests.unit.application.use_cases.in_memory_session_repository import (
     InMemorySessionRepository,
@@ -23,6 +23,7 @@ def _make_snapshot(
     item_id: str = "session-1",
     status: str = "completed",
     logs: tuple[SessionLogSnapshot, ...] = (),
+    records: tuple[SessionRecordSnapshot, ...] = (),
 ) -> SessionSnapshot:
     return SessionSnapshot(
         id=item_id,
@@ -33,6 +34,8 @@ def _make_snapshot(
         started_at=_STARTED,
         completed_at=_COMPLETED if status == "completed" else None,
         logs=logs,
+        pr_count=len(records),
+        records=records,
     )
 
 
@@ -117,6 +120,7 @@ async def test_history_propagates_repo_results_as_dtos(
     log_snap = SessionLogSnapshot(
         id="log-1",
         workout_exercise_id="we-1",
+        exercise_id="bench-press",
         exercise_name="Bench Press",
         muscle_group="Pecho",
         set_number=1,
@@ -138,3 +142,24 @@ async def test_history_propagates_repo_results_as_dtos(
     assert items[0].completed_at is None
     assert items[1].logs[0].exercise_name == "Bench Press"
     assert items[1].logs[0].weight_kg == 80.0
+
+    assert items[1].logs[0].exercise_id == "bench-press"
+
+
+async def test_history_maps_records_with_their_estimated_one_rep_max(
+    use_case: GetSessionHistoryUseCase,
+    session_repo: InMemorySessionRepository,
+) -> None:
+    record = SessionRecordSnapshot(exercise_id="bench-press", weight_kg=80.0, reps=10)
+    session_repo.seed_history([_make_snapshot(records=(record,))])
+
+    result = await use_case.execute(GetSessionHistoryQuery(user_id="user-1"))
+    assert isinstance(result, Success)
+    item = result.unwrap().items[0]
+    assert item.pr_count == 1
+    assert len(item.records) == 1
+    assert item.records[0].exercise_id == "bench-press"
+    assert item.records[0].weight_kg == 80.0
+    assert item.records[0].reps == 10
+    # Epley 80 × (1 + 10/30) = 106.666… rounded to 0.1 kg.
+    assert item.records[0].estimated_one_rep_max_kg == 106.7

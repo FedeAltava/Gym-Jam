@@ -157,11 +157,24 @@ class ExerciseSwapDTO:
 class SessionHistoryLogDTO:
     id: str
     workout_exercise_id: str
+    # Catalog exercise actually done for this set (a swap replaces the plan's).
+    exercise_id: str
     exercise_name: str
     muscle_group: str | None
     set_number: int
     reps_completed: int
     weight_kg: float | None
+
+
+@dataclass(frozen=True)
+class SessionRecordDTO:
+    """A personal record this session holds, with the set that achieved it."""
+
+    exercise_id: str
+    weight_kg: float
+    reps: int
+    # Epley estimate of the record set, rounded to 0.1 kg.
+    estimated_one_rep_max_kg: float
 
 
 @dataclass(frozen=True)
@@ -175,8 +188,9 @@ class SessionHistoryItemDTO:
     completed_at: str | None
     status: str
     logs: tuple[SessionHistoryLogDTO, ...]
-    # PRs achieved in this session (personal_records.session_id count).
+    # PRs achieved in this session; always len(records).
     pr_count: int = 0
+    records: tuple[SessionRecordDTO, ...] = ()
     # completed_at - started_at in whole seconds; None while in progress.
     duration_seconds: int | None = None
 

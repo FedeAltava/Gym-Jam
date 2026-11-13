@@ -226,3 +226,37 @@ async def test_swapped_exercise_records_pr_for_the_substitute(client) -> None:
     s4, _ = await start_session_with_log(client, wid2, day2, ex2, 20.0, reps=15)
     assert (await client.post(f"/sessions/{s4}/complete", json={})).status_code == 200
     assert await pr_count_for(client, s4) == 1
+
+
+# ── GET /sessions/{id} — the records a session holds ─────────────────────────
+
+
+async def test_session_detail_returns_the_records_it_holds(client) -> None:
+    wid, day_id = await create_workout_with_day(client, "SUNDAY")
+    ex_id = await add_exercise_to_day(client, wid, "SUNDAY", "bench-press")
+
+    s1, _ = await start_session_with_log(client, wid, day_id, ex_id, 80.0, reps=8)
+    assert (await client.post(f"/sessions/{s1}/complete", json={})).status_code == 200
+    # 80 kg × 12 (112 kg) beats 80 kg × 8 (≈ 101 kg): the record moves to s2.
+    s2, _ = await start_session_with_log(client, wid, day_id, ex_id, 80.0, reps=12)
+    assert (await client.post(f"/sessions/{s2}/complete", json={})).status_code == 200
+
+    r = await client.get(f"/sessions/{s2}")
+    assert r.status_code == 200
+    detail = r.json()
+    assert detail["records"] == [
+        {"exercise_id": "bench-press", "weight_kg": 80.0, "reps": 12, "estimated_one_rep_max_kg": 112.0}
+    ]
+    assert detail["pr_count"] == 1
+    assert [log["exercise_id"] for log in detail["logs"]] == ["bench-press"]
+
+    # The beaten session no longer holds the record.
+    beaten = (await client.get(f"/sessions/{s1}")).json()
+    assert beaten["records"] == []
+    assert beaten["pr_count"] == 0
+    assert [log["exercise_id"] for log in beaten["logs"]] == ["bench-press"]
+
+    # The history list carries the same records as the detail.
+    listed = {s["id"]: s for s in (await client.get("/sessions", params={"page_size": 100})).json()["items"]}
+    assert listed[s2]["records"] == detail["records"]
+    assert listed[s1]["records"] == []

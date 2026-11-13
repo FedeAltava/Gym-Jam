@@ -146,6 +146,8 @@ export interface UserStats {
 export interface SessionHistoryLogResponse {
   id: string;
   workout_exercise_id: string;
+  // Catalog exercise actually done for this set (a swap replaces the plan's).
+  exercise_id: string;
   exercise_name: string;
   muscle_group: string | null;
   set_number: number;
@@ -160,6 +162,15 @@ export interface SessionHistoryResponse {
   page_size: number;
 }
 
+// A personal record a session holds, with the exact set that achieved it.
+export interface SessionRecordResponse {
+  exercise_id: string;
+  weight_kg: number;
+  reps: number;
+  // Epley estimate of the record set, rounded to 0.1 kg.
+  estimated_one_rep_max_kg: number;
+}
+
 export interface SessionHistoryItemResponse {
   id: string;
   workout_id: string;
@@ -170,7 +181,9 @@ export interface SessionHistoryItemResponse {
   completed_at: string | null;
   status: 'completed' | 'in_progress';
   duration_seconds: number | null;
+  // Always records.length.
   pr_count: number;
+  records: SessionRecordResponse[];
   logs: SessionHistoryLogResponse[];
 }
 

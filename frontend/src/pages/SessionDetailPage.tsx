@@ -5,7 +5,11 @@ import { useSessionDetail, useSessionHistory } from '../hooks/useSessionHistory'
 import { Spinner } from '../components/Spinner';
 import { DAY_LABEL } from '../lib/days';
 import type { DayKey } from '../lib/days';
-import type { SessionHistoryItemResponse, SessionHistoryLogResponse } from '../types/api';
+import type {
+  SessionHistoryItemResponse,
+  SessionHistoryLogResponse,
+  SessionRecordResponse,
+} from '../types/api';
 
 // ---------------------------------------------------------------------------
 // Helpers
@@ -35,6 +39,33 @@ function formatDuration(seconds: number | null): string {
 
 function computeVolume(logs: SessionHistoryItemResponse['logs']): number {
   return logs.reduce((sum, l) => sum + (l.reps_completed * (l.weight_kg ?? 0)), 0);
+}
+
+function formatEstimate(kg: number): string {
+  return `≈ ${Math.round(kg)} kg`;
+}
+
+/**
+ * Log id → estimated one-rep max of the record that set holds. Each record
+ * marks exactly one set: the first one (lowest set_number) of its exercise
+ * with the record's weight and reps.
+ */
+function findRecordSets(
+  logs: SessionHistoryLogResponse[],
+  records: SessionRecordResponse[],
+): Map<string, number> {
+  const bySetNumber = [...logs].sort((a, b) => a.set_number - b.set_number);
+  const estimates = new Map<string, number>();
+  for (const record of records) {
+    const set = bySetNumber.find(
+      (l) =>
+        l.exercise_id === record.exercise_id &&
+        l.weight_kg === record.weight_kg &&
+        l.reps_completed === record.reps,
+    );
+    if (set) estimates.set(set.id, record.estimated_one_rep_max_kg);
+  }
+  return estimates;
 }
 
 /** Group logs by exercise_name, preserving set order. */
@@ -485,16 +516,15 @@ interface ExerciseCardProps {
   name: string;
   muscleGroup: string | null;
   sets: SessionHistoryLogResponse[];
-  /** Max weight (kg) across ALL exercises in the session; -1 when no PRs. */
-  sessionMaxWeight: number;
+  /** Log id → estimated one-rep max, for the sets that hold a record. */
+  recordEstimates: Map<string, number>;
   onOpenProgress: () => void;
 }
 
-function ExerciseCard({ name, muscleGroup, sets, sessionMaxWeight, onOpenProgress }: ExerciseCardProps) {
-  const maxWeight = sessionMaxWeight;
-
+function ExerciseCard({ name, muscleGroup, sets, recordEstimates, onOpenProgress }: ExerciseCardProps) {
   return (
     <div
+      data-exercise={name}
       style={{
         background: '#111511',
         borderRadius: '20px',
@@ -582,7 +612,8 @@ function ExerciseCard({ name, muscleGroup, sets, sessionMaxWeight, onOpenProgres
 
       <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
         {sets.map((set) => {
-          const isPr = sessionMaxWeight > 0 && set.weight_kg != null && set.weight_kg === maxWeight;
+          const estimate = recordEstimates.get(set.id);
+          const isPr = estimate !== undefined;
           return (
             <div
               key={set.id}
@@ -614,20 +645,25 @@ function ExerciseCard({ name, muscleGroup, sets, sessionMaxWeight, onOpenProgres
                 {set.weight_kg != null ? `${set.weight_kg} kg` : '—'}
               </span>
               {isPr && (
-                <span
-                  style={{
-                    fontSize: '11px',
-                    fontWeight: 800,
-                    color: '#C6F24E',
-                    background: 'rgba(198,242,78,0.12)',
-                    padding: '3px 8px',
-                    borderRadius: '8px',
-                    textTransform: 'uppercase',
-                    letterSpacing: '0.5px',
-                  }}
-                >
-                  PR
-                </span>
+                <>
+                  <span
+                    style={{
+                      fontSize: '11px',
+                      fontWeight: 800,
+                      color: '#C6F24E',
+                      background: 'rgba(198,242,78,0.12)',
+                      padding: '3px 8px',
+                      borderRadius: '8px',
+                      textTransform: 'uppercase',
+                      letterSpacing: '0.5px',
+                    }}
+                  >
+                    PR
+                  </span>
+                  <span style={{ fontSize: '12px', fontWeight: 700, color: '#C6F24E', whiteSpace: 'nowrap' }}>
+                    {formatEstimate(estimate)}
+                  </span>
+                </>
               )}
             </div>
           );
@@ -684,11 +720,7 @@ export function SessionDetailPage() {
 
   const volume = computeVolume(session.logs);
   const exercises = groupByExercise(session.logs);
-  // Session-wide max weight used for PR badge heuristic. -1 when no PRs recorded.
-  const sessionMaxWeight =
-    session.pr_count > 0
-      ? Math.max(...session.logs.map((l) => l.weight_kg ?? 0))
-      : -1;
+  const recordEstimates = findRecordSets(session.logs, session.records);
   const dayLabel = toDayLabel(session.day_of_week);
   const dateLabel = formatLongDate(session.started_at);
   const durationLabel = formatDuration(session.duration_seconds);
@@ -803,7 +835,7 @@ export function SessionDetailPage() {
               name={ex.name}
               muscleGroup={ex.muscleGroup}
               sets={ex.sets}
-              sessionMaxWeight={sessionMaxWeight}
+              recordEstimates={recordEstimates}
               onOpenProgress={() => setSheetExercise(ex.name)}
             />
           ))}

@@ -11,8 +11,10 @@ from backend.src.application.dtos import (
     PaginatedSessionHistoryDTO,
     SessionHistoryItemDTO,
     SessionHistoryLogDTO,
+    SessionRecordDTO,
 )
 from backend.src.application.errors import ApplicationError
+from backend.src.domain.estimated_one_rep_max import COMPARISON_DECIMALS, estimated_one_rep_max
 from backend.src.domain.read_models import SessionSnapshot
 from backend.src.domain.repositories.session_repository import SessionRepository
 from backend.src.domain.value_objects import TrainingDayId, WorkoutId
@@ -58,6 +60,7 @@ def _to_dto(snap: SessionSnapshot) -> SessionHistoryItemDTO:
             SessionHistoryLogDTO(
                 id=log.id,
                 workout_exercise_id=log.workout_exercise_id,
+                exercise_id=log.exercise_id,
                 exercise_name=log.exercise_name,
                 muscle_group=log.muscle_group,
                 set_number=log.set_number,
@@ -67,6 +70,17 @@ def _to_dto(snap: SessionSnapshot) -> SessionHistoryItemDTO:
             for log in snap.logs
         ),
         pr_count=snap.pr_count,
+        records=tuple(
+            SessionRecordDTO(
+                exercise_id=record.exercise_id,
+                weight_kg=record.weight_kg,
+                reps=record.reps,
+                estimated_one_rep_max_kg=round(
+                    estimated_one_rep_max(record.weight_kg, record.reps), COMPARISON_DECIMALS
+                ),
+            )
+            for record in snap.records
+        ),
         duration_seconds=duration_seconds,
     )
 
