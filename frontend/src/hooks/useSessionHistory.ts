@@ -46,6 +46,21 @@ export function useSessionHistory(filters: SessionHistoryFilters = {}) {
 }
 
 /**
+ * Completed sessions started on or after `dateFrom` (YYYY-MM-DD, UTC day), in
+ * one request: the dashboard needs whole weeks, not the paginated list.
+ * Keyed under ['sessions', 'history'] so session mutations refresh it.
+ */
+export function useCompletedSessionsSince(dateFrom: string) {
+  return useQuery({
+    queryKey: ['sessions', 'history', 'completed-since', dateFrom],
+    queryFn: () =>
+      apiFetch<SessionHistoryResponse>(
+        `/sessions?status=completed&date_from=${dateFrom}&page=1&page_size=100`,
+      ),
+  });
+}
+
+/**
  * Fetch a single session by id directly from the backend.
  *
  * The detail page can be reached for any session, including ones older than
