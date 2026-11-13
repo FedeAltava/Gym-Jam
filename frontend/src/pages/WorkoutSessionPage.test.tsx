@@ -636,6 +636,17 @@ describe('Exercise swap', () => {
   });
 });
 
+describe('Main exercise', () => {
+  afterEach(() => sessionStorage.clear());
+
+  it('highlights the first exercise of the day as the main one', async () => {
+    await resumeSession();
+
+    expect(within(screen.getByRole('region', { name: 'Ejercicio Press banca' })).getByText('Principal')).toBeInTheDocument();
+    expect(within(screen.getByRole('region', { name: 'Ejercicio Dominadas' })).queryByText('Principal')).not.toBeInTheDocument();
+  });
+});
+
 describe('Session completed by the server', () => {
   afterEach(() => sessionStorage.clear());
 

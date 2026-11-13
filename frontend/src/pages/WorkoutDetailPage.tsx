@@ -22,6 +22,7 @@ import { CSS } from '@dnd-kit/utilities';
 import { Spinner } from '../components/Spinner';
 import { DAY_LABEL, DAYS } from '../lib/days';
 import type { ExerciseResponse, TrainingDayResponse, WorkoutExerciseResponse } from '../types/api';
+import { MainExerciseBadge } from '../components/MainExerciseBadge';
 
 interface TrainingDayCardProps {
   workoutId: string;
@@ -155,11 +156,13 @@ function PastSessionsList({
 interface SortableExerciseItemProps {
   ex: WorkoutExerciseResponse;
   exercise: ExerciseResponse | undefined;
+  // First exercise of the day: the main lift, highlighted.
+  isMain: boolean;
   onRemove: (workoutExerciseId: string) => void;
   removePending: boolean;
 }
 
-function SortableExerciseItem({ ex, exercise, onRemove, removePending }: SortableExerciseItemProps) {
+function SortableExerciseItem({ ex, exercise, isMain, onRemove, removePending }: SortableExerciseItemProps) {
   const {
     attributes,
     listeners,
@@ -206,6 +209,7 @@ function SortableExerciseItem({ ex, exercise, onRemove, removePending }: Sortabl
           {ex.exercise_id}
         </span>
       )}
+      {isMain && <MainExerciseBadge />}
       <button
         onClick={() => onRemove(ex.id)}
         disabled={removePending}
@@ -378,11 +382,12 @@ function TrainingDayCard({
         <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleDragEnd}>
           <SortableContext items={sortedExercises.map((e) => e.id)} strategy={verticalListSortingStrategy}>
             <ol className="space-y-2">
-              {sortedExercises.map((ex) => (
+              {sortedExercises.map((ex, index) => (
                 <SortableExerciseItem
                   key={ex.id}
                   ex={ex}
                   exercise={exerciseById.get(ex.exercise_id)}
+                  isMain={index === 0}
                   onRemove={handleRemove}
                   removePending={removeMutation.isPending}
                 />

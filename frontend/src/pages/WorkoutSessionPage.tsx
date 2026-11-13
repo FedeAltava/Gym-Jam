@@ -15,6 +15,7 @@ import {
   useUndoExerciseSwap,
 } from '../hooks/useSessions';
 import { Spinner } from '../components/Spinner';
+import { MainExerciseBadge } from '../components/MainExerciseBadge';
 import { ExerciseSwapSheet } from '../components/sessions/ExerciseSwapSheet';
 import { ApiError } from '../lib/api';
 import { DAY_LABEL } from '../lib/days';
@@ -431,6 +432,8 @@ interface ExerciseBlockProps {
   canSwap: boolean;
   onSwap: () => void;
   onUndoSwap: () => void;
+  // First exercise of the day: the main lift, highlighted.
+  isMain: boolean;
   // The other machine type of this exercise ("discos" / "placas"), if any.
   twinLabel: string | null;
   onSwapToTwin: () => void;
@@ -470,6 +473,7 @@ function ExerciseBlock({
   canSwap,
   onSwap,
   onUndoSwap,
+  isMain,
   twinLabel,
   onSwapToTwin,
   errorMessage,
@@ -480,9 +484,22 @@ function ExerciseBlock({
   const planWeight = swappedFrom ? null : exercise.weight_kg;
 
   return (
-    <div style={{ borderRadius: '20px', padding: '18px', background: '#111511', border: '1px solid rgba(255,255,255,0.07)' }}>
+    <section
+      aria-label={`Ejercicio ${exerciseName}`}
+      style={{
+        borderRadius: '20px',
+        padding: '18px',
+        background: '#111511',
+        border: isMain ? '1px solid rgba(43,229,129,0.45)' : '1px solid rgba(255,255,255,0.07)',
+      }}
+    >
       <div className="mb-3" style={{ display: 'flex', alignItems: 'flex-start', gap: '8px' }}>
         <div style={{ flex: 1, minWidth: 0 }}>
+          {isMain && (
+            <div style={{ marginBottom: '6px' }}>
+              <MainExerciseBadge />
+            </div>
+          )}
           <h3 style={{ fontSize: '17px', fontWeight: 700, color: 'var(--text)', fontFamily: "'Barlow Semi Condensed', sans-serif", margin: 0 }}>{exerciseName}</h3>
           {swappedFrom && (
             <p style={{ fontSize: '12px', color: 'var(--neon-green)', fontWeight: 600, marginTop: '2px' }}>
@@ -557,7 +574,7 @@ function ExerciseBlock({
           + Serie extra
         </button>
       )}
-    </div>
+    </section>
   );
 }
 
@@ -1193,7 +1210,7 @@ export function WorkoutSessionPage() {
       {session && (
         <>
           <div style={{ display: 'flex', flexDirection: 'column', gap: '16px', marginBottom: '24px' }}>
-            {sortedExercises.map((exercise) => {
+            {sortedExercises.map((exercise, index) => {
               const exerciseLogs = session.logs.filter(
                 (l) => l.workout_exercise_id === exercise.id,
               );
@@ -1223,6 +1240,7 @@ export function WorkoutSessionPage() {
                   onUndoSwap={() =>
                     undoSwap.mutate({ sessionId: session.id, workoutExerciseId: exercise.id, workoutId, dayId })
                   }
+                  isMain={index === 0}
                   twinLabel={twinInCatalog ? twin.label : null}
                   onSwapToTwin={() => {
                     if (!twin) return;

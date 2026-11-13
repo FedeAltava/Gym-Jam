@@ -101,6 +101,30 @@ afterEach(() => {
   vi.clearAllMocks();
 });
 
+describe('main exercise', () => {
+  it('marks the first exercise of each day as the main one', async () => {
+    const exercise = (id: string, exercise_id: string, order: number) => ({
+      id, exercise_id, order, sets: 3, reps_per_set: 8, weight_kg: null,
+    });
+    renderPage({
+      training_days: [
+        {
+          id: 'day-mon',
+          day_of_week: 'MONDAY',
+          order: 0,
+          // Listed out of order on purpose: the plan order decides.
+          exercises: [exercise('we2', 'leg-curl', 2), exercise('we1', 'leg-press', 1)],
+        },
+      ],
+    } as Partial<typeof WORKOUT_FIXTURE>);
+
+    const first = (await screen.findByText('leg-press')).closest('li') as HTMLElement;
+    const second = screen.getByText('leg-curl').closest('li') as HTMLElement;
+    expect(within(first).getByText('Principal')).toBeInTheDocument();
+    expect(within(second).queryByText('Principal')).not.toBeInTheDocument();
+  });
+});
+
 describe('add training day (day chip picker)', () => {
   it('opens the picker with only days not already in the workout', async () => {
     renderPage();
