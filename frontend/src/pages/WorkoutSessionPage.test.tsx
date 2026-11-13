@@ -531,8 +531,10 @@ async function resumeSession(
     swaps?: SwapFixture[];
     logs?: unknown[];
     history?: unknown[];
-    lastSets?: unknown[] | Promise<unknown[]>;
+    lastSets?: unknown[] | Promise<unknown[]> | (() => Promise<unknown[]>);
     workout?: typeof WORKOUT_FIXTURE;
+    exercises?: typeof EXERCISES_FIXTURE;
+    swapError?: Error;
   } = {},
 ) {
   const live = { ...makeSessionFixture(), logs: initial.logs ?? [], swaps: initial.swaps ?? [] };
@@ -541,6 +543,7 @@ async function resumeSession(
     if (path === '/auth/me') return Promise.resolve(PREFS_FIXTURE);
     const swap = path.match(/^\/sessions\/sess1\/exercises\/(\w+)\/swap$/);
     if (swap && options?.method === 'PUT') {
+      if (initial.swapError) return Promise.reject(initial.swapError);
       const { exercise_id } = JSON.parse(options.body as string);
       live.swaps = [
         ...live.swaps.filter((s) => s.workout_exercise_id !== swap[1]),
@@ -554,8 +557,10 @@ async function resumeSession(
     }
     if (path.startsWith('/workouts/w1/days/day1/sessions')) return Promise.resolve([live, ...(initial.history ?? [])]);
     if (path.startsWith('/workouts')) return Promise.resolve(initial.workout ?? WORKOUT_FIXTURE);
-    if (path.startsWith('/exercises/last-sets')) return Promise.resolve(initial.lastSets ?? []);
-    if (path.startsWith('/exercises')) return Promise.resolve(EXERCISES_FIXTURE);
+    if (path.startsWith('/exercises/last-sets')) {
+      return typeof initial.lastSets === 'function' ? initial.lastSets() : Promise.resolve(initial.lastSets ?? []);
+    }
+    if (path.startsWith('/exercises')) return Promise.resolve(initial.exercises ?? EXERCISES_FIXTURE);
     return Promise.resolve(undefined);
   });
   const user = userEvent.setup();
@@ -604,6 +609,19 @@ describe('Exercise swap', () => {
     expect(mockApiFetch).toHaveBeenCalledWith('/sessions/sess1/exercises/we1/swap', { method: 'DELETE' });
     expect(await screen.findByRole('heading', { name: 'Press banca' })).toBeInTheDocument();
     expect(screen.queryByText('En lugar de Press banca')).not.toBeInTheDocument();
+  });
+
+  it('clears a failed swap error when the sheet is closed', async () => {
+    const user = await resumeSession({ swapError: new Error('boom') });
+    await user.click(screen.getByRole('button', { name: 'Cambiar ejercicio Press banca' }));
+    const dialog = screen.getByRole('dialog', { name: 'Cambiar Press banca' });
+    await user.click(within(dialog).getByText('Aperturas con mancuernas'));
+    await within(dialog).findByText('No se pudo cambiar el ejercicio. Inténtalo de nuevo.');
+
+    await user.click(within(dialog).getByRole('button', { name: 'Cerrar' }));
+
+    await waitFor(() => expect(screen.queryByRole('dialog')).not.toBeInTheDocument());
+    expect(screen.queryByText('No se pudo cambiar el ejercicio. Inténtalo de nuevo.')).not.toBeInTheDocument();
   });
 
   it('does not offer a swap once a set of that exercise is logged', async () => {
@@ -671,6 +689,28 @@ describe('Set suggestions from the last time the exercise was done', () => {
     expect(suggestedSet(1)).toEqual({ reps: '10', weight: '80' });
   });
 
+  it('keeps plan values and logging working when the last sets cannot be loaded', async () => {
+    const user = await resumeSession({ lastSets: () => Promise.reject(new Error('down')) });
+
+    expect(suggestedSet(1)).toEqual({ reps: '10', weight: '80' });
+    await user.click(screen.getAllByRole('button', { name: 'Marcar serie 1 como hecha' })[0]);
+    expect(mockApiFetch).toHaveBeenCalledWith('/sessions/sess1/logs', expect.objectContaining({ method: 'POST' }));
+  });
+
+  it('never overwrites a logged set with late suggestions', async () => {
+    let resolveLastSets: (sets: unknown[]) => void = () => {};
+    const lastSets = new Promise<unknown[]>((resolve) => { resolveLastSets = resolve; });
+    await resumeSession({
+      lastSets,
+      logs: [{ id: 'l1', session_id: 'sess1', workout_exercise_id: 'we1', set_number: 1, reps_completed: 10, weight_kg: 40 }],
+    });
+
+    await act(async () => { resolveLastSets([lastSet('e1', 1, 9, 90), lastSet('e1', 2, 8, 95)]); });
+
+    await waitFor(() => expect(suggestedSet(2)).toEqual({ reps: '8', weight: '95' }));
+    expect(suggestedSet(1)).toEqual({ reps: '10', weight: '40' });
+  });
+
   it('applies suggestions that arrive after the sets are shown, unless the set was edited', async () => {
     let resolveLastSets: (sets: unknown[]) => void = () => {};
     const lastSets = new Promise<unknown[]>((resolve) => { resolveLastSets = resolve; });
@@ -720,6 +760,54 @@ describe('Switch to the other machine type', () => {
     // Back to the planned machine in one tap too; the generic switch stays.
     expect(screen.getByRole('button', { name: 'Cambiar a discos' })).toBeInTheDocument();
     expect(screen.getByRole('button', { name: 'Cambiar ejercicio Press pecho en máquina (placas)' })).toBeInTheDocument();
+  });
+
+  it('switches back to the planned machine in one tap', async () => {
+    const user = await resumeSession({
+      workout: VARIANT_WORKOUT,
+      swaps: [{ workout_exercise_id: 'we1', exercise_id: 'chest-press-selectorized' }],
+    });
+
+    await user.click(await screen.findByRole('button', { name: 'Cambiar a discos' }));
+
+    expect(mockApiFetch).toHaveBeenCalledWith('/sessions/sess1/exercises/we1/swap', {
+      method: 'PUT',
+      body: JSON.stringify({ exercise_id: 'chest-press-plate-loaded' }),
+    });
+  });
+
+  it('shows a failed machine switch on that exercise', async () => {
+    const user = await resumeSession({ workout: VARIANT_WORKOUT, swapError: new Error('boom') });
+
+    await user.click(await screen.findByRole('button', { name: 'Cambiar a placas' }));
+
+    expect(await screen.findByText('No se pudo cambiar el ejercicio. Inténtalo de nuevo.')).toBeInTheDocument();
+    expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
+    expect(screen.getByRole('heading', { name: 'Press pecho en máquina (discos)' })).toBeInTheDocument();
+  });
+
+  it('offers no machine switch when the twin is not in the catalog', async () => {
+    const workout = {
+      ...VARIANT_WORKOUT,
+      training_days: [
+        {
+          ...VARIANT_WORKOUT.training_days[0],
+          exercises: [
+            { ...VARIANT_WORKOUT.training_days[0].exercises[0], exercise_id: 'lat-pulldown-plate-loaded' },
+            VARIANT_WORKOUT.training_days[0].exercises[1],
+          ],
+        },
+      ],
+    };
+    const exercises = [
+      ...EXERCISES_FIXTURE,
+      { id: 'lat-pulldown-plate-loaded', name: 'Jalón (discos)', muscle_group: 'Espalda', is_bodyweight: false },
+    ];
+    await resumeSession({ workout, exercises });
+
+    await screen.findByRole('heading', { name: 'Jalón (discos)' });
+    expect(screen.queryByRole('button', { name: /Cambiar a (placas|discos)/ })).not.toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Cambiar ejercicio Jalón (discos)' })).toBeInTheDocument();
   });
 
   it('offers no machine switch for exercises without a twin or with logged sets', async () => {

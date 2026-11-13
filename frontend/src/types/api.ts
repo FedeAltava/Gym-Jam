@@ -43,7 +43,7 @@ export interface ExerciseLogResponse {
   weight_kg: number | null;
 }
 
-// A planned exercise replaced by another catalog exercise for one session only.
+// Latest logged set with this set number of a catalog exercise (GET /exercises/last-sets).
 export interface LastSetResponse {
   exercise_id: string;
   set_number: number;
@@ -51,6 +51,7 @@ export interface LastSetResponse {
   weight_kg: number | null;
 }
 
+// A planned exercise replaced by another catalog exercise for one session only.
 export interface ExerciseSwapResponse {
   workout_exercise_id: string;
   exercise_id: string;

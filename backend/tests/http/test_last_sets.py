@@ -74,6 +74,49 @@ async def test_other_users_sets_are_not_returned(client, client_user2) -> None:
     assert await _last_sets(client, "triceps-machine-selectorized") == []
 
 
+async def test_a_started_at_tie_is_broken_by_the_latest_logged_set(client, session) -> None:
+    first, _ = await _session_with_sets(client, "MONDAY", "leg-curl-selectorized", [(10, 30.0)])
+    second, _ = await _session_with_sets(client, "TUESDAY", "leg-curl-selectorized", [(5, 35.0)])
+    same_start = datetime.now(UTC) - timedelta(days=1)
+    await session.execute(
+        update(WorkoutSessionModel).where(WorkoutSessionModel.id.in_([first, second])).values(started_at=same_start)
+    )
+    await session.commit()
+
+    assert await _last_sets(client, "leg-curl-selectorized") == [
+        {"exercise_id": "leg-curl-selectorized", "set_number": 1, "reps_completed": 5, "weight_kg": 35.0},
+    ]
+
+
+async def test_duplicate_exercise_ids_return_each_set_once(client) -> None:
+    await _session_with_sets(client, "FRIDAY", "leg-extension-selectorized", [(12, 45.0)])
+
+    assert await _last_sets(client, *["leg-extension-selectorized"] * 3) == [
+        {"exercise_id": "leg-extension-selectorized", "set_number": 1, "reps_completed": 12, "weight_kg": 45.0},
+    ]
+
+
+async def test_sets_without_weight_keep_a_null_weight(client) -> None:
+    wid, day_id = await create_workout_with_day(client, "SATURDAY")
+    we_id = await add_exercise_to_day(client, wid, "SATURDAY", "calf-raise-machine-selectorized")
+    session_id = (await client.post(f"/workouts/{wid}/days/{day_id}/sessions", json={})).json()["id"]
+    r = await client.post(
+        f"/sessions/{session_id}/logs", json={"workout_exercise_id": we_id, "set_number": 1, "reps_completed": 15}
+    )
+    assert r.status_code == 201
+
+    assert await _last_sets(client, "calf-raise-machine-selectorized") == [
+        {"exercise_id": "calf-raise-machine-selectorized", "set_number": 1, "reps_completed": 15, "weight_kg": None},
+    ]
+
+
+async def test_exactly_50_exercise_ids_are_accepted(client) -> None:
+    r = await client.get("/exercises/last-sets", params=[("exercise_id", f"e{i}") for i in range(50)])
+
+    assert r.status_code == 200
+    assert r.json() == []
+
+
 async def test_without_exercise_ids_returns_no_sets(client) -> None:
     assert await _last_sets(client) == []
 

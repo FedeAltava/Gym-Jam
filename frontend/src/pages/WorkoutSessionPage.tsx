@@ -1294,7 +1294,12 @@ export function WorkoutSessionPage() {
               isPending={swapExercise.isPending}
               errorMessage={swapErrorMessage}
               onSelect={handleSwapSelect}
-              onClose={() => setSwapSlot(null)}
+              onClose={() => {
+                // A failed swap's error belongs to the sheet; don't let it
+                // resurface under the exercise once the sheet is closed.
+                swapExercise.reset();
+                setSwapSlot(null);
+              }}
             />
           )}
         </>
