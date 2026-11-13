@@ -4,7 +4,7 @@ from __future__ import annotations
 from datetime import date, datetime
 
 from backend.src.domain.entities.workout_session import WorkoutSession
-from backend.src.domain.read_models import SessionSnapshot
+from backend.src.domain.read_models import LastSetSnapshot, SessionSnapshot
 from backend.src.domain.repositories.session_repository import SessionRepository
 from backend.src.domain.value_objects import TrainingDayId, WorkoutId
 from backend.src.domain.value_objects.workout_session_id import WorkoutSessionId
@@ -20,6 +20,9 @@ class InMemorySessionRepository(SessionRepository):
         # session id -> last activity; sessions without an entry fall back to
         # started_at. Seeded by tests (logs carry no timestamp in the domain).
         self.last_activity: dict[str, datetime] = {}
+        # (user_id, LastSetSnapshot) rows seeded by tests: the in-memory store
+        # cannot resolve plan rows to catalog exercises.
+        self.last_sets: list[tuple[str, LastSetSnapshot]] = []
 
     async def save(self, session: WorkoutSession) -> None:
         self._store[str(session.id.value)] = session
@@ -52,6 +55,13 @@ class InMemorySessionRepository(SessionRepository):
             if s.user_id == user_id and s.completed_at is None and activity_at < idle_since:
                 idle.append((s, activity_at))
         return idle
+
+    async def get_last_sets_for_user(
+        self,
+        user_id: str,
+        exercise_ids: list[str],
+    ) -> list[LastSetSnapshot]:
+        return [s for owner, s in self.last_sets if owner == user_id and s.exercise_id in exercise_ids]
 
     async def delete(self, session_id: WorkoutSessionId) -> None:
         self._store.pop(str(session_id.value), None)

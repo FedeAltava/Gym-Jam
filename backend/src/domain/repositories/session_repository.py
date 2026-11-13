@@ -3,7 +3,7 @@ from abc import ABC, abstractmethod
 from datetime import date, datetime
 
 from backend.src.domain.entities.workout_session import WorkoutSession
-from backend.src.domain.read_models import SessionSnapshot
+from backend.src.domain.read_models import LastSetSnapshot, SessionSnapshot
 from backend.src.domain.value_objects.training_day_id import TrainingDayId
 from backend.src.domain.value_objects.workout_id import WorkoutId
 from backend.src.domain.value_objects.workout_session_id import WorkoutSessionId
@@ -32,6 +32,16 @@ class SessionRepository(ABC):
         """In-progress sessions of the user whose last activity (latest logged
         set, or the start when none) is before `idle_since`, each paired with
         that last activity time."""
+        ...
+
+    @abstractmethod
+    async def get_last_sets_for_user(
+        self,
+        user_id: str,
+        exercise_ids: list[str],
+    ) -> list[LastSetSnapshot]:
+        """For each catalog exercise and set number, the latest set the user
+        logged doing that exercise (planned or swapped in), in any session."""
         ...
 
     @abstractmethod

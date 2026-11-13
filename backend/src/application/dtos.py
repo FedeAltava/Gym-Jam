@@ -140,6 +140,14 @@ class ExerciseLogDTO:
 
 
 @dataclass(frozen=True)
+class LastSetDTO:
+    exercise_id: str
+    set_number: int
+    reps_completed: int
+    weight_kg: float | None
+
+
+@dataclass(frozen=True)
 class ExerciseSwapDTO:
     workout_exercise_id: str
     exercise_id: str

@@ -10,6 +10,16 @@ from datetime import datetime
 
 
 @dataclass(frozen=True)
+class LastSetSnapshot:
+    """The latest logged set with a given set number of a catalog exercise."""
+
+    exercise_id: str
+    set_number: int
+    reps_completed: int
+    weight_kg: float | None
+
+
+@dataclass(frozen=True)
 class SessionLogSnapshot:
     id: str
     workout_exercise_id: str

@@ -37,6 +37,7 @@ from backend.src.application.services.token_issuer import TokenIssuer
 from backend.src.application.use_cases.create_workout import CreateWorkoutUseCase
 from backend.src.application.use_cases.logout import LogoutUseCase
 from backend.src.application.use_cases.refresh_session import RefreshSessionUseCase
+from backend.src.application.use_cases.get_last_sets import GetLastSetsUseCase
 from backend.src.application.use_cases.list_exercises import ListExercisesUseCase
 from backend.src.application.use_cases.add_training_day import AddTrainingDayUseCase
 from backend.src.application.use_cases.remove_training_day import RemoveTrainingDayUseCase
@@ -448,3 +449,9 @@ def get_delete_body_weight_uc(
     repo: BodyWeightRepository = Depends(get_body_weight_repository),
 ) -> DeleteBodyWeightUseCase:
     return DeleteBodyWeightUseCase(repo)
+
+
+def get_last_sets_uc(
+    session_repo: SessionRepository = Depends(get_session_repository),
+) -> GetLastSetsUseCase:
+    return GetLastSetsUseCase(session_repo)

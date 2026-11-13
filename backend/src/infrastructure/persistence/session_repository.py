@@ -8,7 +8,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
 from backend.src.domain.entities.workout_session import WorkoutSession
-from backend.src.domain.read_models import SessionLogSnapshot, SessionSnapshot
+from backend.src.domain.read_models import LastSetSnapshot, SessionLogSnapshot, SessionSnapshot
 from backend.src.domain.repositories.session_repository import SessionRepository
 from backend.src.domain.value_objects import TrainingDayId, WorkoutId
 from backend.src.domain.value_objects.workout_session_id import WorkoutSessionId
@@ -169,6 +169,59 @@ class SqlAlchemySessionRepository(SessionRepository):
                 activity_at = activity_at.replace(tzinfo=UTC)
             idle.append((WorkoutSessionMapper.to_domain(model), activity_at))
         return idle
+
+    async def get_last_sets_for_user(
+        self,
+        user_id: str,
+        exercise_ids: list[str],
+    ) -> list[LastSetSnapshot]:
+        if not exercise_ids:
+            return []
+        # A session swap replaces the plan row's catalog id for that session.
+        done_exercise_id = func.coalesce(
+            SessionExerciseSwapModel.exercise_id, WorkoutExerciseModel.exercise_id
+        )
+        ranked = (
+            select(
+                done_exercise_id.label("exercise_id"),
+                WorkoutLogModel.set_number,
+                WorkoutLogModel.reps_completed,
+                WorkoutLogModel.weight_kg,
+                func.row_number()
+                .over(
+                    partition_by=(done_exercise_id, WorkoutLogModel.set_number),
+                    order_by=(WorkoutSessionModel.started_at.desc(), WorkoutLogModel.created_at.desc()),
+                )
+                .label("rank"),
+            )
+            .join(WorkoutExerciseModel, WorkoutLogModel.workout_exercise_id == WorkoutExerciseModel.id)
+            .outerjoin(
+                SessionExerciseSwapModel,
+                (SessionExerciseSwapModel.session_id == WorkoutLogModel.session_id)
+                & (SessionExerciseSwapModel.workout_exercise_id == WorkoutLogModel.workout_exercise_id),
+            )
+            .join(WorkoutSessionModel, WorkoutLogModel.session_id == WorkoutSessionModel.id)
+            .where(
+                WorkoutSessionModel.user_id == user_id,
+                done_exercise_id.in_(exercise_ids),
+            )
+            .subquery()
+        )
+        stmt = (
+            select(ranked.c.exercise_id, ranked.c.set_number, ranked.c.reps_completed, ranked.c.weight_kg)
+            .where(ranked.c.rank == 1)
+            .order_by(ranked.c.exercise_id, ranked.c.set_number)
+        )
+        result = await self._session.execute(stmt)
+        return [
+            LastSetSnapshot(
+                exercise_id=row.exercise_id,
+                set_number=row.set_number,
+                reps_completed=row.reps_completed,
+                weight_kg=row.weight_kg,
+            )
+            for row in result.all()
+        ]
 
     async def delete(self, session_id: WorkoutSessionId) -> None:
         stmt = select(WorkoutSessionModel).where(
