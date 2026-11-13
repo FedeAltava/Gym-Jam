@@ -13,7 +13,8 @@ Branch: `feat/machine-variants` · Delivery: work-unit commits, merge/push on us
 - **S3 — Suggestions from the last time that exact exercise was done.** Proposed and accepted together with S2 (assumption: the user's "lo del botón está bien" answered "¿Hago estas dos mejoras?").
   - Each set is suggested from the latest logged set with that set number for the exercise actually done (planned or swapped), in any routine or day of the user; plan values otherwise.
 - **S4 — New routines in both accounts.** "ahora necesito que repliques mi rutina de torso/pierna4xsemana en la cuenta de belen ... modifica esas rutinas para que lunes y jueves sean mas cortas ... el jueves a ella le pongas uno o dos ejercicios de pierna y lo demas enfocado al culo y a mi uno o dos de pierna y el resto de hombro." Proposal approved ("si", "me parece bien lo que propones para no perder el historial").
-  - New routines (old ones renamed "(anterior)" and inactive, so no logged set is deleted); plan weights from each user's last logged weight; machine variant per exercise pending the user's answer.
+  - New routines (old ones renamed "(anterior)" and inactive, so no logged set is deleted); plan weights from each user's last logged weight.
+  - Machine types (L4): press inclinado D, press pecho P, jalón P, remo en máquina P, press hombros P, prensa D, curl femoral D, extensión D, gemelos P, patada de glúteo P (assumption: not answered). Hip thrust "nohacemos nunca cambiar potr otro ejercicio" → Tuesday: peso muerto rumano 3×8; Belén's Thursday: sentadilla búlgara 3×10.
 
 ## Tasks
 
@@ -21,7 +22,7 @@ Branch: `feat/machine-variants` · Delivery: work-unit commits, merge/push on us
 |----|-------|-------|--------|----------|
 | T1 | S1 catalog migration 023 + seed + test | inline | done | 66740be; RED KeyError → GREEN; Postgres 16: 88→120, downgrade 88, upgrade 120; backend 716 passed |
 | T2 | S3 backend: `GET /exercises/last-sets` | inline (frontend depends on it) | done | 5587661; RED 6 failing (no route) → GREEN; backend 722 passed; ruff clean; mypy unchanged (36 pre-existing) |
-| T3 | S2, S3 frontend: twin button, suggestions from T2, SetRow re-seeds late suggestions | inline (same file as T2's consumer) | done | RED 6 failing → GREEN 37/37; frontend 289 passed; tsc + eslint clean; not checked in the real app |
+| T3 | S2, S3 frontend: twin button, suggestions from T2, SetRow re-seeds late suggestions | inline (same file as T2's consumer) | done | 6632505 + 2d9ff5f (verifier blocker: stale sheet error inline after closing → reset on close; probes committed); RED 6 failing → GREEN; frontend 295 passed, backend 726; tsc + eslint + ruff clean; not checked in the real app |
 | T4 | Deploy (user runs the script) | user | pending | |
 | T5 | S4 prod routines (dry run, then commit) | inline script, user-authorized | pending | |
 
@@ -30,3 +31,5 @@ Branch: `feat/machine-variants` · Delivery: work-unit commits, merge/push on us
 - L1 (2026-11-13) Routine request (S4 quote) and catalog request (S1 quote), then the session switch request (S2 quotes).
 - L2 (2026-11-13) Prod snapshot (read-only, authorized): Fede active "Torso/Pierna 4×/semana" 6ced068b (24 ex/68 sets), Belén active ce28ac1f (copied from the old "Recomposición"). Removing exercises from a routine cascade-deletes their logged sets (migration 005) → new routines instead.
 - L3 (2026-11-13) Existing swap already lets the user pick "(placas)" from the sheet; gaps: several taps, and suggestions only from the same training day's sessions. Swapping to the planned exercise removes the swap (domain), so the twin button can always PUT the twin id.
+- L4 (2026-11-13) User's machine types: "1d 2p 3p cable polea 4p pero mas remo gironda en cable polea 5p 6d 7d 8d 9nohacemos nunca cambiar potr otro ejercicio 10p cable polea" (item 11, patada de glúteo, unanswered → P assumed; "pero más remo gironda" read as: keep Monday's cable Gironda row).
+- L5 (2026-11-13) Independent verifier (T1–T3, risk item 1 migration): S1/S2/S3 PASS; Postgres 16 migration up/down/up OK, seed == migration rows, GET /exercises old rows unchanged; one blocker (failed sheet swap error resurfacing inline after closing the sheet) fixed in 2d9ff5f with its probe as regression test; recheck = that test passes.
