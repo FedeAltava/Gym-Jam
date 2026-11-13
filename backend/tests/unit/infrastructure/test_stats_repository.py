@@ -193,13 +193,13 @@ async def test_aggregates_weekly_window_and_pr_counts(
     session.add(
         PersonalRecordModel(
             id=str(uuid.uuid4()), user_id=user_id, exercise_id="bench-press",
-            weight_kg=80.0, achieved_at=NOW, session_id=this_week.id,
+            weight_kg=80.0, reps=10, achieved_at=NOW, session_id=this_week.id,
         )
     )
     session.add(
         PersonalRecordModel(
             id=str(uuid.uuid4()), user_id=user_id, exercise_id="squat",
-            weight_kg=120.0, achieved_at=LAST_WEEK, session_id=last_week.id,
+            weight_kg=120.0, reps=10, achieved_at=LAST_WEEK, session_id=last_week.id,
         )
     )
     await session.flush()

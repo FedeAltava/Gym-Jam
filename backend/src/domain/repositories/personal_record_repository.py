@@ -16,25 +16,27 @@ class PersonalRecordRepository(ABC):
     ) -> dict[str, str]:
         """Map workout_exercise ids to catalog exercise ids.
 
-        Personal records are keyed by catalog exercise (a user's max on
+        Personal records are keyed by catalog exercise (a user's best on
         "bench-press"), while logs reference plan rows (workout_exercises).
         Returns {workout_exercise_id: exercise_id} for the ids found.
         """
         ...
 
     @abstractmethod
-    async def get_previous_max_weights(
+    async def get_previous_best_estimates(
         self,
         user_id: str,
         exclude_session_id: str,
         exercise_ids: list[str],
     ) -> dict[str, float]:
-        """Max weight ever logged per catalog exercise across the user's
-        prior COMPLETED sessions, excluding the session being completed.
+        """Best estimated one-rep max (domain `estimated_one_rep_max`) ever
+        logged per catalog exercise across the user's prior COMPLETED
+        sessions, excluding the session being completed. Sets without weight
+        (NULL or 0) never count.
 
         Compares against full log history (not personal_records) so the
         first post-feature session cannot award false PRs (ADR 5).
-        Returns {exercise_id: max_weight_kg}; exercises never logged are absent.
+        Returns {exercise_id: best_estimate_kg}; exercises never logged are absent.
         """
         ...
 
@@ -44,12 +46,14 @@ class PersonalRecordRepository(ABC):
         user_id: str,
         exercise_id: str,
         weight_kg: float,
+        reps: int,
         session_id: str,
         achieved_at: datetime,
     ) -> bool:
-        """Insert or update the (user, exercise) record if weight_kg beats it.
+        """Insert or update the (user, exercise) record when the set's
+        estimated one-rep max beats the stored set's (domain `beats_record`).
 
         Returns True when a record was inserted or updated, False when the
-        existing record is equal or heavier (idempotent backstop, ADR 4).
+        existing record's estimate is equal or higher (idempotent backstop, ADR 4).
         """
         ...

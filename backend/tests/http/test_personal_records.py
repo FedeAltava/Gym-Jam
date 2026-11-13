@@ -30,7 +30,7 @@ async def add_exercise_to_day(client, wid: str, day: str, exercise_id: str) -> s
 
 
 async def start_session_with_log(
-    client, wid: str, day_id: str, ex_id: str, weight_kg: float | None
+    client, wid: str, day_id: str, ex_id: str, weight_kg: float | None, reps: int = 10
 ) -> tuple[str, str]:
     """Start a session and log one set. Returns (session_id, log_id)."""
     r = await client.post(f"/workouts/{wid}/days/{day_id}/sessions", json={})
@@ -42,7 +42,7 @@ async def start_session_with_log(
         json={
             "workout_exercise_id": ex_id,
             "set_number": 1,
-            "reps_completed": 10,
+            "reps_completed": reps,
             "weight_kg": weight_kg,
         },
     )
@@ -119,13 +119,32 @@ async def test_complete_detects_first_pr_then_beat_then_tie(client) -> None:
     assert (await client.post(f"/sessions/{s1}/complete", json={})).status_code == 200
     assert await pr_count_for(client, s1) == 1
 
-    # Heavier than the previous max → new PR.
+    # Heavier at the same reps → higher estimate → new PR.
     s2, _ = await start_session_with_log(client, wid, day_id, ex_id, 45.0)
     assert (await client.post(f"/sessions/{s2}/complete", json={})).status_code == 200
     assert await pr_count_for(client, s2) == 1
 
-    # Tie with the previous max → no PR.
+    # Same set as the previous best → tie → no PR.
     s3, _ = await start_session_with_log(client, wid, day_id, ex_id, 45.0)
+    assert (await client.post(f"/sessions/{s3}/complete", json={})).status_code == 200
+    assert await pr_count_for(client, s3) == 0
+
+
+async def test_complete_awards_pr_by_estimated_one_rep_max(client) -> None:
+    wid, day_id = await create_workout_with_day(client, "THURSDAY")
+    ex_id = await add_exercise_to_day(client, wid, "THURSDAY", "incline-bench-press")
+
+    s1, _ = await start_session_with_log(client, wid, day_id, ex_id, 80.0, reps=8)
+    assert (await client.post(f"/sessions/{s1}/complete", json={})).status_code == 200
+    assert await pr_count_for(client, s1) == 1
+
+    # Same weight, more reps: 80 × 12 = 112 kg beats 80 × 8 ≈ 101 kg → PR.
+    s2, _ = await start_session_with_log(client, wid, day_id, ex_id, 80.0, reps=12)
+    assert (await client.post(f"/sessions/{s2}/complete", json={})).status_code == 200
+    assert await pr_count_for(client, s2) == 1
+
+    # Heavier but far fewer reps: 82.5 × 3 ≈ 91 kg < 112 kg → no PR.
+    s3, _ = await start_session_with_log(client, wid, day_id, ex_id, 82.5, reps=3)
     assert (await client.post(f"/sessions/{s3}/complete", json={})).status_code == 200
     assert await pr_count_for(client, s3) == 0
 
@@ -182,8 +201,8 @@ async def test_swapped_exercise_records_pr_for_the_substitute(client) -> None:
     assert (await client.post(f"/sessions/{s1}/complete", json={})).status_code == 200
     assert await pr_count_for(client, s1) == 1
 
-    # Swapped to cable crossover: 20 kg is far below the row's 100 kg, but it
-    # is the first cable crossover ever → PR for the substitute.
+    # Swapped to cable crossover: 20 kg × 12 (28 kg) is far below the row's
+    # 100 kg × 10, but it is the first cable crossover ever → PR for the substitute.
     r = await client.post(f"/workouts/{wid}/days/{day_id}/sessions", json={})
     s2 = r.json()["id"]
     r = await client.put(f"/sessions/{s2}/exercises/{ex_id}/swap", json={"exercise_id": "cable-crossover"})
@@ -197,9 +216,13 @@ async def test_swapped_exercise_records_pr_for_the_substitute(client) -> None:
     assert await pr_count_for(client, s2) == 1
 
     # A routine where cable crossover is planned sees the swapped session's
-    # 20 kg as the previous max → 18 kg is no PR.
+    # 20 kg × 12 (28 kg) as the previous best → 22.5 kg × 5 (≈ 26 kg) is
+    # heavier but no PR; 20 kg × 15 (30 kg) is.
     wid2, day2 = await create_workout_with_day(client, "SATURDAY")
     ex2 = await add_exercise_to_day(client, wid2, "SATURDAY", "cable-crossover")
-    s3, _ = await start_session_with_log(client, wid2, day2, ex2, 18.0)
+    s3, _ = await start_session_with_log(client, wid2, day2, ex2, 22.5, reps=5)
     assert (await client.post(f"/sessions/{s3}/complete", json={})).status_code == 200
     assert await pr_count_for(client, s3) == 0
+    s4, _ = await start_session_with_log(client, wid2, day2, ex2, 20.0, reps=15)
+    assert (await client.post(f"/sessions/{s4}/complete", json={})).status_code == 200
+    assert await pr_count_for(client, s4) == 1

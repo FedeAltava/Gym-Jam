@@ -9,6 +9,7 @@ from typing import AsyncIterator
 from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from backend.src.domain.estimated_one_rep_max import beats_record, estimated_one_rep_max
 from backend.src.domain.repositories.personal_record_repository import (
     PersonalRecordRepository,
 )
@@ -41,7 +42,7 @@ class SqlAlchemyPersonalRecordRepository(PersonalRecordRepository):
         rows = (await self._session.execute(stmt)).all()
         return {row.id: row.exercise_id for row in rows}
 
-    async def get_previous_max_weights(
+    async def get_previous_best_estimates(
         self,
         user_id: str,
         exclude_session_id: str,
@@ -55,10 +56,12 @@ class SqlAlchemyPersonalRecordRepository(PersonalRecordRepository):
         done_exercise_id = func.coalesce(
             SessionExerciseSwapModel.exercise_id, WorkoutExerciseModel.exercise_id
         )
+        # Epley in SQL — same formula as domain `estimated_one_rep_max`.
+        estimate = WorkoutLogModel.weight_kg * (1.0 + WorkoutLogModel.reps_completed / 30.0)
         stmt = (
             select(
                 done_exercise_id.label("exercise_id"),
-                func.max(WorkoutLogModel.weight_kg).label("max_weight"),
+                func.max(estimate).label("best_estimate"),
             )
             .join(
                 WorkoutExerciseModel,
@@ -78,18 +81,19 @@ class SqlAlchemyPersonalRecordRepository(PersonalRecordRepository):
                 WorkoutSessionModel.completed_at.is_not(None),
                 WorkoutSessionModel.id != exclude_session_id,
                 done_exercise_id.in_(exercise_ids),
-                WorkoutLogModel.weight_kg.is_not(None),
+                WorkoutLogModel.weight_kg > 0,
             )
             .group_by(done_exercise_id)
         )
         rows = (await self._session.execute(stmt)).all()
-        return {row.exercise_id: row.max_weight for row in rows}
+        return {row.exercise_id: float(row.best_estimate) for row in rows}
 
     async def upsert_if_higher(
         self,
         user_id: str,
         exercise_id: str,
         weight_kg: float,
+        reps: int,
         session_id: str,
         achieved_at: datetime,
     ) -> bool:
@@ -108,6 +112,7 @@ class SqlAlchemyPersonalRecordRepository(PersonalRecordRepository):
                     user_id=user_id,
                     exercise_id=exercise_id,
                     weight_kg=weight_kg,
+                    reps=reps,
                     achieved_at=achieved_at,
                     session_id=session_id,
                 )
@@ -115,8 +120,12 @@ class SqlAlchemyPersonalRecordRepository(PersonalRecordRepository):
             await self._session.flush()
             return True
 
-        if existing.weight_kg < weight_kg:
+        if beats_record(
+            estimated_one_rep_max(weight_kg, reps),
+            estimated_one_rep_max(existing.weight_kg, existing.reps),
+        ):
             existing.weight_kg = weight_kg
+            existing.reps = reps
             existing.achieved_at = achieved_at
             existing.session_id = session_id
             await self._session.flush()

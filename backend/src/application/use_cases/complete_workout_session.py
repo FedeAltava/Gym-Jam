@@ -13,7 +13,9 @@ from backend.src.application.errors import (
     SessionNotFoundError,
     UnauthorizedError,
 )
+from backend.src.domain.entities.exercise_log import ExerciseLog
 from backend.src.domain.entities.workout_session import WorkoutSession
+from backend.src.domain.estimated_one_rep_max import beats_record, estimated_one_rep_max
 from backend.src.domain.repositories.personal_record_repository import (
     PersonalRecordRepository,
 )
@@ -91,35 +93,42 @@ class CompleteWorkoutSessionUseCase:
         catalog_ids = await self._pr_repo.get_catalog_exercise_ids(workout_exercise_ids)
         catalog_ids.update({str(we_id.value): exercise_id for we_id, exercise_id in session.swaps.items()})
 
-        # Reduce to the heaviest set per catalog exercise in this session.
-        max_per_exercise: dict[str, float] = {}
+        # Reduce to the best set per catalog exercise in this session, by
+        # estimated one-rep max (the first set wins a tie within the session).
+        best_per_exercise: dict[str, ExerciseLog] = {}
         for log in weighted_logs:
             exercise_id = catalog_ids.get(str(log.workout_exercise_id.value))
             if exercise_id is None:
                 continue
-            assert log.weight_kg is not None  # filtered above
-            if log.weight_kg > max_per_exercise.get(exercise_id, 0.0):
-                max_per_exercise[exercise_id] = log.weight_kg
-        if not max_per_exercise:
+            current = best_per_exercise.get(exercise_id)
+            if current is None or _estimate(log) > _estimate(current):
+                best_per_exercise[exercise_id] = log
+        if not best_per_exercise:
             return
 
         # One batch query against full prior log history (ADR 5), then upsert
         # only where this session strictly beats it (tie = no PR). A never
         # logged exercise is a PR by definition.
-        previous_max = await self._pr_repo.get_previous_max_weights(
+        previous_best = await self._pr_repo.get_previous_best_estimates(
             user_id=session.user_id,
             exclude_session_id=str(session.id.value),
-            exercise_ids=list(max_per_exercise),
+            exercise_ids=list(best_per_exercise),
         )
         achieved_at = session.completed_at
         assert achieved_at is not None  # complete() ran before detection
-        for exercise_id, weight_kg in max_per_exercise.items():
-            prior = previous_max.get(exercise_id)
-            if prior is None or weight_kg > prior:
+        for exercise_id, log in best_per_exercise.items():
+            if beats_record(_estimate(log), previous_best.get(exercise_id)):
+                assert log.weight_kg is not None  # filtered above
                 await self._pr_repo.upsert_if_higher(
                     user_id=session.user_id,
                     exercise_id=exercise_id,
-                    weight_kg=weight_kg,
+                    weight_kg=log.weight_kg,
+                    reps=log.reps_completed,
                     session_id=str(session.id.value),
                     achieved_at=achieved_at,
                 )
+
+
+def _estimate(log: ExerciseLog) -> float:
+    assert log.weight_kg is not None  # callers filter weighted logs
+    return estimated_one_rep_max(log.weight_kg, log.reps_completed)
