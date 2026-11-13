@@ -82,8 +82,14 @@ def upgrade() -> None:
 def downgrade() -> None:
     conn = op.get_bind()
     for row in _NEW_ROWS:
+        # Keep a variant that a routine plans or a session swapped in: swaps
+        # reference catalog ids without a foreign key, and their logged sets
+        # count for the swapped-in exercise.
         in_use = conn.execute(
-            sa.text("SELECT 1 FROM workout_exercises WHERE exercise_id = :id LIMIT 1"),
+            sa.text(
+                "SELECT 1 FROM workout_exercises WHERE exercise_id = :id "
+                "UNION ALL SELECT 1 FROM session_exercise_swaps WHERE exercise_id = :id LIMIT 1"
+            ),
             {"id": row["id"]},
         ).fetchone()
         if not in_use:
