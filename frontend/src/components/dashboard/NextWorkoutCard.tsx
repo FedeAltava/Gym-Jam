@@ -5,27 +5,44 @@ import type { WorkoutResponse, TrainingDayResponse } from '../../types/api';
 
 interface NextWorkoutCardProps {
   workout: WorkoutResponse | undefined;
+  /** Routine days (day_of_week) with a completed session this week, on any date. */
+  trainedDays: ReadonlySet<string>;
 }
 
 interface NextDay {
   day: TrainingDayResponse;
-  offset: number;
+  // Where the day falls against today: an earlier weekday still pending,
+  // today, later this week, or next week once the whole week is trained.
+  when: 'pending' | 'today' | 'later' | 'next-week';
 }
 
-/** First plan day >= today in Monday-first order, wrapping to next week. */
-function resolveNextDay(workout: WorkoutResponse): NextDay | undefined {
+/**
+ * The earliest routine day not trained yet this week, whatever its weekday:
+ * a skipped Monday stays the next workout on Tuesday. Once every routine day
+ * is trained, the first one of next week. Also returns today's routine day
+ * when it is still pending but is not the next one, to offer it as well.
+ */
+function resolveNextDay(
+  workout: WorkoutResponse,
+  trainedDays: ReadonlySet<string>,
+): { next?: NextDay; today?: TrainingDayResponse } {
   const todayIdx = mondayFirstIndex(new Date());
-  let best: NextDay | undefined;
-  for (const day of workout.training_days) {
-    const dayIdx = DAYS.indexOf(day.day_of_week as DayKey);
-    if (dayIdx < 0) continue;
-    const offset = (dayIdx - todayIdx + 7) % 7;
-    if (!best || offset < best.offset) best = { day, offset };
-  }
-  return best;
+  const planDays = workout.training_days
+    .filter((day) => DAYS.indexOf(day.day_of_week as DayKey) >= 0)
+    .sort((a, b) => DAYS.indexOf(a.day_of_week as DayKey) - DAYS.indexOf(b.day_of_week as DayKey));
+  if (planDays.length === 0) return {};
+
+  const pending = planDays.filter((day) => !trainedDays.has(day.day_of_week));
+  if (pending.length === 0) return { next: { day: planDays[0], when: 'next-week' } };
+
+  const first = pending[0];
+  const firstIdx = DAYS.indexOf(first.day_of_week as DayKey);
+  const when = firstIdx < todayIdx ? 'pending' : firstIdx === todayIdx ? 'today' : 'later';
+  const today = pending.find((day) => DAYS.indexOf(day.day_of_week as DayKey) === todayIdx);
+  return { next: { day: first, when }, today: today !== first ? today : undefined };
 }
 
-export function NextWorkoutCard({ workout }: NextWorkoutCardProps) {
+export function NextWorkoutCard({ workout, trainedDays }: NextWorkoutCardProps) {
   if (!workout) {
     return (
       <section
@@ -66,13 +83,18 @@ export function NextWorkoutCard({ workout }: NextWorkoutCardProps) {
     );
   }
 
-  const next = resolveNextDay(workout);
+  const { next, today } = resolveNextDay(workout, trainedDays);
+  const nextName = next ? DAY_LABEL[next.day.day_of_week as DayKey] : '';
 
-  const dayLabel = next
-    ? next.offset === 0
-      ? `Hoy · ${DAY_LABEL[next.day.day_of_week as DayKey]}`
-      : DAY_LABEL[next.day.day_of_week as DayKey]
-    : 'Sin días de entrenamiento aún';
+  const dayLabel = !next
+    ? 'Sin días de entrenamiento aún'
+    : next.when === 'pending'
+      ? `Pendiente · ${nextName}`
+      : next.when === 'today'
+        ? `Hoy · ${nextName}`
+        : next.when === 'next-week'
+          ? `Próxima semana · ${nextName}`
+          : nextName;
 
   return (
     <section
@@ -121,31 +143,46 @@ export function NextWorkoutCard({ workout }: NextWorkoutCardProps) {
       </div>
 
       {next ? (
-        <Link
-          to={`/workouts/${workout.id}/session/${next.day.id}`}
-          aria-label="Empezar sesión"
-          style={{
-            display: 'inline-flex',
-            alignItems: 'center',
-            gap: '8px',
-            height: '48px',
-            padding: '0 20px',
-            marginTop: '14px',
-            textDecoration: 'none',
-            borderRadius: '14px',
-            background: 'linear-gradient(135deg,#2BE581,#1fbd6a)',
-            color: 'rgb(6,33,15)',
-            fontSize: '15px',
-            fontWeight: 700,
-          }}
-        >
-          <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
-            <polygon points="5,3 19,12 5,21" />
-          </svg>
-          {next.offset === 0
-            ? `Empezar hoy · ${DAY_LABEL[next.day.day_of_week as DayKey]}`
-            : 'Empezar sesión'}
-        </Link>
+        <>
+          <Link
+            to={`/workouts/${workout.id}/session/${next.day.id}`}
+            aria-label="Empezar sesión"
+            style={{
+              display: 'inline-flex',
+              alignItems: 'center',
+              gap: '8px',
+              height: '48px',
+              padding: '0 20px',
+              marginTop: '14px',
+              textDecoration: 'none',
+              borderRadius: '14px',
+              background: 'linear-gradient(135deg,#2BE581,#1fbd6a)',
+              color: 'rgb(6,33,15)',
+              fontSize: '15px',
+              fontWeight: 700,
+            }}
+          >
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
+              <polygon points="5,3 19,12 5,21" />
+            </svg>
+            {next.when === 'today'
+              ? `Empezar hoy · ${nextName}`
+              : next.when === 'pending'
+                ? `Empezar · ${nextName}`
+                : 'Empezar sesión'}
+          </Link>
+          {today && (
+            <div style={{ marginTop: '10px' }}>
+              <Link
+                to={`/workouts/${workout.id}/session/${today.id}`}
+                aria-label={`Empezar el día de hoy: ${DAY_LABEL[today.day_of_week as DayKey]}`}
+                style={{ fontSize: '13px', fontWeight: 600, color: 'var(--text-muted)', textDecoration: 'underline' }}
+              >
+                o hoy toca {DAY_LABEL[today.day_of_week as DayKey]}
+              </Link>
+            </div>
+          )}
+        </>
       ) : (
         <Link
           to={`/workouts/${workout.id}`}

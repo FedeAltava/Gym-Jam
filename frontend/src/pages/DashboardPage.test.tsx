@@ -234,7 +234,7 @@ describe('DashboardPage', () => {
   });
 
   it('renders the next workout card with the active workout and a session start link', async () => {
-    mockApi();
+    mockApi({ sessions: [] });
     renderWithProviders(<DashboardPage />);
 
     expect(await screen.findByText('Push Pull Legs')).toBeInTheDocument();
@@ -246,7 +246,7 @@ describe('DashboardPage', () => {
   });
 
   it('ignores inactive workouts when resolving the active workout', async () => {
-    mockApi({ workouts: [INACTIVE_WORKOUT, ACTIVE_WORKOUT] });
+    mockApi({ workouts: [INACTIVE_WORKOUT, ACTIVE_WORKOUT], sessions: [] });
     renderWithProviders(<DashboardPage />);
 
     expect(await screen.findByText('Push Pull Legs')).toBeInTheDocument();
@@ -268,5 +268,75 @@ describe('DashboardPage', () => {
 
     await screen.findByRole('region', { name: 'Esta semana' });
     expect(screen.queryByText('Actividad reciente')).not.toBeInTheDocument();
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Next workout — the earliest routine day not trained this week
+// ---------------------------------------------------------------------------
+
+describe('Next workout by what is pending', () => {
+  // Week of Monday 2026-11-09; the routine trains Monday, Tuesday, Thursday and Friday.
+  const ROUTINE = {
+    ...ACTIVE_WORKOUT,
+    training_days: [
+      { id: 'day-mon', day_of_week: 'MONDAY', order: 0, exercises: [] },
+      { id: 'day-tue', day_of_week: 'TUESDAY', order: 1, exercises: [] },
+      { id: 'day-thu', day_of_week: 'THURSDAY', order: 2, exercises: [] },
+      { id: 'day-fri', day_of_week: 'FRIDAY', order: 3, exercises: [] },
+    ],
+  };
+  const trained = (id: string, dayOfWeek: string, date: string) => ({
+    ...makeSession(id, 'Torso/Pierna', new Date(date)),
+    training_day_id: `day-${dayOfWeek.slice(0, 3).toLowerCase()}`,
+    day_of_week: dayOfWeek,
+  });
+
+  afterEach(() => vi.useRealTimers());
+
+  function at(isoDate: string) {
+    vi.useFakeTimers({ toFake: ['Date'] });
+    vi.setSystemTime(new Date(isoDate));
+  }
+
+  it('suggests the earliest routine day not trained yet, even if its weekday has passed', async () => {
+    at('2026-11-11T09:00:00Z'); // Wednesday
+    // Monday's routine day was trained on Tuesday; Tuesday's is still pending.
+    mockApi({ workouts: [ROUTINE], sessions: [trained('s1', 'MONDAY', '2026-11-10T05:30:00Z')] });
+    renderWithProviders(<DashboardPage />);
+
+    expect(await screen.findByText('Pendiente · Martes')).toBeInTheDocument();
+    expect(screen.getByRole('link', { name: 'Empezar sesión' })).toHaveAttribute('href', '/workouts/w1/session/day-tue');
+    expect(screen.queryByRole('link', { name: /Empezar el día de hoy/ })).not.toBeInTheDocument();
+  });
+
+  it("offers today's routine day as an alternative when an earlier one is pending", async () => {
+    at('2026-11-12T09:00:00Z'); // Thursday
+    mockApi({ workouts: [ROUTINE], sessions: [trained('s1', 'MONDAY', '2026-11-09T05:30:00Z')] });
+    renderWithProviders(<DashboardPage />);
+
+    expect(await screen.findByText('Pendiente · Martes')).toBeInTheDocument();
+    expect(screen.getByRole('link', { name: 'Empezar sesión' })).toHaveAttribute('href', '/workouts/w1/session/day-tue');
+    expect(screen.getByRole('link', { name: 'Empezar el día de hoy: Jueves' })).toHaveAttribute(
+      'href',
+      '/workouts/w1/session/day-thu',
+    );
+  });
+
+  it('moves to next week once every routine day is trained', async () => {
+    at('2026-11-13T09:00:00Z'); // Friday
+    mockApi({
+      workouts: [ROUTINE],
+      sessions: [
+        trained('s1', 'MONDAY', '2026-11-10T05:30:00Z'),
+        trained('s2', 'TUESDAY', '2026-11-11T05:30:00Z'),
+        trained('s3', 'THURSDAY', '2026-11-12T05:30:00Z'),
+        trained('s4', 'FRIDAY', '2026-11-13T05:30:00Z'),
+      ],
+    });
+    renderWithProviders(<DashboardPage />);
+
+    expect(await screen.findByText('Próxima semana · Lunes')).toBeInTheDocument();
+    expect(screen.getByRole('link', { name: 'Empezar sesión' })).toHaveAttribute('href', '/workouts/w1/session/day-mon');
   });
 });

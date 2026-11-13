@@ -151,7 +151,10 @@ export function DashboardPage() {
             planDaysCount={planDays.size}
           />
           <MuscleSetsCard rows={muscleSets(activeWorkout, catalog, thisWeekSessions)} />
-          <NextWorkoutCard workout={activeWorkout} />
+          <NextWorkoutCard
+            workout={activeWorkout}
+            trainedDays={new Set(thisWeekSessions.map((session) => session.day_of_week))}
+          />
           <WeeklyConsistencyCard weeks={weeklySessions(completedSessions, weekStart)} planDaysCount={planDays.size} />
         </div>
       )}
