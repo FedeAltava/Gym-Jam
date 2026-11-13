@@ -14,6 +14,25 @@ async def test_list_exercises_returns_seeded_catalog(client):
     assert by_id["leg-press"]["muscle_group"] == "Piernas"
 
 
+# 1b. GET /exercises — machine exercises come plate-loaded (discos) and selectorized (placas)
+async def test_list_exercises_offers_plate_loaded_and_selectorized_machines(client):
+    r = await client.get("/exercises")
+    assert r.status_code == 200
+    data = r.json()
+    by_id = {item["id"]: item for item in data}
+    assert by_id["chest-press-plate-loaded"] == {
+        "id": "chest-press-plate-loaded",
+        "name": "Press pecho en máquina (discos)",
+        "muscle_group": "Pecho",
+        "is_bodyweight": False,
+    }
+    assert by_id["chest-press-selectorized"]["name"] == "Press pecho en máquina (placas)"
+    plate_loaded = {i["name"].removesuffix(" (discos)") for i in data if i["name"].endswith(" (discos)")}
+    selectorized = {i["name"].removesuffix(" (placas)") for i in data if i["name"].endswith(" (placas)")}
+    assert plate_loaded == selectorized
+    assert len(plate_loaded) == 16
+
+
 # 2. GET /exercises — response items match ExerciseResponse schema
 async def test_list_exercises_items_have_expected_fields(client):
     r = await client.get("/exercises")
