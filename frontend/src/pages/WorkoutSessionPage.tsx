@@ -604,52 +604,26 @@ export function WorkoutSessionPage() {
     }
   }
 
-  // Live timer — tracks active time only (pauses when screen is locked or user
-  // navigates away). Accumulated seconds survive navigation via sessionStorage
-  // so resuming the session continues from where it left off, not from
-  // session.started_at (which would include hours of background time).
-  const [elapsedSeconds, setElapsedSeconds] = useState(0);
-  const accumulatedRef = useRef(0);
+  // Live timer — wall-clock time since the server's started_at, so it keeps
+  // counting while the screen is locked, survives the tab being discarded and
+  // matches the duration saved in the history. Browsers freeze intervals in
+  // the background, so returning to the page re-reads the clock at once.
+  const [now, setNow] = useState(() => Date.now());
 
   useEffect(() => {
     if (!session) return;
-
-    const storageKey = `gymjam:elapsed:${session.id}`;
-    accumulatedRef.current = parseInt(sessionStorage.getItem(storageKey) ?? '0', 10);
-
-    let periodStart = Date.now();
-    let intervalId: ReturnType<typeof setInterval>;
-
-    function tick() {
-      const periodElapsed = Math.floor((Date.now() - periodStart) / 1000);
-      setElapsedSeconds(accumulatedRef.current + periodElapsed);
-    }
-
-    function pause() {
-      accumulatedRef.current += Math.floor((Date.now() - periodStart) / 1000);
-      sessionStorage.setItem(storageKey, String(accumulatedRef.current));
-      clearInterval(intervalId);
-    }
-
-    function resume() {
-      periodStart = Date.now();
-      tick();
-      intervalId = setInterval(tick, 1000);
-    }
-
-    function handleVisibility() {
-      if (document.hidden) pause();
-      else resume();
-    }
-
-    document.addEventListener('visibilitychange', handleVisibility);
-    resume();
-
+    const tick = () => setNow(Date.now());
+    const intervalId = setInterval(tick, 1000);
+    document.addEventListener('visibilitychange', tick);
     return () => {
-      document.removeEventListener('visibilitychange', handleVisibility);
-      pause();
+      clearInterval(intervalId);
+      document.removeEventListener('visibilitychange', tick);
     };
   }, [session?.id]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  const elapsedSeconds = session
+    ? Math.max(0, Math.floor((now - new Date(session.started_at).getTime()) / 1000))
+    : 0;
 
   // Done-sets counter — seeded from the session's existing logs so it is
   // correct immediately when resuming a session, then updated via callbacks
@@ -683,17 +657,27 @@ export function WorkoutSessionPage() {
   const [tElapsed, setTElapsed] = useState(0);
   const [tLeft, setTLeft] = useState(90);
   const [tPreset, setTPreset] = useState(90);
+  // Wall-clock anchor of the running timer: when the countdown ends (rest) or
+  // when the count would have started from zero (up). Each tick re-reads the
+  // clock instead of counting ticks, because browsers freeze intervals while
+  // the screen is locked.
+  const tAnchorRef = useRef(0);
   // Interval effect — starts/stops when tRunning or tMode changes.
   useEffect(() => {
     if (!tRunning) return;
-    const iv = setInterval(() => {
+    function tick() {
       if (tMode === 'rest') {
-        setTLeft((prev) => Math.max(0, prev - 1));
+        setTLeft(Math.max(0, Math.ceil((tAnchorRef.current - Date.now()) / 1000)));
       } else {
-        setTElapsed((prev) => prev + 1);
+        setTElapsed(Math.floor((Date.now() - tAnchorRef.current) / 1000));
       }
-    }, 1000);
-    return () => { clearInterval(iv); };
+    }
+    const iv = setInterval(tick, 1000);
+    document.addEventListener('visibilitychange', tick);
+    return () => {
+      clearInterval(iv);
+      document.removeEventListener('visibilitychange', tick);
+    };
   }, [tRunning, tMode]);
   // Completion side-effect — fires when countdown hits zero.
   // setState calls are wrapped in queueMicrotask so they are NOT synchronous
@@ -746,10 +730,16 @@ export function WorkoutSessionPage() {
       setTDone(false);
       setTElapsed(0);
       setTLeft(tPreset);
-      setTRunning(true);
+      startTimer(tPreset, 0);
     } else {
-      setTRunning(true);
+      startTimer(tLeft, tElapsed);
     }
+  }
+
+  // Runs the timer on from the given remaining (rest) or elapsed (up) seconds.
+  function startTimer(left: number, elapsed: number) {
+    tAnchorRef.current = tMode === 'rest' ? Date.now() + left * 1000 : Date.now() - elapsed * 1000;
+    setTRunning(true);
   }
 
   function resetTimer() {
@@ -881,7 +871,6 @@ export function WorkoutSessionPage() {
       { sessionId: session.id, workoutId, dayId },
       {
         onSuccess: () => {
-          sessionStorage.removeItem(`gymjam:elapsed:${session.id}`);
           sessionStorage.removeItem(activeSessionKey);
           navigate(`/workouts/${workoutId}`);
         },

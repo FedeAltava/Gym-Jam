@@ -133,6 +133,16 @@ async function startSession() {
   return user;
 }
 
+/** Simulate the phone locking (page hidden) or unlocking (page visible). */
+function setPageHidden(hidden: boolean) {
+  Object.defineProperty(document, 'hidden', { configurable: true, get: () => hidden });
+  Object.defineProperty(document, 'visibilityState', {
+    configurable: true,
+    get: () => (hidden ? 'hidden' : 'visible'),
+  });
+  act(() => { document.dispatchEvent(new Event('visibilitychange')); });
+}
+
 beforeEach(() => {
   STARTED_AT = new Date(Date.now() - 75_000).toISOString();
   useAuthStore.setState({
@@ -153,13 +163,45 @@ describe('WorkoutSessionPage', () => {
   it('renders the live timer in mm:ss format after session start', async () => {
     await startSession();
 
-    // Timer starts at 00:00 and counts only active viewing time (visibility-aware).
     // Verify the element exists and shows the expected mm:ss format.
     await waitFor(() => {
       const timerEl = screen.getByLabelText('Tiempo transcurrido');
       expect(timerEl).toBeInTheDocument();
       expect(timerEl.textContent).toMatch(/^\d{2}:\d{2}$/);
     });
+  });
+
+  it('counts the session time from the server start time', async () => {
+    vi.useFakeTimers({ toFake: ['Date', 'setInterval', 'clearInterval'] });
+    try {
+      await startSession();
+
+      await waitFor(() => {
+        expect(screen.getByLabelText('Tiempo transcurrido')).toHaveTextContent('01:15');
+      });
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it('keeps counting the session time while the screen is locked', async () => {
+    vi.useFakeTimers({ toFake: ['Date', 'setInterval', 'clearInterval'] });
+    try {
+      await startSession();
+      await waitFor(() => {
+        expect(screen.getByLabelText('Tiempo transcurrido')).toHaveTextContent('01:15');
+      });
+
+      setPageHidden(true);
+      // The browser freezes intervals while locked: only the clock moves.
+      vi.setSystemTime(Date.now() + 10 * 60_000);
+      setPageHidden(false);
+
+      expect(screen.getByLabelText('Tiempo transcurrido')).toHaveTextContent('11:15');
+    } finally {
+      setPageHidden(false);
+      vi.useRealTimers();
+    }
   });
 
   it('shows 0/N progress when no sets are done at session start', async () => {
@@ -390,9 +432,38 @@ describe('Rest Timer — controls', () => {
 // Tests assert only on rest-timer state — elapsed-timer interference is harmless but present.
 // Future changes to session-elapsed timer logic must account for this dual-interval behavior.
 describe('Rest Timer — countdown (fake timers)', () => {
-  // Only fake setInterval/clearInterval so setTimeout (used by waitFor/findBy) stays real.
-  beforeEach(() => { vi.useFakeTimers({ toFake: ['setInterval', 'clearInterval'] }); });
-  afterEach(() => { vi.useRealTimers(); });
+  // Fake the clock and setInterval only, so setTimeout (used by waitFor/findBy) stays real.
+  beforeEach(() => { vi.useFakeTimers({ toFake: ['Date', 'setInterval', 'clearInterval'] }); });
+  afterEach(() => {
+    setPageHidden(false);
+    vi.useRealTimers();
+  });
+
+  it('keeps counting down while the screen is locked', async () => {
+    const user = await startSession();
+    await openTimer(user);
+    await user.click(screen.getByRole('button', { name: 'Iniciar' }));
+
+    setPageHidden(true);
+    // The browser freezes intervals while locked: only the clock moves.
+    vi.setSystemTime(Date.now() + 30_000);
+    setPageHidden(false);
+
+    expect(screen.getByLabelText('Tiempo del cronómetro')).toHaveTextContent('1:00');
+  });
+
+  it('ascending mode keeps counting while the screen is locked', async () => {
+    const user = await startSession();
+    await openTimer(user);
+    await user.click(screen.getByRole('button', { name: 'Ascendente' }));
+    await user.click(screen.getByRole('button', { name: 'Iniciar' }));
+
+    setPageHidden(true);
+    vi.setSystemTime(Date.now() + 30_000);
+    setPageHidden(false);
+
+    expect(screen.getByLabelText('Tiempo del cronómetro')).toHaveTextContent('0:30');
+  });
 
   it('counts down after starting', async () => {
     const user = await startSession();
