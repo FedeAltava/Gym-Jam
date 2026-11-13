@@ -126,7 +126,7 @@ export function ExerciseSwapSheet({
             <li className="text-sm italic text-muted px-4 py-6">No hay ejercicios disponibles.</li>
           ) : (
             displayed.map((exercise) => {
-              const guide = getExerciseGuide(exercise.id);
+              const photo = getExerciseGuide(exercise.id)?.photos[0];
               return (
                 <li key={exercise.id} className="border-b border-border">
                   <button
@@ -135,9 +135,9 @@ export function ExerciseSwapSheet({
                     onClick={() => onSelect(exercise.id)}
                     className="w-full text-left px-4 py-2 bg-transparent border-none cursor-pointer flex items-center gap-3"
                   >
-                    {guide ? (
+                    {photo ? (
                       <img
-                        src={guide.photos[0]}
+                        src={photo}
                         alt=""
                         loading="lazy"
                         style={{ ...thumbnailStyle, objectFit: 'cover', background: '#EAF0EA' }}
@@ -159,7 +159,7 @@ export function ExerciseSwapSheet({
                       <span className="block text-sm font-medium text-text truncate">{exercise.name}</span>
                       <span className="block text-xs text-muted">
                         {exercise.muscle_group}
-                        {!guide && (
+                        {!photo && (
                           <>
                             {' · '}
                             <span>Sin foto todavía</span>

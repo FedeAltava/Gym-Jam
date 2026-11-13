@@ -7,10 +7,12 @@ interface ExerciseHowToSheetProps {
   onClose: () => void;
 }
 
-const PHOTOS = [
+// Two photos are the start and end position; a single one shows the exercise.
+const TWO_PHOTOS = [
   { alt: 'Posición inicial', caption: '1 · Inicio' },
   { alt: 'Posición final', caption: '2 · Final' },
 ] as const;
+const ONE_PHOTO = { alt: 'Cómo se hace', caption: null } as const;
 
 const chipStyle = (primary: boolean) => ({
   padding: '4px 10px',
@@ -22,7 +24,7 @@ const chipStyle = (primary: boolean) => ({
   color: primary ? 'var(--neon-green)' : 'var(--text-muted)',
 });
 
-/** Photos, muscles and steps of an exercise (Free Exercise DB). */
+/** Photos (when the guide has them), muscles and steps of an exercise. */
 export function ExerciseHowToSheet({ exerciseName, guide, onClose }: ExerciseHowToSheetProps) {
   return (
     <div
@@ -79,35 +81,48 @@ export function ExerciseHowToSheet({ exerciseName, guide, onClose }: ExerciseHow
         </div>
 
         <div className="overflow-y-auto flex-1 min-h-0 px-4 pb-4" style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, minmax(0, 1fr))', gap: '10px' }}>
-            {PHOTOS.map(({ alt, caption }, index) => (
-              <figure key={caption} style={{ margin: 0, display: 'flex', flexDirection: 'column', gap: '6px' }}>
-                <img
-                  src={guide.photos[index]}
-                  alt={alt}
-                  style={{
-                    width: '100%',
-                    aspectRatio: '3 / 2',
-                    objectFit: 'cover',
-                    borderRadius: '14px',
-                    background: '#EAF0EA',
-                    display: 'block',
-                  }}
-                />
-                <figcaption
-                  style={{
-                    fontSize: '12px',
-                    fontWeight: 700,
-                    color: 'var(--text-muted)',
-                    textTransform: 'uppercase',
-                    letterSpacing: '0.5px',
-                  }}
-                >
-                  {caption}
-                </figcaption>
-              </figure>
-            ))}
-          </div>
+          {guide.photos.length > 0 && (
+            <div
+              style={{
+                display: 'grid',
+                gridTemplateColumns: `repeat(${guide.photos.length}, minmax(0, 1fr))`,
+                gap: '10px',
+              }}
+            >
+              {guide.photos.map((src, index) => {
+                const { alt, caption } = guide.photos.length === 2 ? TWO_PHOTOS[index] : ONE_PHOTO;
+                return (
+                  <figure key={src} style={{ margin: 0, display: 'flex', flexDirection: 'column', gap: '6px' }}>
+                    <img
+                      src={src}
+                      alt={alt}
+                      style={{
+                        width: '100%',
+                        aspectRatio: '3 / 2',
+                        objectFit: 'cover',
+                        borderRadius: '14px',
+                        background: '#EAF0EA',
+                        display: 'block',
+                      }}
+                    />
+                    {caption && (
+                      <figcaption
+                        style={{
+                          fontSize: '12px',
+                          fontWeight: 700,
+                          color: 'var(--text-muted)',
+                          textTransform: 'uppercase',
+                          letterSpacing: '0.5px',
+                        }}
+                      >
+                        {caption}
+                      </figcaption>
+                    )}
+                  </figure>
+                );
+              })}
+            </div>
+          )}
 
           <ul
             aria-label="Músculos"
@@ -155,9 +170,7 @@ export function ExerciseHowToSheet({ exerciseName, guide, onClose }: ExerciseHow
             ))}
           </ol>
 
-          <p style={{ margin: 0, fontSize: '11px', color: 'var(--text-muted)' }}>
-            Fotos y pasos: Free Exercise DB (dominio público)
-          </p>
+          {guide.credit && <p style={{ margin: 0, fontSize: '11px', color: 'var(--text-muted)' }}>{guide.credit}</p>}
           <button
             type="button"
             onClick={onClose}

@@ -4,14 +4,16 @@ import { GUIDE_ID_BY_EXERCISE } from './catalogMapping';
 import { CHEST_GUIDES } from './chest';
 import { CORE_GUIDES } from './core';
 import { LEGS_GUIDES } from './legs';
+import { OWN_GUIDES } from './own';
 import { SHOULDERS_GUIDES } from './shoulders';
 import type { ExerciseGuide, GuideLevel, GuideMuscle } from './types';
 
 export type { ExerciseGuide, GuideLevel, GuideMuscle } from './types';
+export { OWN_GUIDES } from './own';
 
 // How-to guides from Free Exercise DB (https://github.com/yuhonas/free-exercise-db,
 // public domain). Photos are self-hosted under public/exercise-guides/<guide id>/.
-export const GUIDES: Record<string, ExerciseGuide> = {
+export const FREE_EXERCISE_DB_GUIDES: Record<string, ExerciseGuide> = {
   ...ARMS_GUIDES,
   ...BACK_GUIDES,
   ...CHEST_GUIDES,
@@ -20,10 +22,16 @@ export const GUIDES: Record<string, ExerciseGuide> = {
   ...SHOULDERS_GUIDES,
 };
 
+export const GUIDES: Record<string, ExerciseGuide> = { ...FREE_EXERCISE_DB_GUIDES, ...OWN_GUIDES };
+
+const FREE_EXERCISE_DB_CREDIT = 'Fotos y pasos: Free Exercise DB (dominio público)';
+
 export interface ResolvedExerciseGuide extends ExerciseGuide {
   id: string;
-  // Start and end position.
-  photos: [string, string];
+  // Start and end position; empty when the guide has no photos yet.
+  photos: string[];
+  // Attribution shown with the guide, if any.
+  credit: string | null;
 }
 
 function photoUrl(guideId: string, index: 0 | 1): string {
@@ -35,7 +43,8 @@ export function getExerciseGuide(exerciseId: string): ResolvedExerciseGuide | nu
   const id = GUIDE_ID_BY_EXERCISE[exerciseId];
   const guide = id === undefined ? undefined : GUIDES[id];
   if (id === undefined || guide === undefined) return null;
-  return { ...guide, id, photos: [photoUrl(id, 0), photoUrl(id, 1)] };
+  if (FREE_EXERCISE_DB_GUIDES[id] === undefined) return { ...guide, id, photos: [], credit: null };
+  return { ...guide, id, photos: [photoUrl(id, 0), photoUrl(id, 1)], credit: FREE_EXERCISE_DB_CREDIT };
 }
 
 export const MUSCLE_LABELS: Record<GuideMuscle, string> = {

@@ -1,5 +1,5 @@
 import { GUIDE_ID_BY_EXERCISE } from './catalogMapping';
-import { GUIDES, getExerciseGuide } from './index';
+import { FREE_EXERCISE_DB_GUIDES, GUIDES, OWN_GUIDES, getExerciseGuide } from './index';
 
 // Keys only: the photos are never loaded here.
 const photoFiles = new Set(
@@ -17,7 +17,7 @@ describe('exercise guides', () => {
     expect(Object.keys(GUIDES).filter((id) => !used.has(id))).toEqual([]);
   });
 
-  it.each(Object.keys(GUIDES))('%s has both photos', (id) => {
+  it.each(Object.keys(FREE_EXERCISE_DB_GUIDES))('%s has both photos', (id) => {
     expect(photoFiles.has(`/exercise-guides/${id}/0.webp`)).toBe(true);
     expect(photoFiles.has(`/exercise-guides/${id}/1.webp`)).toBe(true);
   });
@@ -41,16 +41,45 @@ describe('exercise guides', () => {
     const plate = getExerciseGuide('leg-press-plate-loaded');
     expect(plate?.id).toBe('Leg_Press');
     expect(plate?.photos).toEqual(['/exercise-guides/Leg_Press/0.webp', '/exercise-guides/Leg_Press/1.webp']);
+    expect(plate?.credit).toBe('Fotos y pasos: Free Exercise DB (dominio público)');
     expect(getExerciseGuide('leg-press-selectorized')?.id).toBe('Leg_Press');
   });
 
-  it('has no guide for an exercise without a fitting entry or an unknown id', () => {
-    expect(getExerciseGuide('dragon-flag')).toBeNull();
-    // Entries without source instructions, or a different variant, are left out.
-    expect(getExerciseGuide('push-press')).toBeNull();
-    expect(getExerciseGuide('side-plank')).toBeNull();
-    expect(getExerciseGuide('cable-lateral-raise')).toBeNull();
-    expect(getExerciseGuide('glute-kickback-machine-plate-loaded')).toBeNull();
+  // No usable Free Exercise DB entry: steps researched and written by us, no photos.
+  it.each([
+    'dragon-flag',
+    'toe-to-bar',
+    'landmine-press',
+    'lateral-raise-machine-plate-loaded',
+    'lateral-raise-machine-selectorized',
+    'glute-kickback-machine-plate-loaded',
+    'glute-kickback-machine-selectorized',
+    'push-press',
+    'side-plank',
+    'cable-lateral-raise',
+  ])('%s has our own guide, without photos', (exerciseId) => {
+    const guide = getExerciseGuide(exerciseId);
+    expect(guide).not.toBeNull();
+    expect(OWN_GUIDES[guide!.id]).toBeDefined();
+    expect(guide!.photos).toEqual([]);
+    expect(guide!.credit).toBeNull();
+  });
+
+  it('resolves both machine variants of our own guide to the same guide', () => {
+    expect(getExerciseGuide('lateral-raise-machine-plate-loaded')?.id).toBe(
+      getExerciseGuide('lateral-raise-machine-selectorized')?.id,
+    );
+    expect(getExerciseGuide('glute-kickback-machine-plate-loaded')?.id).toBe(
+      getExerciseGuide('glute-kickback-machine-selectorized')?.id,
+    );
+  });
+
+  it.each(Object.keys(OWN_GUIDES))('%s ships no photo files', (id) => {
+    expect(FREE_EXERCISE_DB_GUIDES[id]).toBeUndefined();
+    expect(photoFiles.has(`/exercise-guides/${id}/0.webp`)).toBe(false);
+  });
+
+  it('has no guide for an exercise outside the catalog', () => {
     expect(getExerciseGuide('not-in-catalog')).toBeNull();
   });
 });

@@ -1,5 +1,5 @@
-// Catalog exercise id -> Free Exercise DB id (also its photo folder).
-// Exercises without a fitting entry are left out: they have no guide.
+// Catalog exercise id -> guide id: a Free Exercise DB id (also its photo
+// folder) or, where it has no usable entry, one of our own guides (own.ts).
 export const GUIDE_ID_BY_EXERCISE: Record<string, string> = {
   'barbell-bicep-curl': 'Barbell_Curl',
   'cable-bicep-curl': 'Standing_Biceps_Cable_Curl',
@@ -112,4 +112,15 @@ export const GUIDE_ID_BY_EXERCISE: Record<string, string> = {
   'hip-thrust-machine-selectorized': 'Barbell_Hip_Thrust',
   'calf-raise-machine-plate-loaded': 'Standing_Calf_Raises',
   'calf-raise-machine-selectorized': 'Standing_Calf_Raises',
+  // Our own guides.
+  'dragon-flag': 'dragon-flag',
+  'toe-to-bar': 'toe-to-bar',
+  'landmine-press': 'landmine-press',
+  'lateral-raise-machine-plate-loaded': 'lateral-raise-machine',
+  'lateral-raise-machine-selectorized': 'lateral-raise-machine',
+  'glute-kickback-machine-plate-loaded': 'glute-kickback-machine',
+  'glute-kickback-machine-selectorized': 'glute-kickback-machine',
+  'push-press': 'push-press',
+  'side-plank': 'side-plank',
+  'cable-lateral-raise': 'cable-lateral-raise',
 };

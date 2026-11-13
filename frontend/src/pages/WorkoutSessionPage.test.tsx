@@ -28,14 +28,21 @@ const { GUIDE_BY_EXERCISE } = vi.hoisted(() => {
     secondaryMuscles: ['triceps', 'shoulders'],
     steps: ['Siéntate con la espalda apoyada.', 'Empuja las asas hasta extender los brazos.', 'Vuelve despacio.'],
     photos: ['/exercise-guides/Leverage_Chest_Press/0.webp', '/exercise-guides/Leverage_Chest_Press/1.webp'],
+    credit: 'Fotos y pasos: Free Exercise DB (dominio público)',
   };
   const machine = {
     ...leverage,
     id: 'Machine_Bench_Press',
     photos: ['/exercise-guides/Machine_Bench_Press/0.webp', '/exercise-guides/Machine_Bench_Press/1.webp'],
   };
+  // Written by us: steps without photos.
+  const own = { ...leverage, id: 'dumbbell-fly', photos: [], credit: null };
   return {
-    GUIDE_BY_EXERCISE: { 'chest-press-plate-loaded': leverage, 'chest-press-selectorized': machine } as Record<string, unknown>,
+    GUIDE_BY_EXERCISE: {
+      'chest-press-plate-loaded': leverage,
+      'chest-press-selectorized': machine,
+      e3: own,
+    } as Record<string, unknown>,
   };
 });
 vi.mock('../data/exerciseGuides', async (orig) => ({
@@ -1011,5 +1018,31 @@ describe('How-to guide', () => {
     const withoutGuide = within(dialog).getByRole('button', { name: /Press banca/ });
     expect(withoutGuide.querySelector('img')).toBeNull();
     expect(within(withoutGuide).getByText('Sin foto todavía')).toBeInTheDocument();
+  });
+});
+
+describe('How-to guide without photos', () => {
+  afterEach(() => sessionStorage.clear());
+
+  it('shows the steps without photos or the Free Exercise DB credit', async () => {
+    const user = await resumeSession({ swaps: [{ workout_exercise_id: 'we1', exercise_id: 'e3' }] });
+
+    await user.click(await screen.findByRole('button', { name: 'Cómo se hace: Aperturas con mancuernas' }));
+
+    const dialog = screen.getByRole('dialog', { name: 'Cómo se hace: Aperturas con mancuernas' });
+    expect(within(within(dialog).getByRole('list', { name: 'Pasos' })).getAllByRole('listitem')).toHaveLength(3);
+    expect(within(dialog).queryByRole('img')).not.toBeInTheDocument();
+    expect(within(dialog).queryByText('1 · Inicio')).not.toBeInTheDocument();
+    expect(within(dialog).queryByText(/Free Exercise DB/)).not.toBeInTheDocument();
+  });
+
+  it('keeps the placeholder in the swap sheet for an exercise without photos', async () => {
+    const user = await resumeSession({ workout: VARIANT_WORKOUT });
+
+    await user.click(await screen.findByRole('button', { name: 'Cambiar ejercicio Press pecho en máquina (discos)' }));
+
+    const row = within(screen.getByRole('dialog')).getByRole('button', { name: /Aperturas con mancuernas/ });
+    expect(row.querySelector('img')).toBeNull();
+    expect(within(row).getByText('Sin foto todavía')).toBeInTheDocument();
   });
 });
