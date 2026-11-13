@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import logging
+from datetime import datetime
 
 from returns.result import Failure, Result, Success
 
@@ -45,16 +46,23 @@ class CompleteWorkoutSessionUseCase:
         if session.user_id != cmd.user_id:
             return Failure(UnauthorizedError(user_id=cmd.user_id, workout_id=str(session.workout_id.value)))
 
-        # 3. Complete (idempotent — no-op if already completed). Capture the
+        # 3. Complete, save and detect PRs
+        await self.finish(session)
+        return Success(WorkoutSessionDTO.from_aggregate(session))
+
+    async def finish(self, session: WorkoutSession, at: datetime | None = None) -> None:
+        """Complete, save and detect personal records. `at` backdates the
+        completion; CompleteIdleSessionsUseCase ends idle sessions at their
+        last activity."""
+        # Complete (idempotent — no-op if already completed). Capture the
         # prior state BEFORE complete() so re-completing an already-completed
         # session never re-runs PR detection (ADR 6).
         was_completed = session.status == "completed"
-        session.complete()
+        session.complete(at)
 
-        # 4. Save
         await self._session_repo.save(session)
 
-        # 5. PR detection — NON-FATAL: completing the session must succeed
+        # PR detection — NON-FATAL: completing the session must succeed
         # even if the PR pass fails.
         # Wrap in a savepoint so that an IntegrityError (e.g. concurrent upsert)
         # only rolls back the nested transaction and does NOT taint the outer
@@ -67,11 +75,9 @@ class CompleteWorkoutSessionUseCase:
             except Exception:
                 logger.warning(
                     "PR detection failed for session %s — session completion unaffected",
-                    cmd.session_id,
+                    session.id.value,
                     exc_info=True,
                 )
-
-        return Success(WorkoutSessionDTO.from_aggregate(session))
 
     async def _detect_personal_records(self, session: WorkoutSession) -> None:
         # Bodyweight sets (weight_kg NULL) and zero-weight sets carry no PR.

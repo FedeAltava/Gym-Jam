@@ -604,6 +604,14 @@ export function WorkoutSessionPage() {
     }
   }
 
+  // The server completes a session after an hour without activity. Drop the
+  // local copy so the page offers a new session instead of logging into a
+  // finished one.
+  const serverCopy = pastSessions?.find((s) => s.id === newSession?.id);
+  if (newSession?.status === 'in_progress' && serverCopy?.status === 'completed') {
+    setNewSession(null);
+  }
+
   // Live timer — wall-clock time since the server's started_at, so it keeps
   // counting while the screen is locked, survives the tab being discarded and
   // matches the duration saved in the history. Browsers freeze intervals in

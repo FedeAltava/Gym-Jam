@@ -118,6 +118,7 @@ class WorkoutSession:
         else:
             self._swaps[exercise.id] = exercise_id
 
-    def complete(self) -> None:
+    def complete(self, at: datetime | None = None) -> None:
+        # `at` backdates an automatic completion to the session's last activity.
         if self.completed_at is None:
-            self.completed_at = datetime.now(UTC)
+            self.completed_at = at or datetime.now(UTC)

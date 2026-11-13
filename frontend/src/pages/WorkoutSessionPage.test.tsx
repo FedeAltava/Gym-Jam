@@ -637,6 +637,31 @@ function suggestedSet(setNumber: number) {
   };
 }
 
+describe('Session completed by the server', () => {
+  afterEach(() => sessionStorage.clear());
+
+  it('offers a new session once the server completes the open one for inactivity', async () => {
+    const live = { ...makeSessionFixture(), logs: [], swaps: [] as SwapFixture[], completed_at: null as string | null };
+    sessionStorage.setItem('gymjam:active-session:w1:day1', 'sess1');
+    mockApiFetch.mockImplementation((path: string) => {
+      if (path === '/auth/me') return Promise.resolve(PREFS_FIXTURE);
+      if (path.startsWith('/workouts/w1/days/day1/sessions')) return Promise.resolve([{ ...live }]);
+      if (path.startsWith('/workouts')) return Promise.resolve(WORKOUT_FIXTURE);
+      if (path.startsWith('/exercises')) return Promise.resolve(EXERCISES_FIXTURE);
+      return Promise.resolve(undefined);
+    });
+    const { queryClient } = renderWithProviders(<WorkoutSessionPage />);
+    await screen.findByText('Dominadas');
+
+    live.status = 'completed';
+    live.completed_at = STARTED_AT;
+    await act(() => queryClient.invalidateQueries({ queryKey: ['sessions'] }));
+
+    expect(await screen.findByRole('button', { name: /Iniciar sesión/ })).toBeInTheDocument();
+    expect(screen.queryByLabelText('Tiempo transcurrido')).not.toBeInTheDocument();
+  });
+});
+
 describe('Set suggestions from earlier sessions', () => {
   afterEach(() => sessionStorage.clear());
 

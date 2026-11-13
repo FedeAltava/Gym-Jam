@@ -127,6 +127,49 @@ class SqlAlchemySessionRepository(SessionRepository):
             return None
         return WorkoutSessionMapper.to_domain(model)
 
+    async def list_idle_in_progress_for_user(
+        self,
+        user_id: str,
+        idle_since: datetime,
+    ) -> list[tuple[WorkoutSession, datetime]]:
+        # Aggregate only the logs of this user's open sessions: this runs
+        # before every session listing.
+        last_log_at = (
+            select(
+                WorkoutLogModel.session_id,
+                func.max(WorkoutLogModel.created_at).label("last_log_at"),
+            )
+            .join(WorkoutSessionModel, WorkoutSessionModel.id == WorkoutLogModel.session_id)
+            .where(
+                WorkoutSessionModel.user_id == user_id,
+                WorkoutSessionModel.completed_at.is_(None),
+            )
+            .group_by(WorkoutLogModel.session_id)
+            .subquery()
+        )
+        last_activity = func.coalesce(last_log_at.c.last_log_at, WorkoutSessionModel.started_at)
+        stmt = (
+            select(WorkoutSessionModel, last_activity)
+            .outerjoin(last_log_at, last_log_at.c.session_id == WorkoutSessionModel.id)
+            .where(
+                WorkoutSessionModel.user_id == user_id,
+                WorkoutSessionModel.completed_at.is_(None),
+                last_activity < idle_since,
+            )
+            .options(selectinload(WorkoutSessionModel.logs))
+        )
+        result = await self._session.execute(stmt)
+        idle: list[tuple[WorkoutSession, datetime]] = []
+        for model, activity_at in result.all():
+            # SQLite drops the offset and coalesce() may come back as text;
+            # every stored timestamp is UTC.
+            if isinstance(activity_at, str):
+                activity_at = datetime.fromisoformat(activity_at)
+            if activity_at.tzinfo is None:
+                activity_at = activity_at.replace(tzinfo=UTC)
+            idle.append((WorkoutSessionMapper.to_domain(model), activity_at))
+        return idle
+
     async def delete(self, session_id: WorkoutSessionId) -> None:
         stmt = select(WorkoutSessionModel).where(
             WorkoutSessionModel.id == str(session_id.value)

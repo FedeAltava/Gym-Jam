@@ -283,9 +283,10 @@ async def test_history_fires_exactly_two_queries(client, engine) -> None:
     assert r.status_code == 200
     assert len(r.json()["items"]) == 2
     assert all(len(s["logs"]) == 1 for s in r.json()["items"])
-    # 3 SELECTs: 1 COUNT for total, 1 for the session page, 1 IN for logs.
+    # 4 SELECTs: 1 for the idle-session sweep (finds none here), 1 COUNT for
+    # total, 1 for the session page, 1 IN for logs.
     # Still O(1) regardless of page size — no N+1.
-    assert len(statements) == 3, f"expected 3 SELECTs, got {len(statements)}: {statements}"
+    assert len(statements) == 4, f"expected 4 SELECTs, got {len(statements)}: {statements}"
 
 
 # ── Swapped exercises ─────────────────────────────────────────────────────────

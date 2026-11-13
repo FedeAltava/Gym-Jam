@@ -53,6 +53,7 @@ from backend.src.application.use_cases.start_workout_session import StartWorkout
 from backend.src.application.use_cases.log_exercise_set import LogExerciseSetUseCase
 from backend.src.application.use_cases.swap_session_exercise import SwapSessionExerciseUseCase
 from backend.src.application.use_cases.update_exercise_log import UpdateExerciseLogUseCase
+from backend.src.application.use_cases.complete_idle_sessions import CompleteIdleSessionsUseCase
 from backend.src.application.use_cases.complete_workout_session import CompleteWorkoutSessionUseCase
 from backend.src.application.use_cases.delete_exercise_log import DeleteExerciseLogUseCase
 from backend.src.application.use_cases.delete_workout_session import DeleteWorkoutSessionUseCase
@@ -289,6 +290,13 @@ def get_complete_session_uc(
     pr_repo: PersonalRecordRepository = Depends(get_personal_record_repository),
 ) -> CompleteWorkoutSessionUseCase:
     return CompleteWorkoutSessionUseCase(session_repo, pr_repo)
+
+
+def get_complete_idle_sessions_uc(
+    session_repo: SessionRepository = Depends(get_session_repository),
+    complete_uc: CompleteWorkoutSessionUseCase = Depends(get_complete_session_uc),
+) -> CompleteIdleSessionsUseCase:
+    return CompleteIdleSessionsUseCase(session_repo, complete_uc)
 
 
 def get_delete_log_uc(

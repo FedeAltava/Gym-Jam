@@ -1,7 +1,7 @@
 """In-memory implementation of SessionRepository for use case unit tests."""
 from __future__ import annotations
 
-from datetime import date
+from datetime import date, datetime
 
 from backend.src.domain.entities.workout_session import WorkoutSession
 from backend.src.domain.read_models import SessionSnapshot
@@ -17,6 +17,9 @@ class InMemorySessionRepository(SessionRepository):
         # Last kwargs received by list_history_for_user — lets use case tests
         # assert filter forwarding without a real query engine.
         self.last_history_call: dict[str, object] | None = None
+        # session id -> last activity; sessions without an entry fall back to
+        # started_at. Seeded by tests (logs carry no timestamp in the domain).
+        self.last_activity: dict[str, datetime] = {}
 
     async def save(self, session: WorkoutSession) -> None:
         self._store[str(session.id.value)] = session
@@ -37,6 +40,18 @@ class InMemorySessionRepository(SessionRepository):
             ):
                 return s
         return None
+
+    async def list_idle_in_progress_for_user(
+        self,
+        user_id: str,
+        idle_since: datetime,
+    ) -> list[tuple[WorkoutSession, datetime]]:
+        idle = []
+        for s in self._store.values():
+            activity_at = self.last_activity.get(str(s.id.value), s.started_at)
+            if s.user_id == user_id and s.completed_at is None and activity_at < idle_since:
+                idle.append((s, activity_at))
+        return idle
 
     async def delete(self, session_id: WorkoutSessionId) -> None:
         self._store.pop(str(session_id.value), None)

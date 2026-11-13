@@ -1,6 +1,6 @@
 """SessionRepository ABC — port for workout session persistence."""
 from abc import ABC, abstractmethod
-from datetime import date
+from datetime import date, datetime
 
 from backend.src.domain.entities.workout_session import WorkoutSession
 from backend.src.domain.read_models import SessionSnapshot
@@ -22,6 +22,17 @@ class SessionRepository(ABC):
         user_id: str,
         training_day_id: TrainingDayId,
     ) -> WorkoutSession | None: ...
+
+    @abstractmethod
+    async def list_idle_in_progress_for_user(
+        self,
+        user_id: str,
+        idle_since: datetime,
+    ) -> list[tuple[WorkoutSession, datetime]]:
+        """In-progress sessions of the user whose last activity (latest logged
+        set, or the start when none) is before `idle_since`, each paired with
+        that last activity time."""
+        ...
 
     @abstractmethod
     async def delete(self, session_id: WorkoutSessionId) -> None: ...
