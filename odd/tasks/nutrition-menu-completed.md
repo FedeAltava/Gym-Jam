@@ -14,11 +14,13 @@ Branch: `feat/nutrition-menu-completed` · Delivery: work-unit commits, push/dep
 
 | ID | Specs | Route | Status | Evidence |
 |----|-------|-------|--------|----------|
-| T1 | S1 backend (column + migration 026 + PATCH) | inline (no writer reason) | pending | |
-| T2 | S1 frontend (checkbox on the card) | inline (no writer reason) | pending | |
+| T1 | S1 backend (column + migration 026 + PATCH) | inline (no writer reason) | done | 29fe0b2; RED 8 failing → GREEN 763 passed, ruff clean; migration 025→026→025→026 on Postgres 16 with a pre-existing row (→ false), `alembic check` clean |
+| T2 | S1 frontend (checkbox on the card) | inline (no writer reason) | done | see commit; RED 5 failing → GREEN 622 passed, tsc + eslint clean |
 
 Risk: T1 item 1 (schema migration, additive column with default) → own commit. Forecast ~250 authored lines (< 400).
 
 ## Log
 
 - L1 (2026-11-16) "hola en el apartado de nutricion estaria bien que cada menu tuviese un check box para saber si lo hemos completado o no"
+- L2 (2026-11-16) T1 RDD assess on 318aa8e..29fe0b2: high (executable_change + escalated item 1) → independent verifier launched before native review. Untracked user files (screenshots, node_modules, backend/scripts) excluded from the candidate.
+- L3 (2026-11-16) T2: checkbox "Completado" on every list card (MenuCompletedCheckbox), optimistic update of the list cache for the whole group with rollback + "No se pudo guardar. Inténtalo de nuevo." on failure; click does not open the menu.

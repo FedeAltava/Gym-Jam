@@ -5,6 +5,7 @@ import { useScreenWakeLock } from '../hooks/useScreenWakeLock';
 import { Spinner } from '../components/Spinner';
 import { WeeklyMenuView } from '../components/nutrition/WeeklyMenuView';
 import { DeleteMenuButton } from '../components/nutrition/DeleteMenuButton';
+import { MenuCompletedCheckbox } from '../components/nutrition/MenuCompletedCheckbox';
 import { MenuCardSkeleton } from '../components/nutrition/MenuCardSkeleton';
 import { PersonSelector } from '../components/nutrition/PersonSelector';
 import { groupMenus, type MenuVariant } from '../components/nutrition/groupMenus';
@@ -204,6 +205,11 @@ export function NutritionPage() {
                     <p style={{ fontSize: '13px', color: '#8B928A', margin: 0 }}>
                       {formatDate(menu.uploaded_at)}
                     </p>
+                    <MenuCompletedCheckbox
+                      menuId={menu.variants[0].id}
+                      menuTitle={menu.title}
+                      completed={menu.completed}
+                    />
                   </div>
                   {/* Deleting any variant deletes the whole menu (backend). */}
                   <DeleteMenuButton menuId={menu.variants[0].id} menuTitle={menu.title} />

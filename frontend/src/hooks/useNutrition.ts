@@ -47,3 +47,38 @@ export function useDeleteDietPlan() {
     },
   });
 }
+
+/**
+ * Tick or untick a menu. The backend applies it to every variant of the
+ * plan's group, so the list cache mirrors that optimistically and rolls back
+ * if the request fails.
+ */
+export function useSetMenuCompleted() {
+  const qc = useQueryClient();
+  const listKey = ['nutrition', 'menus'];
+  return useMutation({
+    mutationFn: ({ id, completed }: { id: string; completed: boolean }) =>
+      apiFetch<void>(`/nutrition/menus/${id}`, {
+        method: 'PATCH',
+        body: JSON.stringify({ completed }),
+      }),
+    onMutate: async ({ id, completed }) => {
+      await qc.cancelQueries({ queryKey: listKey, exact: true });
+      const previous = qc.getQueryData<DietPlanSummary[]>(listKey);
+      if (previous) {
+        const groupId = previous.find((m) => m.id === id)?.group_id;
+        qc.setQueryData<DietPlanSummary[]>(
+          listKey,
+          previous.map((m) =>
+            m.id === id || (groupId && m.group_id === groupId) ? { ...m, completed } : m,
+          ),
+        );
+      }
+      return { previous };
+    },
+    onError: (_err, _vars, ctx) => {
+      if (ctx?.previous) qc.setQueryData(listKey, ctx.previous);
+    },
+    onSettled: () => qc.invalidateQueries({ queryKey: listKey, exact: true }),
+  });
+}

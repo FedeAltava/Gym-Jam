@@ -10,6 +10,8 @@ export interface MenuGroup {
   key: string;
   title: string;
   uploaded_at: string;
+  /** The variants of a menu are ticked together, so they share this flag. */
+  completed: boolean;
   /** Highest calories first, so the larger portion (Fede) is the default. */
   variants: MenuVariant[];
 }
@@ -27,8 +29,10 @@ export function groupMenus(menus: DietPlanSummary[]): MenuGroup[] {
       key,
       title: menu.title,
       uploaded_at: menu.uploaded_at,
+      completed: true,
       variants: [],
     };
+    group.completed &&= menu.completed ?? false;
     group.variants.push({ id: menu.id, person: menu.person ?? null, calories: menu.calories });
     groups.set(key, group);
   }

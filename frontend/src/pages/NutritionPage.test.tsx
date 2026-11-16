@@ -438,3 +438,95 @@ describe('NutritionPage — per-person variants', () => {
     expect(screen.getByText('Menú suelto')).toBeInTheDocument();
   });
 });
+
+describe('NutritionPage — completed checkbox', () => {
+  const COMPLETION_MENUS = [
+    { id: 'b1', user_id: 'u1', title: 'Quinoa con salmón', calories: 1500, group_id: 'g1', person: 'Belén', completed: false, uploaded_at: '2026-10-01T00:00:00Z' },
+    { id: 'f1', user_id: 'u1', title: 'Quinoa con salmón', calories: 2100, group_id: 'g1', person: 'Fede', completed: false, uploaded_at: '2026-10-01T00:00:00Z' },
+    { id: 'm1', user_id: 'u1', title: 'Plan Semana 1', calories: 2000, group_id: null, person: null, completed: true, uploaded_at: '2026-09-01T00:00:00Z' },
+  ];
+
+  /** Fakes the backend: PATCH sets completed on the plan and its group variants. */
+  function mockCompletionApi({ failPatch = false } = {}) {
+    let menus = COMPLETION_MENUS.map((m) => ({ ...m }));
+    mockApiFetch.mockImplementation((path: string, init?: RequestInit) => {
+      if (init?.method === 'PATCH') {
+        if (failPatch) return Promise.reject(new Error('boom'));
+        const id = path.split('/').pop();
+        const { completed } = JSON.parse(init.body as string);
+        const target = menus.find((m) => m.id === id);
+        menus = menus.map((m) =>
+          m.id === id || (target?.group_id && m.group_id === target.group_id) ? { ...m, completed } : m,
+        );
+        return Promise.resolve(undefined);
+      }
+      if (path === '/nutrition/menus') return Promise.resolve(menus);
+      return Promise.resolve(MENU_DETAIL);
+    });
+  }
+
+  const patchCalls = () =>
+    mockApiFetch.mock.calls.filter(([, init]) => (init as RequestInit | undefined)?.method === 'PATCH');
+
+  it('shows a checkbox on every menu card reflecting whether it was completed', async () => {
+    mockCompletionApi();
+    renderWithProviders(<NutritionPage />);
+
+    expect(await screen.findByRole('checkbox', { name: 'Completado: Plan Semana 1' })).toBeChecked();
+    expect(screen.getByRole('checkbox', { name: 'Completado: Quinoa con salmón' })).not.toBeChecked();
+    expect(screen.getAllByRole('checkbox')).toHaveLength(2);
+  });
+
+  it('treats a menu without the flag as not completed', async () => {
+    mockApi();
+    renderWithProviders(<NutritionPage />);
+
+    expect(await screen.findByRole('checkbox', { name: 'Completado: Plan Semana 1' })).not.toBeChecked();
+  });
+
+  it('ticks a menu without opening it and saves it for the whole menu', async () => {
+    const user = userEvent.setup();
+    mockCompletionApi();
+    renderWithProviders(<NutritionPage />);
+
+    const checkbox = await screen.findByRole('checkbox', { name: 'Completado: Quinoa con salmón' });
+    await user.click(checkbox);
+
+    expect(checkbox).toBeChecked();
+    expect(patchCalls()).toEqual([
+      ['/nutrition/menus/f1', { method: 'PATCH', body: JSON.stringify({ completed: true }) }],
+    ]);
+    // The click must not bubble to the card and open the menu.
+    expect(screen.getByText('Tus menús subidos')).toBeInTheDocument();
+    expect(screen.queryByText('Lun')).not.toBeInTheDocument();
+    // Still ticked after the list refetches from the backend.
+    await waitFor(() => {
+      expect(mockApiFetch.mock.calls.filter(([p, init]) => p === '/nutrition/menus' && !init)).toHaveLength(2);
+    });
+    expect(screen.getByRole('checkbox', { name: 'Completado: Quinoa con salmón' })).toBeChecked();
+  });
+
+  it('unticks a completed menu', async () => {
+    const user = userEvent.setup();
+    mockCompletionApi();
+    renderWithProviders(<NutritionPage />);
+
+    await user.click(await screen.findByRole('checkbox', { name: 'Completado: Plan Semana 1' }));
+
+    expect(screen.getByRole('checkbox', { name: 'Completado: Plan Semana 1' })).not.toBeChecked();
+    expect(patchCalls()).toEqual([
+      ['/nutrition/menus/m1', { method: 'PATCH', body: JSON.stringify({ completed: false }) }],
+    ]);
+  });
+
+  it('reverts the checkbox and shows an error when saving fails', async () => {
+    const user = userEvent.setup();
+    mockCompletionApi({ failPatch: true });
+    renderWithProviders(<NutritionPage />);
+
+    await user.click(await screen.findByRole('checkbox', { name: 'Completado: Quinoa con salmón' }));
+
+    expect(await screen.findByText('No se pudo guardar. Inténtalo de nuevo.')).toBeInTheDocument();
+    expect(screen.getByRole('checkbox', { name: 'Completado: Quinoa con salmón' })).not.toBeChecked();
+  });
+});

@@ -91,6 +91,8 @@ export interface DietPlanSummary {
   /** Variants of the same menu (one per person) share a group_id. */
   group_id?: string | null;
   person?: string | null;
+  /** Ticked once the menu was followed; shared by every variant of a group. */
+  completed?: boolean;
 }
 
 export interface MealOption {
@@ -132,6 +134,7 @@ export interface DietPlan {
   uploaded_at: string;
   group_id?: string | null;
   person?: string | null;
+  completed?: boolean;
 }
 
 export interface UserStats {
