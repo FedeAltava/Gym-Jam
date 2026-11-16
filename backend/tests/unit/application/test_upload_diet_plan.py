@@ -68,6 +68,12 @@ class FakeDietPlanRepository(DietPlanRepository):
     async def delete_group_for_user(self, group_id: str, user_id: str) -> int:
         return 0
 
+    async def set_completed_for_user(self, id: DietPlanId, user_id: str, completed: bool) -> bool:
+        return False
+
+    async def set_group_completed_for_user(self, group_id: str, user_id: str, completed: bool) -> int:
+        return 0
+
 
 # ---------------------------------------------------------------------------
 # Tests

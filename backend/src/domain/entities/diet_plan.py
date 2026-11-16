@@ -19,6 +19,9 @@ class DietPlan:
     # person labels the variant. Both are None for a standalone plan.
     group_id: str | None = None
     person: str | None = None
+    # Ticked by the user once the menu has been followed; grouped variants
+    # share it.
+    completed: bool = False
 
     def __eq__(self, other: object) -> bool:
         if not isinstance(other, DietPlan):

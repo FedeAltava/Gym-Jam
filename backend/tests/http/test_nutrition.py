@@ -432,3 +432,84 @@ async def test_delete_one_variant_deletes_the_whole_menu(client, session) -> Non
     assert r.status_code == 204
     assert (await client.get("/nutrition/menus")).json() == []
     assert (await client.get(f"/nutrition/menus/{belen_id}")).status_code == 404
+
+
+# ── PATCH /nutrition/menus/{id} (completed) ───────────────────────────────────
+
+
+async def test_new_plan_is_not_completed_in_list_and_detail(client, session) -> None:
+    plan_id = await _seed_plan(session, USER_1)
+
+    listed = (await client.get("/nutrition/menus")).json()
+    detail = (await client.get(f"/nutrition/menus/{plan_id}")).json()
+
+    assert listed[0]["completed"] is False
+    assert detail["completed"] is False
+
+
+async def test_mark_plan_completed_and_uncompleted(client, session) -> None:
+    plan_id = await _seed_plan(session, USER_1)
+
+    r = await client.patch(f"/nutrition/menus/{plan_id}", json={"completed": True})
+
+    assert r.status_code == 204
+    assert r.content == b""
+    assert (await client.get("/nutrition/menus")).json()[0]["completed"] is True
+    assert (await client.get(f"/nutrition/menus/{plan_id}")).json()["completed"] is True
+
+    r = await client.patch(f"/nutrition/menus/{plan_id}", json={"completed": False})
+
+    assert r.status_code == 204
+    assert (await client.get("/nutrition/menus")).json()[0]["completed"] is False
+    assert (await client.get(f"/nutrition/menus/{plan_id}")).json()["completed"] is False
+
+
+async def test_mark_one_variant_completed_marks_the_whole_menu(client, session) -> None:
+    fede_id, belen_id = await _seed_variants(session, USER_1)
+    other_id = await _seed_plan(session, USER_1)
+
+    r = await client.patch(f"/nutrition/menus/{belen_id}", json={"completed": True})
+
+    assert r.status_code == 204
+    listed = {p["id"]: p["completed"] for p in (await client.get("/nutrition/menus")).json()}
+    assert listed == {fede_id: True, belen_id: True, other_id: False}
+
+
+async def test_mark_completed_missing_plan_returns_404(client) -> None:
+    r = await client.patch(
+        "/nutrition/menus/00000000-0000-0000-0000-00000000dead", json={"completed": True}
+    )
+
+    assert r.status_code == 404
+
+
+async def test_mark_completed_malformed_id_returns_404(client) -> None:
+    r = await client.patch("/nutrition/menus/not-a-uuid", json={"completed": True})
+
+    assert r.status_code == 404
+
+
+async def test_mark_completed_other_users_plan_returns_404_and_keeps_it(
+    client, client_user2, session
+) -> None:
+    plan_id = await _seed_plan(session, USER_2)
+
+    r = await client.patch(f"/nutrition/menus/{plan_id}", json={"completed": True})
+
+    assert r.status_code == 404
+    assert (await client_user2.get(f"/nutrition/menus/{plan_id}")).json()["completed"] is False
+
+
+async def test_mark_completed_without_flag_returns_422(client, session) -> None:
+    plan_id = await _seed_plan(session, USER_1)
+
+    r = await client.patch(f"/nutrition/menus/{plan_id}", json={})
+
+    assert r.status_code == 422
+    assert (await client.get(f"/nutrition/menus/{plan_id}")).json()["completed"] is False
+
+
+async def test_mark_completed_requires_auth(auth_client) -> None:
+    r = await auth_client.patch(f"/nutrition/menus/{VALID_PLAN_ID}", json={"completed": True})
+
+    assert r.status_code == 401

@@ -43,6 +43,12 @@ class FakeRepo(DietPlanRepository):
         self.plans = [p for p in self.plans if not (p.group_id == group_id and p.user_id == user_id)]
         return before - len(self.plans)
 
+    async def set_completed_for_user(self, id: DietPlanId, user_id: str, completed: bool) -> bool:
+        return False
+
+    async def set_group_completed_for_user(self, group_id: str, user_id: str, completed: bool) -> int:
+        return 0
+
 
 def _plan(user_id: str = "user-1", group_id: str | None = None, person: str | None = None) -> DietPlan:
     return DietPlan(

@@ -24,3 +24,13 @@ class DietPlanRepository(ABC):
     async def delete_group_for_user(self, group_id: str, user_id: str) -> int:
         """Delete every plan of user_id in group_id. Returns how many were deleted."""
         ...
+
+    @abstractmethod
+    async def set_completed_for_user(self, id: DietPlanId, user_id: str, completed: bool) -> bool:
+        """Set completed on the plan if it belongs to user_id. Returns False when nothing changed."""
+        ...
+
+    @abstractmethod
+    async def set_group_completed_for_user(self, group_id: str, user_id: str, completed: bool) -> int:
+        """Set completed on every plan of user_id in group_id. Returns how many were updated."""
+        ...

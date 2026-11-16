@@ -4,7 +4,7 @@ from __future__ import annotations
 import json
 from datetime import UTC
 
-from sqlalchemy import delete, select
+from sqlalchemy import delete, select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from backend.src.domain.entities.diet_plan import DietPlan
@@ -28,6 +28,7 @@ def _to_entity(model: DietPlanModel) -> DietPlan:
         uploaded_at=uploaded_at,
         group_id=model.group_id,
         person=model.person,
+        completed=model.completed,
     )
 
 
@@ -45,6 +46,7 @@ class SqlAlchemyDietPlanRepository(DietPlanRepository):
             uploaded_at=plan.uploaded_at,
             group_id=plan.group_id,
             person=plan.person,
+            completed=plan.completed,
         )
         self._session.add(model)
         await self._session.flush()
@@ -85,6 +87,30 @@ class SqlAlchemyDietPlanRepository(DietPlanRepository):
                 DietPlanModel.group_id == group_id,
                 DietPlanModel.user_id == user_id,
             )
+        )
+        await self._session.flush()
+        return result.rowcount
+
+    async def set_completed_for_user(self, id: DietPlanId, user_id: str, completed: bool) -> bool:
+        result = await self._session.execute(
+            update(DietPlanModel)
+            .where(
+                DietPlanModel.id == str(id.value),
+                DietPlanModel.user_id == user_id,
+            )
+            .values(completed=completed)
+        )
+        await self._session.flush()
+        return result.rowcount > 0
+
+    async def set_group_completed_for_user(self, group_id: str, user_id: str, completed: bool) -> int:
+        result = await self._session.execute(
+            update(DietPlanModel)
+            .where(
+                DietPlanModel.group_id == group_id,
+                DietPlanModel.user_id == user_id,
+            )
+            .values(completed=completed)
         )
         await self._session.flush()
         return result.rowcount

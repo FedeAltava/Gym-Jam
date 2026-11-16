@@ -83,6 +83,7 @@ from backend.src.application.use_cases.upload_diet_plan import UploadDietPlanUse
 from backend.src.application.use_cases.list_diet_plans import ListDietPlansUseCase
 from backend.src.application.use_cases.get_diet_plan import GetDietPlanUseCase
 from backend.src.application.use_cases.delete_diet_plan import DeleteDietPlanUseCase
+from backend.src.application.use_cases.set_diet_plan_completed import SetDietPlanCompletedUseCase
 
 oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/auth/login")
 oauth2_scheme_optional = OAuth2PasswordBearer(tokenUrl="/auth/login", auto_error=False)
@@ -428,6 +429,12 @@ def get_delete_diet_plan_use_case(
     repo: DietPlanRepository = Depends(get_diet_plan_repository),
 ) -> DeleteDietPlanUseCase:
     return DeleteDietPlanUseCase(repo=repo)
+
+
+def get_set_diet_plan_completed_use_case(
+    repo: DietPlanRepository = Depends(get_diet_plan_repository),
+) -> SetDietPlanCompletedUseCase:
+    return SetDietPlanCompletedUseCase(repo=repo)
 
 
 def get_body_weight_repository(session: AsyncSession = Depends(get_session)) -> BodyWeightRepository:

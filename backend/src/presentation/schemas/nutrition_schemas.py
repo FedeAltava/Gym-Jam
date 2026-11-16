@@ -19,6 +19,7 @@ class DietPlanResponse(BaseModel):
     uploaded_at: datetime
     group_id: str | None = None
     person: str | None = None
+    completed: bool = False
 
     @classmethod
     def from_dto(cls, dto: DietPlanDTO) -> "DietPlanResponse":
@@ -31,6 +32,7 @@ class DietPlanResponse(BaseModel):
             uploaded_at=dto.uploaded_at,
             group_id=dto.group_id,
             person=dto.person,
+            completed=dto.completed,
         )
 
 
@@ -44,6 +46,7 @@ class DietPlanSummaryResponse(BaseModel):
     uploaded_at: datetime
     group_id: str | None = None
     person: str | None = None
+    completed: bool = False
 
     @classmethod
     def from_dto(cls, dto: DietPlanSummaryDTO) -> "DietPlanSummaryResponse":
@@ -55,4 +58,11 @@ class DietPlanSummaryResponse(BaseModel):
             uploaded_at=dto.uploaded_at,
             group_id=dto.group_id,
             person=dto.person,
+            completed=dto.completed,
         )
+
+
+class SetDietPlanCompletedRequest(BaseModel):
+    """Body of PATCH /nutrition/menus/{id}: tick or untick the menu."""
+
+    completed: bool

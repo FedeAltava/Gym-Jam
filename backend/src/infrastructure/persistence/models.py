@@ -238,3 +238,6 @@ class DietPlanModel(Base):
     )
     group_id: Mapped[str | None] = mapped_column(String(36), nullable=True)
     person: Mapped[str | None] = mapped_column(String(50), nullable=True)
+    completed: Mapped[bool] = mapped_column(
+        Boolean, nullable=False, default=False, server_default="false"
+    )

@@ -1,4 +1,4 @@
-"""Nutrition router — PDF diet plan upload, retrieval and deletion endpoints."""
+"""Nutrition router — PDF diet plan upload, retrieval, completion and deletion endpoints."""
 from __future__ import annotations
 
 from fastapi import APIRouter, Depends, HTTPException, Response, UploadFile
@@ -9,11 +9,13 @@ from backend.src.application.commands import (
     DeleteDietPlanCommand,
     GetDietPlanQuery,
     ListDietPlansQuery,
+    SetDietPlanCompletedCommand,
     UploadDietPlanCommand,
 )
 from backend.src.application.use_cases.delete_diet_plan import DeleteDietPlanUseCase
 from backend.src.application.use_cases.get_diet_plan import GetDietPlanUseCase
 from backend.src.application.use_cases.list_diet_plans import ListDietPlansUseCase
+from backend.src.application.use_cases.set_diet_plan_completed import SetDietPlanCompletedUseCase
 from backend.src.application.use_cases.upload_diet_plan import UploadDietPlanUseCase
 from backend.src.infrastructure.database import get_session
 from backend.src.presentation.dependencies import (
@@ -21,11 +23,13 @@ from backend.src.presentation.dependencies import (
     get_delete_diet_plan_use_case,
     get_get_diet_plan_use_case,
     get_list_diet_plans_use_case,
+    get_set_diet_plan_completed_use_case,
     get_upload_diet_plan_use_case,
 )
 from backend.src.presentation.schemas.nutrition_schemas import (
     DietPlanResponse,
     DietPlanSummaryResponse,
+    SetDietPlanCompletedRequest,
 )
 
 _MAX_SIZE_BYTES = 10 * 1024 * 1024  # 10 MB
@@ -115,6 +119,28 @@ async def delete_diet_plan(
     session: AsyncSession = Depends(get_session),
 ) -> Response:
     cmd = DeleteDietPlanCommand(user_id=user_id, diet_plan_id=diet_plan_id)
+    result = await uc.execute(cmd)
+    if isinstance(result, Failure):
+        raise result.failure()
+
+    await session.commit()
+    return Response(status_code=204)
+
+
+@router.patch(
+    "/menus/{diet_plan_id}",
+    status_code=204,
+)
+async def set_diet_plan_completed(
+    diet_plan_id: str,
+    body: SetDietPlanCompletedRequest,
+    uc: SetDietPlanCompletedUseCase = Depends(get_set_diet_plan_completed_use_case),
+    user_id: str = Depends(get_current_user_id),
+    session: AsyncSession = Depends(get_session),
+) -> Response:
+    cmd = SetDietPlanCompletedCommand(
+        user_id=user_id, diet_plan_id=diet_plan_id, completed=body.completed
+    )
     result = await uc.execute(cmd)
     if isinstance(result, Failure):
         raise result.failure()

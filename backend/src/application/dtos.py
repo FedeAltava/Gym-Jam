@@ -262,6 +262,7 @@ class DietPlanDTO:
     uploaded_at: datetime
     group_id: str | None = None
     person: str | None = None
+    completed: bool = False
 
     @classmethod
     def from_aggregate(cls, plan: DietPlan) -> "DietPlanDTO":
@@ -274,6 +275,7 @@ class DietPlanDTO:
             uploaded_at=plan.uploaded_at,
             group_id=plan.group_id,
             person=plan.person,
+            completed=plan.completed,
         )
 
 
@@ -286,6 +288,7 @@ class DietPlanSummaryDTO:
     uploaded_at: datetime
     group_id: str | None = None
     person: str | None = None
+    completed: bool = False
 
     @classmethod
     def from_aggregate(cls, plan: DietPlan) -> "DietPlanSummaryDTO":
@@ -297,6 +300,7 @@ class DietPlanSummaryDTO:
             uploaded_at=plan.uploaded_at,
             group_id=plan.group_id,
             person=plan.person,
+            completed=plan.completed,
         )
 
 

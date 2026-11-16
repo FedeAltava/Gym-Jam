@@ -226,6 +226,7 @@ Infrastructure (SQLAlchemy, JWT, bcrypt, Redis, SMTP)
 | `POST` | `/nutrition/menus` | Upload a diet plan PDF — Claude extracts structured weekly menu |
 | `GET` | `/nutrition/menus` | List all diet plans for current user (newest first) |
 | `GET` | `/nutrition/menus/{id}` | Get a single diet plan with full weekly menu JSON |
+| `PATCH` | `/nutrition/menus/{id}` | Mark a diet plan as completed or not (`{"completed": bool}`); applies to every variant of a grouped menu |
 
 ### Health
 

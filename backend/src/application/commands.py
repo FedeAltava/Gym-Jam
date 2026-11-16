@@ -206,6 +206,13 @@ class DeleteDietPlanCommand:
 
 
 @dataclass(frozen=True)
+class SetDietPlanCompletedCommand:
+    user_id: str
+    diet_plan_id: str
+    completed: bool
+
+
+@dataclass(frozen=True)
 class ListDietPlansQuery:
     user_id: str
 
