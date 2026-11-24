@@ -10,7 +10,9 @@ from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from backend.src.application.commands import (
+    AddCardioEntryCommand,
     CompleteWorkoutSessionCommand,
+    DeleteCardioEntryCommand,
     DeleteExerciseLogCommand,
     DeleteWorkoutSessionCommand,
     GetSessionHistoryQuery,
@@ -27,14 +29,17 @@ from backend.src.application.use_cases.get_session_history import GetSessionHist
 from backend.src.application.use_cases.get_sessions_for_day import GetSessionsForDayUseCase
 from backend.src.application.use_cases.get_workout_session import GetWorkoutSessionUseCase
 from backend.src.application.use_cases.log_exercise_set import LogExerciseSetUseCase
+from backend.src.application.use_cases.session_cardio import AddCardioEntryUseCase, DeleteCardioEntryUseCase
 from backend.src.application.use_cases.start_workout_session import StartWorkoutSessionUseCase
 from backend.src.application.use_cases.swap_session_exercise import SwapSessionExerciseUseCase
 from backend.src.application.use_cases.update_exercise_log import UpdateExerciseLogUseCase
 from backend.src.infrastructure.database import get_session
 from backend.src.presentation.dependencies import (
     complete_idle_sessions,
+    get_add_cardio_entry_uc,
     get_complete_session_uc,
     get_current_user_id,
+    get_delete_cardio_entry_uc,
     get_delete_log_uc,
     get_delete_session_uc,
     get_get_sessions_for_day_uc,
@@ -46,6 +51,8 @@ from backend.src.presentation.dependencies import (
     get_update_log_uc,
 )
 from backend.src.presentation.schemas.session_schemas import (
+    AddCardioRequest,
+    CardioEntryResponse,
     ExerciseLogResponse,
     LogSetRequest,
     PaginatedSessionHistoryResponse,
@@ -300,6 +307,53 @@ async def undo_session_exercise_swap(
         exercise_id=None,
     )
     return await _swap(uc, session, cmd)
+
+
+@router.post(
+    "/sessions/{session_id}/cardio",
+    status_code=201,
+    response_model=CardioEntryResponse,
+)
+async def add_cardio_entry(
+    session_id: str,
+    body: AddCardioRequest,
+    uc: AddCardioEntryUseCase = Depends(get_add_cardio_entry_uc),
+    user_id: str = Depends(get_current_user_id),
+    session: AsyncSession = Depends(get_session),
+) -> CardioEntryResponse:
+    """Record treadmill cardio in the session, also once it is completed."""
+    cmd = AddCardioEntryCommand(
+        user_id=user_id,
+        session_id=session_id,
+        duration_minutes=body.duration_minutes,
+        distance_km=body.distance_km,
+        speed_kmh=body.speed_kmh,
+        incline_percent=body.incline_percent,
+        calories=body.calories,
+    )
+    result = await uc.execute(cmd)
+    if isinstance(result, Failure):
+        raise result.failure()
+    await session.commit()
+    return CardioEntryResponse.from_dto(result.unwrap())
+
+
+@router.delete(
+    "/sessions/{session_id}/cardio/{entry_id}",
+    status_code=204,
+)
+async def delete_cardio_entry(
+    session_id: str,
+    entry_id: str,
+    uc: DeleteCardioEntryUseCase = Depends(get_delete_cardio_entry_uc),
+    user_id: str = Depends(get_current_user_id),
+    session: AsyncSession = Depends(get_session),
+) -> None:
+    cmd = DeleteCardioEntryCommand(user_id=user_id, session_id=session_id, entry_id=entry_id)
+    result = await uc.execute(cmd)
+    if isinstance(result, Failure):
+        raise result.failure()
+    await session.commit()
 
 
 @router.post(

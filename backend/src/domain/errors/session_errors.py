@@ -50,3 +50,14 @@ class ExerciseHasLoggedSets(SessionError):
             f"Exercise '{workout_exercise_id}' already has logged sets in this session."
         )
         self.workout_exercise_id = workout_exercise_id
+
+
+class InvalidCardioEntry(SessionError):
+    def __init__(self, message: str) -> None:
+        super().__init__(message)
+
+
+class CardioEntryNotFound(SessionError):
+    def __init__(self, entry_id: str) -> None:
+        super().__init__(f"Cardio entry '{entry_id}' not found in session.")
+        self.entry_id = entry_id

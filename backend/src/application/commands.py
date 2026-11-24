@@ -123,6 +123,24 @@ class DeleteExerciseLogCommand:
 
 
 @dataclass(frozen=True)
+class AddCardioEntryCommand:
+    user_id: str
+    session_id: str
+    duration_minutes: int | None = None
+    distance_km: float | None = None
+    speed_kmh: float | None = None
+    incline_percent: float | None = None
+    calories: int | None = None
+
+
+@dataclass(frozen=True)
+class DeleteCardioEntryCommand:
+    user_id: str
+    session_id: str
+    entry_id: str
+
+
+@dataclass(frozen=True)
 class CompleteWorkoutSessionCommand:
     user_id: str
     session_id: str

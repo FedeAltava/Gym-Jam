@@ -4,6 +4,7 @@ from __future__ import annotations
 from pydantic import BaseModel, Field
 
 from backend.src.application.dtos import (
+    CardioEntryDTO,
     ExerciseLogDTO,
     ExerciseSwapDTO,
     PaginatedSessionHistoryDTO,
@@ -28,6 +29,16 @@ class LogSetRequest(BaseModel):
 class SwapExerciseRequest(BaseModel):
     # Catalog exercise done instead of the planned one, this session only.
     exercise_id: str = Field(min_length=1)
+
+
+class AddCardioRequest(BaseModel):
+    # Treadmill cardio. Every value is optional; the domain requires at least
+    # one and checks the ranges (incline 0-40 %, everything else > 0).
+    duration_minutes: int | None = None
+    distance_km: float | None = None
+    speed_kmh: float | None = None
+    incline_percent: float | None = None
+    calories: int | None = None
 
 
 class UpdateLogRequest(BaseModel):
@@ -70,6 +81,26 @@ class ExerciseSwapResponse(BaseModel):
         return cls(workout_exercise_id=dto.workout_exercise_id, exercise_id=dto.exercise_id)
 
 
+class CardioEntryResponse(BaseModel):
+    id: str
+    duration_minutes: int | None
+    distance_km: float | None
+    speed_kmh: float | None
+    incline_percent: float | None
+    calories: int | None
+
+    @classmethod
+    def from_dto(cls, dto: CardioEntryDTO) -> "CardioEntryResponse":
+        return cls(
+            id=dto.id,
+            duration_minutes=dto.duration_minutes,
+            distance_km=dto.distance_km,
+            speed_kmh=dto.speed_kmh,
+            incline_percent=dto.incline_percent,
+            calories=dto.calories,
+        )
+
+
 class WorkoutSessionResponse(BaseModel):
     id: str
     user_id: str
@@ -83,6 +114,8 @@ class WorkoutSessionResponse(BaseModel):
     logs: list[ExerciseLogResponse]
     # Planned exercises replaced in this session only.
     swaps: list[ExerciseSwapResponse]
+    # Treadmill cardio recorded in this session, in the order it was added.
+    cardio: list[CardioEntryResponse]
 
     @classmethod
     def from_dto(cls, dto: WorkoutSessionDTO) -> "WorkoutSessionResponse":
@@ -97,6 +130,7 @@ class WorkoutSessionResponse(BaseModel):
             duration_seconds=dto.duration_seconds,
             logs=[ExerciseLogResponse.from_dto(log) for log in dto.logs],
             swaps=[ExerciseSwapResponse.from_dto(swap) for swap in dto.swaps],
+            cardio=[CardioEntryResponse.from_dto(entry) for entry in dto.cardio],
         )
 
 
@@ -159,6 +193,8 @@ class SessionHistoryItemResponse(BaseModel):
     # Whole seconds between started_at and completed_at; null in progress.
     duration_seconds: int | None
     logs: list[SessionHistoryLogResponse]
+    # Treadmill cardio recorded in this session, in the order it was added.
+    cardio: list[CardioEntryResponse]
 
     @classmethod
     def from_dto(cls, dto: SessionHistoryItemDTO) -> "SessionHistoryItemResponse":
@@ -175,6 +211,7 @@ class SessionHistoryItemResponse(BaseModel):
             records=[SessionRecordResponse.from_dto(record) for record in dto.records],
             duration_seconds=dto.duration_seconds,
             logs=[SessionHistoryLogResponse.from_dto(log) for log in dto.logs],
+            cardio=[CardioEntryResponse.from_dto(entry) for entry in dto.cardio],
         )
 
 

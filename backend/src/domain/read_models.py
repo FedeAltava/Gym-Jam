@@ -42,6 +42,18 @@ class SessionRecordSnapshot:
 
 
 @dataclass(frozen=True)
+class SessionCardioSnapshot:
+    """Treadmill cardio recorded in a session; every value is optional."""
+
+    id: str
+    duration_minutes: int | None
+    distance_km: float | None
+    speed_kmh: float | None
+    incline_percent: float | None
+    calories: int | None
+
+
+@dataclass(frozen=True)
 class SessionSnapshot:
     id: str
     workout_id: str
@@ -54,3 +66,4 @@ class SessionSnapshot:
     # Number of records the session holds; always len(records).
     pr_count: int = 0
     records: tuple[SessionRecordSnapshot, ...] = ()
+    cardio: tuple[SessionCardioSnapshot, ...] = ()

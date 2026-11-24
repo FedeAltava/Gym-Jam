@@ -53,6 +53,7 @@ from backend.src.application.use_cases.rename_workout import RenameWorkoutUseCas
 from backend.src.application.use_cases.set_workout_active import SetWorkoutActiveUseCase
 from backend.src.application.use_cases.start_workout_session import StartWorkoutSessionUseCase
 from backend.src.application.use_cases.log_exercise_set import LogExerciseSetUseCase
+from backend.src.application.use_cases.session_cardio import AddCardioEntryUseCase, DeleteCardioEntryUseCase
 from backend.src.application.use_cases.swap_session_exercise import SwapSessionExerciseUseCase
 from backend.src.application.use_cases.update_exercise_log import UpdateExerciseLogUseCase
 from backend.src.application.use_cases.complete_idle_sessions import CompleteIdleSessionsUseCase
@@ -280,6 +281,18 @@ def get_update_log_uc(
     session_repo: SessionRepository = Depends(get_session_repository),
 ) -> UpdateExerciseLogUseCase:
     return UpdateExerciseLogUseCase(session_repo)
+
+
+def get_add_cardio_entry_uc(
+    session_repo: SessionRepository = Depends(get_session_repository),
+) -> AddCardioEntryUseCase:
+    return AddCardioEntryUseCase(session_repo)
+
+
+def get_delete_cardio_entry_uc(
+    session_repo: SessionRepository = Depends(get_session_repository),
+) -> DeleteCardioEntryUseCase:
+    return DeleteCardioEntryUseCase(session_repo)
 
 
 def get_personal_record_repository(

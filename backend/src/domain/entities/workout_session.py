@@ -6,9 +6,11 @@ from datetime import UTC, datetime
 
 from returns.result import Failure, Result, Success
 
+from backend.src.domain.entities.cardio_entry import CardioEntry
 from backend.src.domain.entities.exercise_log import ExerciseLog
 from backend.src.domain.entities.workout_exercise import WorkoutExercise
 from backend.src.domain.errors.session_errors import (
+    CardioEntryNotFound,
     ExerciseHasLoggedSets,
     InvalidRepsCompleted,
     LogNotFound,
@@ -16,6 +18,7 @@ from backend.src.domain.errors.session_errors import (
     SetAlreadyLogged,
     SetExceedsPlan,
 )
+from backend.src.domain.value_objects.cardio_entry_id import CardioEntryId
 from backend.src.domain.value_objects.exercise_log_id import ExerciseLogId
 from backend.src.domain.value_objects.training_day_id import TrainingDayId
 from backend.src.domain.value_objects.workout_exercise_id import WorkoutExerciseId
@@ -34,6 +37,8 @@ class WorkoutSession:
     _logs: list[ExerciseLog] = field(default_factory=list, repr=False)
     # Planned slot -> catalog exercise done instead, for this session only.
     _swaps: dict[WorkoutExerciseId, str] = field(default_factory=dict, repr=False)
+    # Treadmill cardio recorded in this session, in the order it was added.
+    _cardio: list[CardioEntry] = field(default_factory=list, repr=False)
 
     def __eq__(self, other: object) -> bool:
         if not isinstance(other, WorkoutSession):
@@ -54,6 +59,10 @@ class WorkoutSession:
     @property
     def swaps(self) -> dict[WorkoutExerciseId, str]:
         return dict(self._swaps)
+
+    @property
+    def cardio(self) -> list[CardioEntry]:
+        return list(self._cardio)
 
     def log_set(
         self,
@@ -117,6 +126,36 @@ class WorkoutSession:
             self._swaps.pop(exercise.id, None)
         else:
             self._swaps[exercise.id] = exercise_id
+
+    def add_cardio(
+        self,
+        *,
+        duration_minutes: int | None = None,
+        distance_km: float | None = None,
+        speed_kmh: float | None = None,
+        incline_percent: float | None = None,
+        calories: int | None = None,
+    ) -> CardioEntry:
+        # No completed-session guard on purpose: cardio usually comes after
+        # the last set, often once the session is already finished.
+        entry = CardioEntry.record(
+            self.id,
+            duration_minutes=duration_minutes,
+            distance_km=distance_km,
+            speed_kmh=speed_kmh,
+            incline_percent=incline_percent,
+            calories=calories,
+        )
+        self._cardio.append(entry)
+        return entry
+
+    def remove_cardio(self, entry_id: CardioEntryId) -> Result[None, CardioEntryNotFound]:
+        # Allowed on completed sessions too, like add_cardio and remove_log.
+        entry = next((item for item in self._cardio if item.id == entry_id), None)
+        if entry is None:
+            return Failure(CardioEntryNotFound(entry_id=str(entry_id.value)))
+        self._cardio.remove(entry)
+        return Success(None)
 
     def complete(self, at: datetime | None = None) -> None:
         # `at` backdates an automatic completion to the session's last activity.

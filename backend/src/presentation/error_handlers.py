@@ -3,6 +3,7 @@ from fastapi.responses import JSONResponse
 from backend.src.application.errors import (
     ApplicationError,
     BodyWeightEntryNotFoundError,
+    CardioEntryNotFoundError,
     DietPlanNotFoundError,
     DietPlanProcessingError,
     ExerciseHasLoggedSetsError,
@@ -20,7 +21,7 @@ from backend.src.application.errors import (
 
 
 async def application_error_handler(request: Request, exc: ApplicationError) -> JSONResponse:
-    if isinstance(exc, (WorkoutNotFoundError, ExerciseNotFoundError, SessionNotFoundError, LogNotFoundError, DietPlanNotFoundError, BodyWeightEntryNotFoundError)):
+    if isinstance(exc, (WorkoutNotFoundError, ExerciseNotFoundError, SessionNotFoundError, LogNotFoundError, CardioEntryNotFoundError, DietPlanNotFoundError, BodyWeightEntryNotFoundError)):
         status_code = 404
     elif isinstance(exc, UnauthorizedError):
         status_code = 403

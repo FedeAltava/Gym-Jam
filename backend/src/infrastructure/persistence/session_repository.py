@@ -10,6 +10,7 @@ from sqlalchemy.orm import selectinload
 from backend.src.domain.entities.workout_session import WorkoutSession
 from backend.src.domain.read_models import (
     LastSetSnapshot,
+    SessionCardioSnapshot,
     SessionLogSnapshot,
     SessionRecordSnapshot,
     SessionSnapshot,
@@ -21,6 +22,7 @@ from backend.src.infrastructure.persistence.mappers import WorkoutSessionMapper
 from backend.src.infrastructure.persistence.models import (
     ExerciseModel,
     PersonalRecordModel,
+    SessionCardioEntryModel,
     SessionExerciseSwapModel,
     TrainingDayModel,
     WorkoutExerciseModel,
@@ -296,7 +298,7 @@ class SqlAlchemySessionRepository(SessionRepository):
         offset: int,
         session_id: str | None = None,
     ) -> list[SessionSnapshot]:
-        # Exactly three queries, zero N+1.
+        # Exactly four queries, zero N+1.
         #
         # Query 1 — page of sessions with workout name + day-of-week.
         # Column-only select ON PURPOSE: loading WorkoutSessionModel entities
@@ -432,6 +434,36 @@ class SqlAlchemySessionRepository(SessionRepository):
                     )
                 )
 
+        # Query 4 — the treadmill cardio of the page's sessions, one IN query.
+        cardio_by_session: dict[str, list[SessionCardioSnapshot]] = {
+            sid: [] for sid in session_ids
+        }
+        if session_ids:
+            cardio_stmt = (
+                select(
+                    SessionCardioEntryModel.id,
+                    SessionCardioEntryModel.session_id,
+                    SessionCardioEntryModel.duration_minutes,
+                    SessionCardioEntryModel.distance_km,
+                    SessionCardioEntryModel.speed_kmh,
+                    SessionCardioEntryModel.incline_percent,
+                    SessionCardioEntryModel.calories,
+                )
+                .where(SessionCardioEntryModel.session_id.in_(session_ids))
+                .order_by(SessionCardioEntryModel.created_at)
+            )
+            for cardio_row in (await self._session.execute(cardio_stmt)).all():
+                cardio_by_session[cardio_row.session_id].append(
+                    SessionCardioSnapshot(
+                        id=cardio_row.id,
+                        duration_minutes=cardio_row.duration_minutes,
+                        distance_km=cardio_row.distance_km,
+                        speed_kmh=cardio_row.speed_kmh,
+                        incline_percent=cardio_row.incline_percent,
+                        calories=cardio_row.calories,
+                    )
+                )
+
         return [
             SessionSnapshot(
                 id=row.id,
@@ -444,6 +476,7 @@ class SqlAlchemySessionRepository(SessionRepository):
                 logs=tuple(logs_by_session[row.id]),
                 pr_count=len(records_by_session[row.id]),
                 records=tuple(records_by_session[row.id]),
+                cardio=tuple(cardio_by_session[row.id]),
             )
             for row in rows
         ]

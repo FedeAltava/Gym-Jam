@@ -283,10 +283,11 @@ async def test_history_fires_exactly_two_queries(client, engine) -> None:
     assert r.status_code == 200
     assert len(r.json()["items"]) == 2
     assert all(len(s["logs"]) == 1 for s in r.json()["items"])
-    # 5 SELECTs: 1 for the idle-session sweep (finds none here), 1 COUNT for
+    # 6 SELECTs: 1 for the idle-session sweep (finds none here), 1 COUNT for
     # total, 1 for the session page, 1 IN for logs, 1 IN for the records the
-    # page's sessions hold. Still O(1) regardless of page size — no N+1.
-    assert len(statements) == 5, f"expected 5 SELECTs, got {len(statements)}: {statements}"
+    # page's sessions hold, 1 IN for their cardio. Still O(1) regardless of
+    # page size — no N+1.
+    assert len(statements) == 6, f"expected 6 SELECTs, got {len(statements)}: {statements}"
 
 
 # ── Swapped exercises ─────────────────────────────────────────────────────────

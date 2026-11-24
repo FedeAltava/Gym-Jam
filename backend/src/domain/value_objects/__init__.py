@@ -1,4 +1,5 @@
 """Domain value objects — public re-exports."""
+from backend.src.domain.value_objects.cardio_entry_id import CardioEntryId, CardioEntryIdError
 from backend.src.domain.value_objects.day_of_week import DayOfWeek
 from backend.src.domain.value_objects.exercise_log_id import ExerciseLogId, ExerciseLogIdError
 from backend.src.domain.value_objects.workout_exercise_id import (
@@ -11,6 +12,8 @@ from backend.src.domain.value_objects.workout_name import WorkoutName, WorkoutNa
 from backend.src.domain.value_objects.workout_session_id import WorkoutSessionId, WorkoutSessionIdError
 
 __all__ = [
+    "CardioEntryId",
+    "CardioEntryIdError",
     "DayOfWeek",
     "ExerciseLogId",
     "ExerciseLogIdError",

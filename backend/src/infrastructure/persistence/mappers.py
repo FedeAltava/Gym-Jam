@@ -1,11 +1,13 @@
 from __future__ import annotations
 from datetime import datetime, UTC
 from backend.src.domain.aggregates.workout import Workout
+from backend.src.domain.entities.cardio_entry import CardioEntry
 from backend.src.domain.entities.exercise_log import ExerciseLog
 from backend.src.domain.entities.training_day import TrainingDay
 from backend.src.domain.entities.workout_exercise import WorkoutExercise
 from backend.src.domain.entities.workout_session import WorkoutSession
 from backend.src.domain.value_objects import (
+    CardioEntryId,
     WorkoutId,
     TrainingDayId,
     WorkoutExerciseId,
@@ -15,6 +17,7 @@ from backend.src.domain.value_objects import (
     WorkoutSessionId,
 )
 from backend.src.infrastructure.persistence.models import (
+    SessionCardioEntryModel,
     SessionExerciseSwapModel,
     WorkoutModel,
     WorkoutLogModel,
@@ -134,6 +137,19 @@ class WorkoutSessionMapper:
                 WorkoutExerciseId.from_string(swap.workout_exercise_id).unwrap(): swap.exercise_id
                 for swap in model.swaps
             },
+            _cardio=[
+                CardioEntry(
+                    id=CardioEntryId.from_string(entry.id).unwrap(),
+                    session_id=WorkoutSessionId.from_string(entry.session_id).unwrap(),
+                    duration_minutes=entry.duration_minutes,
+                    distance_km=entry.distance_km,
+                    speed_kmh=entry.speed_kmh,
+                    incline_percent=entry.incline_percent,
+                    calories=entry.calories,
+                    created_at=_as_utc(entry.created_at),
+                )
+                for entry in model.cardio
+            ],
         )
 
     @staticmethod
@@ -165,5 +181,18 @@ class WorkoutSessionMapper:
                 exercise_id=exercise_id,
             )
             for we_id, exercise_id in session.swaps.items()
+        ]
+        session_model.cardio = [
+            SessionCardioEntryModel(
+                id=str(entry.id.value),
+                session_id=str(session.id.value),
+                duration_minutes=entry.duration_minutes,
+                distance_km=entry.distance_km,
+                speed_kmh=entry.speed_kmh,
+                incline_percent=entry.incline_percent,
+                calories=entry.calories,
+                created_at=entry.created_at,
+            )
+            for entry in session.cardio
         ]
         return session_model

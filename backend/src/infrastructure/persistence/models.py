@@ -137,6 +137,12 @@ class WorkoutSessionModel(Base):
     swaps: Mapped[list["SessionExerciseSwapModel"]] = relationship(
         "SessionExerciseSwapModel", cascade="all, delete-orphan", lazy="selectin"
     )
+    cardio: Mapped[list["SessionCardioEntryModel"]] = relationship(
+        "SessionCardioEntryModel",
+        cascade="all, delete-orphan",
+        lazy="selectin",
+        order_by="SessionCardioEntryModel.created_at",
+    )
 
 
 class WorkoutLogModel(Base):
@@ -169,6 +175,25 @@ class SessionExerciseSwapModel(Base):
     # Soft reference to the catalog, like workout_exercises.exercise_id;
     # existence is checked in SwapSessionExerciseUseCase.
     exercise_id: Mapped[str] = mapped_column(String(255), nullable=False)
+
+
+class SessionCardioEntryModel(Base):
+    # Treadmill cardio recorded in one session; every value is optional.
+    # Kept in sync with migration 027.
+    __tablename__ = "session_cardio_entries"
+    __table_args__ = (
+        Index("ix_session_cardio_entries_session_id", "session_id"),
+    )
+    id: Mapped[str] = mapped_column(String(36), primary_key=True)
+    session_id: Mapped[str] = mapped_column(
+        String(36), ForeignKey("workout_sessions.id", ondelete="CASCADE"), nullable=False
+    )
+    duration_minutes: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    distance_km: Mapped[float | None] = mapped_column(Float, nullable=True)
+    speed_kmh: Mapped[float | None] = mapped_column(Float, nullable=True)
+    incline_percent: Mapped[float | None] = mapped_column(Float, nullable=True)
+    calories: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
 
 
 class PersonalRecordModel(Base):

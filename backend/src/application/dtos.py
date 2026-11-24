@@ -5,6 +5,7 @@ from datetime import datetime
 
 from backend.src.domain.aggregates.workout import Workout
 from backend.src.domain.entities.body_weight_entry import BodyWeightEntry
+from backend.src.domain.entities.cardio_entry import CardioEntry
 from backend.src.domain.entities.diet_plan import DietPlan
 from backend.src.domain.entities.exercise import Exercise
 from backend.src.domain.entities.exercise_log import ExerciseLog
@@ -154,6 +155,29 @@ class ExerciseSwapDTO:
 
 
 @dataclass(frozen=True)
+class CardioEntryDTO:
+    """Treadmill cardio recorded in a session; every value is optional."""
+
+    id: str
+    duration_minutes: int | None
+    distance_km: float | None
+    speed_kmh: float | None
+    incline_percent: float | None
+    calories: int | None
+
+    @classmethod
+    def from_entity(cls, entry: CardioEntry) -> "CardioEntryDTO":
+        return cls(
+            id=str(entry.id.value),
+            duration_minutes=entry.duration_minutes,
+            distance_km=entry.distance_km,
+            speed_kmh=entry.speed_kmh,
+            incline_percent=entry.incline_percent,
+            calories=entry.calories,
+        )
+
+
+@dataclass(frozen=True)
 class SessionHistoryLogDTO:
     id: str
     workout_exercise_id: str
@@ -193,6 +217,7 @@ class SessionHistoryItemDTO:
     records: tuple[SessionRecordDTO, ...] = ()
     # completed_at - started_at in whole seconds; None while in progress.
     duration_seconds: int | None = None
+    cardio: tuple[CardioEntryDTO, ...] = ()
 
 
 @dataclass(frozen=True)
@@ -227,6 +252,8 @@ class WorkoutSessionDTO:
     duration_seconds: int | None = None
     # Planned exercises replaced in this session only.
     swaps: tuple[ExerciseSwapDTO, ...] = ()
+    # Treadmill cardio recorded in this session, in the order it was added.
+    cardio: tuple[CardioEntryDTO, ...] = ()
 
     @classmethod
     def from_aggregate(cls, session: WorkoutSession) -> "WorkoutSessionDTO":
@@ -249,6 +276,7 @@ class WorkoutSessionDTO:
                 ExerciseSwapDTO(workout_exercise_id=str(we_id.value), exercise_id=exercise_id)
                 for we_id, exercise_id in session.swaps.items()
             ),
+            cardio=tuple(CardioEntryDTO.from_entity(entry) for entry in session.cardio),
         )
 
 

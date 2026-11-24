@@ -8,6 +8,7 @@ from returns.result import Result, Success
 
 from backend.src.application.commands import GetSessionHistoryQuery
 from backend.src.application.dtos import (
+    CardioEntryDTO,
     PaginatedSessionHistoryDTO,
     SessionHistoryItemDTO,
     SessionHistoryLogDTO,
@@ -82,6 +83,17 @@ def _to_dto(snap: SessionSnapshot) -> SessionHistoryItemDTO:
             for record in snap.records
         ),
         duration_seconds=duration_seconds,
+        cardio=tuple(
+            CardioEntryDTO(
+                id=entry.id,
+                duration_minutes=entry.duration_minutes,
+                distance_km=entry.distance_km,
+                speed_kmh=entry.speed_kmh,
+                incline_percent=entry.incline_percent,
+                calories=entry.calories,
+            )
+            for entry in snap.cardio
+        ),
     )
 
 

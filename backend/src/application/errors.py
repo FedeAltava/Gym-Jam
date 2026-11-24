@@ -130,6 +130,15 @@ class LogNotFoundError(ApplicationError):
 
 
 @dataclass
+class CardioEntryNotFoundError(ApplicationError):
+    entry_id: str
+
+    def __init__(self, entry_id: str) -> None:
+        object.__setattr__(self, "entry_id", entry_id)
+        super().__init__(f"Cardio entry '{entry_id}' not found.")
+
+
+@dataclass
 class SessionAlreadyCompletedError(ApplicationError):
     session_id: str
 
