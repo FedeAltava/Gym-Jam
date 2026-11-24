@@ -18,6 +18,7 @@ import { Spinner } from '../components/Spinner';
 import { MainExerciseBadge } from '../components/MainExerciseBadge';
 import { ExerciseHowToSheet } from '../components/sessions/ExerciseHowToSheet';
 import { ExerciseSwapSheet } from '../components/sessions/ExerciseSwapSheet';
+import { SessionCardioSection } from '../components/sessions/SessionCardioSection';
 import { getExerciseGuide, type ResolvedExerciseGuide } from '../data/exerciseGuides';
 import { ApiError } from '../lib/api';
 import { DAY_LABEL } from '../lib/days';
@@ -1305,6 +1306,9 @@ export function WorkoutSessionPage() {
               );
             })}
           </div>
+
+          {/* Fixtures/responses from before cardio existed carry no `cardio`. */}
+          <SessionCardioSection sessionId={session.id} entries={liveSession?.cardio ?? []} />
 
           {session.status === 'in_progress' && (
             <button

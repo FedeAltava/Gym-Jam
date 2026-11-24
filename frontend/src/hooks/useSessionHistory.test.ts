@@ -31,6 +31,7 @@ function makeSession(id: string): SessionHistoryItemResponse {
     pr_count: 0,
     records: [],
     logs: [],
+    cardio: [],
   };
 }
 

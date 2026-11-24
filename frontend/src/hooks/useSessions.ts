@@ -3,7 +3,9 @@ import { apiFetch } from '../lib/api';
 import type {
   WorkoutSessionResponse,
   ExerciseLogResponse,
+  CardioEntryResponse,
 } from '../types/api';
+import type { CardioValues } from '../lib/cardio';
 
 // ---------------------------------------------------------------------------
 // Queries
@@ -257,5 +259,37 @@ export function useUndoExerciseSwap() {
         { method: 'DELETE' },
       ),
     onSuccess: (_data, ctx) => invalidateAfterSwap(qc, ctx),
+  });
+}
+
+// ---------------------------------------------------------------------------
+// Treadmill cardio — also allowed once the session is completed
+// ---------------------------------------------------------------------------
+
+export function useAddCardio() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: ({ sessionId, values }: { sessionId: string; values: CardioValues }) =>
+      apiFetch<CardioEntryResponse>(`/sessions/${sessionId}/cardio`, {
+        method: 'POST',
+        body: JSON.stringify({
+          duration_minutes: values.durationMinutes,
+          distance_km: values.distanceKm,
+          speed_kmh: values.speedKmh,
+          incline_percent: values.inclinePercent,
+          calories: values.calories,
+        }),
+      }),
+    // Every session view carries the cardio: the day's sessions, history, detail.
+    onSuccess: () => qc.invalidateQueries({ queryKey: ['sessions'] }),
+  });
+}
+
+export function useDeleteCardio() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: ({ sessionId, entryId }: { sessionId: string; entryId: string }) =>
+      apiFetch<void>(`/sessions/${sessionId}/cardio/${entryId}`, { method: 'DELETE' }),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ['sessions'] }),
   });
 }

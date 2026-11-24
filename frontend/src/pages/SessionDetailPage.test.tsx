@@ -1,4 +1,4 @@
-import { screen } from '@testing-library/react';
+import { screen, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { renderWithProviders } from '../test/test-utils';
 import { SessionDetailPage } from './SessionDetailPage';
@@ -134,7 +134,7 @@ const EMPTY_HISTORY = {
  * - /sessions/sess1 → session detail
  * - /sessions?... → paginated history (always empty for isolation)
  */
-function mockApi(sessionFixture: typeof SESSION_WITH_PR = SESSION_WITH_PR) {
+function mockApi(sessionFixture: typeof SESSION_WITH_PR & { cardio?: unknown[] } = SESSION_WITH_PR) {
   mockApiFetch.mockImplementation((path: string) => {
     if (path === '/sessions/sess1') {
       return Promise.resolve(sessionFixture);
@@ -252,6 +252,28 @@ describe('SessionDetailPage — exercise cards', () => {
     // 3 sets for Press banca + 3 sets for Dominadas = 6 "Serie N" labels
     const serieLabels = screen.getAllByText(/^Serie \d$/);
     expect(serieLabels.length).toBeGreaterThanOrEqual(6);
+  });
+});
+
+describe('SessionDetailPage — treadmill cardio', () => {
+  it('shows the cardio recorded in the session', async () => {
+    mockApi({
+      ...SESSION_WITH_PR,
+      cardio: [
+        { id: 'c1', duration_minutes: 30, distance_km: 4, speed_kmh: 8, incline_percent: 1, calories: 320 },
+      ],
+    });
+    renderWithProviders(<SessionDetailPage />);
+
+    const section = await screen.findByRole('region', { name: 'Cardio en cinta' });
+    expect(within(section).getByText('30 min · 4 km · 8 km/h · pendiente 1 % · 320 kcal')).toBeInTheDocument();
+  });
+
+  it('lets a completed session get cardio added later', async () => {
+    mockApi();
+    renderWithProviders(<SessionDetailPage />);
+
+    expect(await screen.findByRole('button', { name: 'Añadir cardio' })).toBeInTheDocument();
   });
 });
 

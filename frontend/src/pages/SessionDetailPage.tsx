@@ -3,6 +3,7 @@ import { useParams, useNavigate } from 'react-router-dom';
 import { ArrowLeft, X } from 'lucide-react';
 import { useSessionDetail, useSessionHistory } from '../hooks/useSessionHistory';
 import { Spinner } from '../components/Spinner';
+import { SessionCardioSection } from '../components/sessions/SessionCardioSection';
 import { DAY_LABEL } from '../lib/days';
 import type { DayKey } from '../lib/days';
 import type {
@@ -840,6 +841,9 @@ export function SessionDetailPage() {
             />
           ))}
         </div>
+
+        {/* ─── Treadmill cardio (can still be added once completed) ─── */}
+        <SessionCardioSection sessionId={session.id} entries={session.cardio ?? []} />
 
         {/* ─── Repeat session button ─── */}
         <button

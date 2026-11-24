@@ -57,6 +57,16 @@ export interface ExerciseSwapResponse {
   exercise_id: string;
 }
 
+// Treadmill cardio recorded in a session; every value is optional.
+export interface CardioEntryResponse {
+  id: string;
+  duration_minutes: number | null;
+  distance_km: number | null;
+  speed_kmh: number | null;
+  incline_percent: number | null;
+  calories: number | null;
+}
+
 export interface WorkoutSessionResponse {
   id: string;
   workout_id: string;
@@ -66,6 +76,8 @@ export interface WorkoutSessionResponse {
   completed_at: string | null;
   logs: ExerciseLogResponse[];
   swaps: ExerciseSwapResponse[];
+  // In the order it was added.
+  cardio: CardioEntryResponse[];
 }
 
 export interface WorkoutResponse {
@@ -188,6 +200,8 @@ export interface SessionHistoryItemResponse {
   pr_count: number;
   records: SessionRecordResponse[];
   logs: SessionHistoryLogResponse[];
+  // In the order it was added.
+  cardio: CardioEntryResponse[];
 }
 
 // One body weight measurement per day (kg).

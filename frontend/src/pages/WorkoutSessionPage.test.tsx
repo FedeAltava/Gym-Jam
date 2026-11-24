@@ -593,12 +593,23 @@ async function resumeSession(
     workout?: typeof WORKOUT_FIXTURE;
     exercises?: typeof EXERCISES_FIXTURE;
     swapError?: Error;
+    cardio?: { id: string; [field: string]: unknown }[];
   } = {},
 ) {
-  const live = { ...makeSessionFixture(), logs: initial.logs ?? [], swaps: initial.swaps ?? [] };
+  const live = {
+    ...makeSessionFixture(),
+    logs: initial.logs ?? [],
+    swaps: initial.swaps ?? [],
+    cardio: initial.cardio ?? [],
+  };
   sessionStorage.setItem('gymjam:active-session:w1:day1', 'sess1');
   mockApiFetch.mockImplementation((path: string, options?: RequestInit) => {
     if (path === '/auth/me') return Promise.resolve(PREFS_FIXTURE);
+    if (path === '/sessions/sess1/cardio' && options?.method === 'POST') {
+      const entry = { id: `c${live.cardio.length + 1}`, ...JSON.parse(options.body as string) };
+      live.cardio = [...live.cardio, entry];
+      return Promise.resolve(entry);
+    }
     const swap = path.match(/^\/sessions\/sess1\/exercises\/(\w+)\/swap$/);
     if (swap && options?.method === 'PUT') {
       if (initial.swapError) return Promise.reject(initial.swapError);
@@ -626,6 +637,46 @@ async function resumeSession(
   await screen.findByText('Dominadas');
   return user;
 }
+
+describe('Treadmill cardio', () => {
+  afterEach(() => sessionStorage.clear());
+
+  it('shows the cardio already recorded in the session', async () => {
+    await resumeSession({
+      cardio: [
+        { id: 'c1', duration_minutes: 15, distance_km: null, speed_kmh: 6, incline_percent: 2, calories: null },
+      ],
+    });
+
+    const section = screen.getByRole('region', { name: 'Cardio en cinta' });
+    expect(within(section).getByText('15 min · 6 km/h · pendiente 2 %')).toBeInTheDocument();
+  });
+
+  it('adds treadmill cardio on the fly and lists it', async () => {
+    const user = await resumeSession();
+
+    await user.click(screen.getByRole('button', { name: 'Añadir cardio' }));
+    const dialog = screen.getByRole('dialog', { name: 'Añadir cardio' });
+    await user.type(within(dialog).getByLabelText('Minutos'), '20');
+    await user.type(within(dialog).getByLabelText('Velocidad (km/h)'), '7,5');
+    await user.type(within(dialog).getByLabelText('Calorías (kcal)'), '230');
+    await user.click(within(dialog).getByRole('button', { name: 'Guardar' }));
+
+    expect(mockApiFetch).toHaveBeenCalledWith('/sessions/sess1/cardio', {
+      method: 'POST',
+      body: JSON.stringify({
+        duration_minutes: 20,
+        distance_km: null,
+        speed_kmh: 7.5,
+        incline_percent: null,
+        calories: 230,
+      }),
+    });
+    const section = screen.getByRole('region', { name: 'Cardio en cinta' });
+    expect(await within(section).findByText('20 min · 7,5 km/h · 230 kcal')).toBeInTheDocument();
+    expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
+  });
+});
 
 describe('Exercise swap', () => {
   afterEach(() => sessionStorage.clear());
