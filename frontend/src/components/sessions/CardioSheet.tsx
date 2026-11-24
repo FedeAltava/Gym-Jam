@@ -10,12 +10,12 @@ interface CardioSheetProps {
   onClose: () => void;
 }
 
-const FIELDS: { key: keyof CardioForm; label: string; inputMode: 'numeric' | 'decimal'; placeholder: string }[] = [
-  { key: 'durationMinutes', label: 'Minutos', inputMode: 'numeric', placeholder: '20' },
-  { key: 'distanceKm', label: 'Distancia (km)', inputMode: 'decimal', placeholder: '2,5' },
-  { key: 'speedKmh', label: 'Velocidad (km/h)', inputMode: 'decimal', placeholder: '6,5' },
-  { key: 'inclinePercent', label: 'Pendiente (%)', inputMode: 'decimal', placeholder: '3' },
-  { key: 'calories', label: 'Calorías (kcal)', inputMode: 'numeric', placeholder: '200' },
+const FIELDS: { key: keyof CardioForm; label: string; inputMode: 'numeric' | 'decimal' }[] = [
+  { key: 'durationMinutes', label: 'Minutos', inputMode: 'numeric' },
+  { key: 'distanceKm', label: 'Distancia (km)', inputMode: 'decimal' },
+  { key: 'speedKmh', label: 'Velocidad (km/h)', inputMode: 'decimal' },
+  { key: 'inclinePercent', label: 'Pendiente (%)', inputMode: 'decimal' },
+  { key: 'calories', label: 'Calorías (kcal)', inputMode: 'numeric' },
 ];
 
 const fieldStyle = {
@@ -83,7 +83,12 @@ export function CardioSheet({ isPending, errorMessage, onSave, onClose }: Cardio
           </button>
         </div>
 
-        <form onSubmit={handleSubmit} noValidate className="overflow-y-auto px-4 pb-4">
+        <form
+          onSubmit={handleSubmit}
+          noValidate
+          className="overflow-y-auto px-4"
+          style={{ paddingBottom: 'calc(16px + env(safe-area-inset-bottom))' }}
+        >
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px' }}>
             {FIELDS.map((field) => (
               <label
@@ -94,7 +99,6 @@ export function CardioSheet({ isPending, errorMessage, onSave, onClose }: Cardio
                 <input
                   type="text"
                   inputMode={field.inputMode}
-                  placeholder={field.placeholder}
                   value={form[field.key]}
                   onChange={(e) => setForm((prev) => ({ ...prev, [field.key]: e.target.value }))}
                   style={fieldStyle}
