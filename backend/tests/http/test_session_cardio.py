@@ -10,7 +10,7 @@ import uuid
 import pytest
 import sqlalchemy
 
-from backend.src.infrastructure.persistence.models import SessionCardioEntryModel
+from backend.src.infrastructure.persistence.models import Base, SessionCardioEntryModel
 
 FULL_ENTRY = {
     "duration_minutes": 20,
@@ -50,6 +50,15 @@ async def _cardio_rows(session, session_id: str) -> int:
         .where(SessionCardioEntryModel.session_id == session_id)
     )
     return result.scalar_one()
+
+
+async def _db_snapshot(session) -> list[list[tuple]]:
+    """Every row of every table, to prove a rejected command wrote nothing."""
+    snapshot = []
+    for table in Base.metadata.sorted_tables:
+        rows = (await session.execute(sqlalchemy.select(table))).all()
+        snapshot.append(sorted(tuple(map(str, row)) for row in rows))
+    return snapshot
 
 
 # ── Add ──────────────────────────────────────────────────────────────────────
@@ -122,12 +131,40 @@ async def test_invalid_cardio_returns_422_and_stores_nothing(client, session, bo
     assert (await client.get(f"/workouts/{wid}/days/{day_id}/sessions")).content == before
 
 
-async def test_incline_zero_is_valid(client) -> None:
+@pytest.mark.parametrize(
+    "raw", [b'{"distance_km": NaN}', b'{"speed_kmh": Infinity}', b'{"incline_percent": -Infinity}']
+)
+async def test_non_finite_cardio_values_return_422(client, session, raw) -> None:
     _, _, sid = await _start_session(client)
 
-    entry = await _add_cardio(client, sid, {"incline_percent": 0})
+    # Raw bytes: httpx refuses to JSON-encode NaN or Infinity.
+    r = await client.post(f"/sessions/{sid}/cardio", content=raw, headers={"content-type": "application/json"})
 
-    assert entry["incline_percent"] == 0
+    assert r.status_code == 422
+    assert await _cardio_rows(session, sid) == 0
+
+
+@pytest.mark.parametrize(
+    "body",
+    [{"duration_minutes": 1440}, {"calories": 20000}, {"incline_percent": 40}, {"incline_percent": 0}],
+)
+async def test_cardio_boundary_values_are_accepted(client, body) -> None:
+    _, _, sid = await _start_session(client)
+
+    entry = await _add_cardio(client, sid, body)
+
+    assert {k: entry[k] for k in body} == body
+
+
+async def test_a_valid_value_does_not_rescue_an_invalid_one(client, session) -> None:
+    _, _, sid = await _start_session(client)
+
+    r = await client.post(f"/sessions/{sid}/cardio", json={"duration_minutes": 20, "incline_percent": 50})
+
+    assert r.status_code == 422
+    assert await _cardio_rows(session, sid) == 0
+    entry = await _add_cardio(client, sid, {"duration_minutes": None, "distance_km": 1.0, "calories": None})
+    assert entry["distance_km"] == 1.0
 
 
 async def test_cardio_can_be_added_and_deleted_on_a_completed_session(client) -> None:
@@ -208,6 +245,45 @@ async def test_deleting_the_session_removes_its_cardio(client, session) -> None:
     assert (await client.delete(f"/sessions/{sid}")).status_code == 204
 
     assert await _cardio_rows(session, sid) == 0
+
+
+async def test_rejected_cardio_commands_leave_the_database_untouched(client, client_user2, session) -> None:
+    _, _, sid = await _start_session(client)
+    entry = await _add_cardio(client, sid, {"duration_minutes": 10})
+    before = await _db_snapshot(session)
+
+    rejected = [
+        (client.post(f"/sessions/{sid}/cardio", json={}), 422),
+        (client.post(f"/sessions/{sid}/cardio", json={"calories": 0}), 422),
+        (client.post(f"/sessions/{uuid.uuid4()}/cardio", json=FULL_ENTRY), 404),
+        (client_user2.post(f"/sessions/{sid}/cardio", json=FULL_ENTRY), 403),
+        (client.delete(f"/sessions/{sid}/cardio/{uuid.uuid4()}"), 404),
+        (client_user2.delete(f"/sessions/{sid}/cardio/{entry['id']}"), 403),
+    ]
+    for request, status in rejected:
+        assert (await request).status_code == status
+        assert await _db_snapshot(session) == before
+
+
+async def test_cardio_survives_swap_complete_and_a_middle_delete(client) -> None:
+    wid, _, sid = await _start_session(client)
+    r = await client.post(
+        f"/workouts/{wid}/training-days/MONDAY/exercises", json={"exercise_id": "bench-press", "sets": 3}
+    )
+    ex_id = r.json()["id"]
+    ids = [(await _add_cardio(client, sid, {"duration_minutes": minutes}))["id"] for minutes in (5, 10, 15)]
+
+    r = await client.put(f"/sessions/{sid}/exercises/{ex_id}/swap", json={"exercise_id": "push-up"})
+    assert [e["id"] for e in r.json()["cardio"]] == ids
+    assert (await client.delete(f"/sessions/{sid}/exercises/{ex_id}/swap")).status_code == 200
+    r = await client.post(f"/sessions/{sid}/complete", json={})
+    assert [e["id"] for e in r.json()["cardio"]] == ids
+
+    assert (await client.delete(f"/sessions/{sid}/cardio/{ids[1]}")).status_code == 204
+    assert [e["id"] for e in (await client.get(f"/sessions/{sid}")).json()["cardio"]] == [ids[0], ids[2]]
+    assert (await client.delete(f"/sessions/{sid}/cardio/{ids[1]}")).status_code == 404
+    listed = next(s for s in (await client.get("/sessions")).json()["items"] if s["id"] == sid)
+    assert [e["id"] for e in listed["cardio"]] == [ids[0], ids[2]]
 
 
 async def test_logging_a_set_keeps_the_cardio(client) -> None:
